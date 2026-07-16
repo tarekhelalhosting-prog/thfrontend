@@ -226,14 +226,14 @@ export default function CheckoutModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
       {/* Backdrop */}
       <div 
         onClick={onClose} 
         className="absolute inset-0 bg-black/80 backdrop-blur-sm" 
       />
 
-      <div className="relative w-full max-w-3xl bg-dark-bg border border-dark-border rounded-2xl shadow-2xl overflow-hidden z-10 p-5 sm:p-7 animate-in fade-in zoom-in-95 duration-200 text-right font-sans">
+      <div className="relative w-full max-w-3xl h-[100dvh] sm:h-auto sm:max-h-[90dvh] bg-dark-bg border border-dark-border rounded-none sm:rounded-2xl shadow-2xl overflow-hidden z-10 p-4 sm:p-7 animate-in fade-in zoom-in-95 duration-200 text-right font-sans flex flex-col">
         
         {/* Close Button */}
         {paymentStep !== 'success' && (
@@ -245,6 +245,7 @@ export default function CheckoutModal({
           </button>
         )}
 
+        <div className="flex-1 overflow-y-auto pt-10 sm:pt-0">
         {paymentStep === 'success' ? (
           /* SUCCESS SCREEN */
           <div className="text-center py-6">
@@ -299,8 +300,8 @@ export default function CheckoutModal({
           </div>
         ) : paymentStep === 'paymob_processing' ? (
           /* PAYMOB DYNAMIC FORM */
-          <div className="py-4">
-            <div className="flex items-center justify-between border-b border-dark-border pb-3 mb-4">
+          <div className="py-1 sm:py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-dark-border pb-3 mb-4">
               <div className="flex items-center gap-2 text-gold-500">
                 <Coins size={20} />
                 <h3 className="text-sm sm:text-base font-black text-white">بوابة دفع Paymob الآمنة</h3>
@@ -388,7 +389,7 @@ export default function CheckoutModal({
                 <p className="text-red-500 text-xs font-bold text-center">{errorMessage}</p>
               )}
 
-              <div className="grid grid-cols-2 gap-3.5 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setPaymentStep('form')}
@@ -412,7 +413,7 @@ export default function CheckoutModal({
           </div>
         ) : (
           /* FORM STEP */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start mt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start mt-2 sm:mt-4">
             
             {/* Form Column */}
             <div className="lg:col-span-7">
@@ -536,10 +537,10 @@ export default function CheckoutModal({
             </div>
 
             {/* Receipt Summary Column */}
-            <div className="lg:col-span-5 bg-dark-card border border-dark-border rounded-2xl p-4 sm:p-5">
+            <div className="lg:col-span-5 bg-dark-card border border-dark-border rounded-2xl p-4 sm:p-5 lg:sticky lg:top-0">
               <h4 className="text-[10px] font-bold text-gray-400 mb-3 pb-2 border-b border-dark-border/40">ملخص سلة الشراء:</h4>
 
-              <div className="space-y-2.5 max-h-44 overflow-y-auto mb-3 pr-1">
+              <div className="space-y-2.5 max-h-36 sm:max-h-44 overflow-y-auto mb-3 pr-1">
                 {selectedBundle ? (
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-gray-300 font-bold block truncate max-w-[150px]">{selectedBundle.name}</span>
@@ -587,6 +588,7 @@ export default function CheckoutModal({
 
           </div>
         )}
+        </div>
 
       </div>
     </div>

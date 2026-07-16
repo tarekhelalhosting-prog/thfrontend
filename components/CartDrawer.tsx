@@ -40,7 +40,7 @@ export default function CartDrawer({
         className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" 
       />
 
-      <div className="absolute inset-y-0 left-0 max-w-full flex pr-10">
+      <div className="absolute inset-y-0 left-0 max-w-full flex pr-0 sm:pr-10">
         <div className="w-screen max-w-md bg-dark-bg border-r border-dark-border shadow-2xl flex flex-col justify-between">
           
           {/* Header */}
@@ -63,7 +63,7 @@ export default function CartDrawer({
           </div>
 
           {/* Cart Items List */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
             {cartItems.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center">
                 <div className="w-16 h-16 rounded-full bg-dark-card border border-dark-border flex items-center justify-center text-gray-500 mb-4">
@@ -84,10 +84,10 @@ export default function CartDrawer({
               cartItems.map((item) => (
                 <div
                   key={item.product.id}
-                  className="flex items-center gap-4 p-3 rounded-xl bg-dark-card border border-dark-border"
+                  className="flex items-start sm:items-center gap-3 sm:gap-4 p-3 rounded-xl bg-dark-card border border-dark-border"
                 >
                   {/* Thumbnail */}
-                  <div className="w-16 h-16 rounded-lg overflow-hidden border border-dark-border shrink-0">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border border-dark-border shrink-0">
                     <img
                       src={item.product.image}
                       alt={item.product.name}
@@ -138,8 +138,9 @@ export default function CartDrawer({
                   </div>
 
                   {/* Individual Item Subtotal */}
-                  <div className="text-left font-bold text-xs text-gray-200">
-                    {formatPrice(item.product.price * item.quantity)}
+                  <div className="text-left font-bold text-xs text-gray-200 shrink-0 pt-0.5 sm:pt-0">
+                    <span className="hidden sm:inline">{formatPrice(item.product.price * item.quantity)}</span>
+                    <span className="sm:hidden text-[10px]">{formatPrice(item.product.price * item.quantity)}</span>
                   </div>
                 </div>
               ))
@@ -148,7 +149,7 @@ export default function CartDrawer({
 
           {/* Footer Totals */}
           {cartItems.length > 0 && (
-            <div className="p-6 border-t border-dark-border bg-dark-card">
+            <div className="p-4 sm:p-6 border-t border-dark-border bg-dark-card">
               <div className="space-y-2 text-xs sm:text-sm mb-6">
                 <div className="flex justify-between text-gray-400">
                   <span>المجموع الفرعي:</span>
