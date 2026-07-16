@@ -1,26 +1,148 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* التنسيقات الإضافية للمتجر */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #c5a880;
+  border-radius: 10px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@theme {
+  --font-sans: "Cairo", ui-sans-serif, system-ui, sans-serif;
+  
+  /* Luxury Gold colors */
+  --color-gold-50: #fbf7f0;
+  --color-gold-100: #f4ebd6;
+  --color-gold-200: #e7d4ab;
+  --color-gold-300: #d4b574;
+  --color-gold-400: #c5a153;
+  --color-gold-500: #b38b36;
+  --color-gold-600: #99712a;
+  --color-gold-700: #7d5722;
+  --color-gold-800: #62421d;
+  --color-gold-900: #4b3218;
+  --color-gold-950: #2d1c0e;
+  
+  /* Premium Alabaster/White Light Theme */
+  --color-dark-bg: #FAF9F5;       /* Warm luxurious off-white alabaster background */
+  --color-dark-card: #FFFFFF;     /* Pure white card backgrounds */
+  --color-dark-border: #E8E5DA;   /* Elegant warm gray/gold border */
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    direction: rtl;
+    scroll-behavior: smooth;
+    background-color: var(--color-dark-bg);
+    color: #1a1914; /* Default to deep charcoal-bronze text for high contrast */
+  }
+  
+  /* Ensure all headings are highly legible and dark charcoal */
+  h1, h2, h3, h4, h5, h6 {
+    color: #1a1914 !important;
+  }
+  
+  /* Map standard white text to deep charcoal for light mode compatibility */
+  .text-white {
+    color: #1a1914 !important;
+  }
+  
+  /* Make sure default gray texts map to highly legible bronze-grays on light background */
+  .text-gray-100 { color: #1a1914 !important; }
+  .text-gray-200 { color: #2e2c26 !important; }
+  .text-gray-300 { color: #46433b !important; }
+  .text-gray-400 { color: #5d5950 !important; }
+  .text-gray-500 { color: #767166 !important; }
+  
+  /* Keep actual white text on solid colored backgrounds (e.g. green whatsapp button, red badges) */
+  .bg-green-500,
+  .bg-green-600,
+  .bg-red-500,
+  .bg-red-600,
+  .bg-gold-500,
+  .bg-gold-600,
+  .bg-gold-700,
+  .bg-gold-800,
+  .bg-gold-900,
+  .bg-gradient-to-r,
+  .bg-gradient-to-br,
+  .golden-gradient-bg {
+    color: #ffffff !important;
+    
+    /* Ensure child text and headers remain white on these solid color containers */
+    &, & *, & .text-white, & .text-gray-100, & .text-gray-200, & .text-gray-300, & .text-gray-400, & h1, & h2, & h3, & h4, & h5 {
+      color: #ffffff !important;
+    }
+  }
+
+  /* Specific buttons that are color filled must keep clear high-contrast text color */
+  .text-dark-bg {
+    color: #1a1914 !important;
+  }
+  
+  /* Ensure SVGs inside solid containers are fully white */
+  .bg-green-500 svg,
+  .bg-green-600 svg,
+  .bg-red-500 svg,
+  .bg-red-600 svg,
+  .bg-gradient-to-r svg,
+  .bg-gold-500 svg,
+  .bg-gold-600 svg {
+    color: #ffffff !important;
+    stroke: #ffffff !important;
+  }
+
+  /* Translate transparent white borders to transparent dark charcoal borders for beautiful legibility */
+  .border-white\/20 {
+    border-color: rgba(26, 25, 20, 0.2) !important;
+  }
+  .border-white\/10 {
+    border-color: rgba(26, 25, 20, 0.1) !important;
+  }
+  
+  /* Translate transparent white backgrounds to transparent dark charcoal backgrounds */
+  .hover\:bg-white\/5:hover {
+    background-color: rgba(26, 25, 20, 0.05) !important;
+  }
+  .bg-white\/10 {
+    background-color: rgba(26, 25, 20, 0.1) !important;
+  }
+  .bg-white\/5 {
+    background-color: rgba(26, 25, 20, 0.05) !important;
+  }
+  
+  /* Custom scrollbar for premium light feel */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #fbf9f4;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #c5a153;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #99712a;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Animations and utility classes */
+.golden-gradient-bg {
+  background: linear-gradient(135deg, #c5a153 0%, #b38b36 50%, #99712a 100%);
+}
+
+.golden-border-hover:hover {
+  border-color: #c5a153;
+  box-shadow: 0 0 15px rgba(197, 161, 83, 0.15);
 }
