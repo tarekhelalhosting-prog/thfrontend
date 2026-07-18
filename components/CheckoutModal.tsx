@@ -520,7 +520,7 @@ export default function CheckoutModal({
                     type="submit"
                     className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-gold-400 to-gold-500 hover:from-gold-500 hover:to-gold-600 text-dark-bg font-extrabold py-3.5 rounded-xl shadow-lg transition-all text-xs sm:text-sm"
                   >
-                    <span>{paymentMethod === 'cod' ? 'تأكيد الطلب والدفع عند الاستلام' : 'الانتقال لبوابة الدفع الإلكتروني Paymob'}</span>
+                    <span> تأكيد الطلب </span>
                   </button>
                 </div>
               </form>
