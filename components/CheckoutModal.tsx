@@ -281,7 +281,7 @@ export default function CheckoutModal({
                 </div>
                 <div className="flex justify-between text-gray-400">
                   <span>تكلفة الشحن والتوصيل:</span>
-                  <span className="text-gray-200 font-bold">{shippingCost === 0 ? "مجاني" : formatPrice(shippingCost)}</span>
+                  تكلفه الشحن تقدر من خلال الوكيل الخاص بمنطقتك 
                 </div>
                 <div className="flex justify-between text-sm sm:text-base font-black pt-2 border-t border-dark-border/20 text-gold-500">
                   <span>المبلغ الإجمالي الكلي:</span>

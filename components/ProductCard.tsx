@@ -37,17 +37,17 @@ export default function ProductCard({
   return (
     <div
       onClick={() => onViewDetails(product)}
-      className="group relative bg-dark-card border border-dark-border hover:border-gold-400 rounded-2xl overflow-hidden p-4 transition-all duration-300 flex flex-col justify-between hover:shadow-2xl hover:shadow-gold-500/5 cursor-pointer select-none"
+      className="group relative bg-dark-card border border-dark-border hover:border-gold-400 rounded-2xl overflow-hidden p-3 sm:p-4 transition-all duration-300 flex flex-col justify-between hover:shadow-2xl hover:shadow-gold-500/5 cursor-pointer select-none"
     >
       {/* Top actions */}
-      <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-end">
+      <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 z-10 flex items-center justify-end">
         {/* Favorite Icon */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             onToggleFavorite(product);
           }}
-          className={`p-2 rounded-xl border border-dark-border/40 backdrop-blur-md transition-all ${isFavorite ? 'bg-red-500/20 text-red-500 border-red-500/30' : 'bg-black/30 hover:bg-black/60 text-gray-400 hover:text-white'}`}
+          className={`p-1.5 sm:p-2 rounded-xl border border-dark-border/40 backdrop-blur-md transition-all ${isFavorite ? 'bg-red-500/20 text-red-500 border-red-500/30' : 'bg-black/30 hover:bg-black/60 text-gray-400 hover:text-white'}`}
           title={isFavorite ? "إزالة من المفضلة" : "إضافة للمفضلة"}
         >
           <Heart size={16} fill={isFavorite ? "currentColor" : "none"} />
@@ -55,7 +55,7 @@ export default function ProductCard({
       </div>
 
       {/* Product Image */}
-      <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-dark-bg mb-4 flex items-center justify-center border border-dark-border/10">
+      <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-dark-bg mb-3 sm:mb-4 flex items-center justify-center border border-dark-border/10">
         <img
           src={product.image}
           alt={product.name}
@@ -75,35 +75,35 @@ export default function ProductCard({
           )}
 
           {/* Title */}
-          <h4 className="text-sm font-bold text-gray-100 group-hover:text-gold-400 transition-colors leading-snug line-clamp-1">
+          <h4 className="text-[13px] sm:text-sm font-bold text-gray-100 group-hover:text-gold-400 transition-colors leading-snug line-clamp-1">
             {product.name}
           </h4>
 
           {/* Description Snippet */}
-          <p className="text-[11px] text-gray-500 mt-1 line-clamp-2 leading-relaxed">
+          <p className="text-[10px] sm:text-[11px] text-gray-500 mt-1 line-clamp-2 leading-relaxed">
             {product.description}
           </p>
         </div>
 
         {/* Price and Buttons */}
-        <div className="mt-4">
-          <div className="flex items-baseline justify-start gap-2 mb-3">
+        <div className="mt-3 sm:mt-4">
+          <div className="flex items-baseline justify-start gap-1.5 sm:gap-2 mb-2.5 sm:mb-3">
             <span className="text-sm sm:text-base font-black text-gold-400">
               {formatPrice(product.price)}
             </span>
           </div>
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-5 gap-1.5">
+          <div className="grid grid-cols-5 gap-1">
             {/* Add to Cart - takes 4/5 column width */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onAddToCart(product);
               }}
-              className="col-span-4 flex items-center justify-center gap-1.5 bg-dark-bg border border-dark-border group-hover:bg-gold-400 group-hover:text-dark-bg text-gray-300 font-extrabold text-xs py-2 rounded-xl transition-all"
+              className="col-span-4 flex items-center justify-center gap-1 bg-dark-bg border border-dark-border group-hover:bg-gold-400 group-hover:text-dark-bg text-gray-300 font-extrabold text-[10px] sm:text-xs py-1.5 sm:py-2 rounded-xl transition-all"
             >
-              <ShoppingCart size={13} />
+              <ShoppingCart size={12} className="sm:w-[13px] sm:h-[13px]" />
               <span>أضف للسلة</span>
             </button>
 

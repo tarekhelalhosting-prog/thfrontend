@@ -151,18 +151,13 @@ export default function CartDrawer({
           {cartItems.length > 0 && (
             <div className="p-4 sm:p-6 border-t border-dark-border bg-dark-card">
               <div className="space-y-2 text-xs sm:text-sm mb-6">
-                <div className="flex justify-between text-gray-400">
+                <div className="flex justify-between text-gray-200">
                   <span>المجموع الفرعي:</span>
                   <span className="font-bold text-gray-200">{formatPrice(subtotal)}</span>
                 </div>
                 
-                <div className="flex justify-between text-gray-400">
-                  <span>تكلفة الشحن والتوصيل:</span>
-                  {shippingCost === 0 ? (
-                    <span className="text-green-400 font-extrabold text-[10px] bg-green-500/10 px-2 py-0.5 rounded">شحن مجاني</span>
-                  ) : (
-                    <span className="font-bold text-gray-200">{formatPrice(shippingCost)}</span>
-                  )}
+                <div className="flex text-xs justify-between text-gray-500">
+                - تكاليف الشحن تقدر من خلال الوكيل الخاص بمنطقتك 
                 </div>
 
                 {shippingCost > 0 && (

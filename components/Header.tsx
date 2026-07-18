@@ -37,7 +37,7 @@ export default function Header({
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
-  const logoSrc = "/WhatsApp%20Image%202026-07-17%20at%2010.31.27%20PM.jpeg";
+  const logoSrc = "/logo.png";
 
   return (
     <>
@@ -292,6 +292,15 @@ export default function Header({
           >
             <div className="flex items-center justify-between pb-4 border-b border-dark-border">
               <div className="flex items-center gap-2">
+                <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-gold-400/30 bg-dark-card shrink-0">
+                  <Image
+                    src={logoSrc}
+                    alt="شعار طارق هلال"
+                    fill
+                    sizes="32px"
+                    className="object-cover"
+                  />
+                </div>
                 <span className="font-extrabold text-lg text-gold-400">طارق هلال</span>
               </div>
               <button

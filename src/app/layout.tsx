@@ -4,6 +4,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "منصة معارض طارق هلال | لتجهيز صالونات و لوازم الكوافير",
   description: "المنصة الأولى والراقية لتجهيز صالونات الحلاقة والتجميل الفاخرة بأحدث الكراسي والمعدات",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

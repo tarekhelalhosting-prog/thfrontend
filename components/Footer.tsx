@@ -11,7 +11,7 @@ interface FooterProps {
 }
 
 export default function Footer({ categories, onCategorySelect, onContactClick }: FooterProps) {
-  const logoSrc = "/WhatsApp%20Image%202026-07-17%20at%2010.31.27%20PM.jpeg";
+  const logoSrc = "/file.png";
   
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -69,31 +69,26 @@ export default function Footer({ categories, onCategorySelect, onContactClick }:
             {/* Social Media Links */}
             <div className="flex gap-2.5">
               <a
-                href="https://facebook.com"
+                href="https://www.facebook.com/tarek.helal.store/?locale=ar_AR"
                 target="_blank"
                 rel="noreferrer"
                 className="p-2.5 rounded-xl bg-dark-card border border-dark-border text-gray-400 hover:text-gold-400 hover:border-gold-400 transition-all"
                 title="فيسبوك"
               >
-                {/* Facebook Icon */}
+                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M13.5 22V12.9H16.6L17.1 9.4H13.5V7.2C13.5 6.2 13.8 5.5 15.3 5.5H17.2V2.3C16.3 2.2 15.4 2.1 14.5 2.1C11.8 2.1 10 3.8 10 7V9.4H7V12.9H10V22H13.5Z" />
+                </svg>
               </a>
               <a
-                href="https://instagram.com"
+                href="https://www.tiktok.com/@tarek.helal.center"
                 target="_blank"
                 rel="noreferrer"
                 className="p-2.5 rounded-xl bg-dark-card border border-dark-border text-gray-400 hover:text-gold-400 hover:border-gold-400 transition-all"
-                title="إنستغرام"
+                title="تيك توك"
               >
-                {/* insta Icon */}
-              </a>
-              <a
-                href="https://youtube.com"
-                target="_blank"
-                rel="noreferrer"
-                className="p-2.5 rounded-xl bg-dark-card border border-dark-border text-gray-400 hover:text-gold-400 hover:border-gold-400 transition-all"
-                title="يوتيوب"
-              >
-                {/* YouTube Icon */}
+                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M14.4 3H17.2C17.3 4 17.8 4.9 18.6 5.5C19.4 6.1 20.4 6.4 21.4 6.4V9.2C20.1 9.2 18.8 8.8 17.7 8V14.2C17.7 18.1 14.5 21.3 10.6 21.3C6.7 21.3 3.5 18.1 3.5 14.2C3.5 10.3 6.7 7.1 10.6 7.1C11.1 7.1 11.5 7.1 12 7.2V10.2C11.6 10.1 11.1 10 10.6 10C8.3 10 6.4 11.9 6.4 14.2C6.4 16.5 8.3 18.4 10.6 18.4C12.9 18.4 14.8 16.6 14.8 14.2V3H14.4Z" />
+                </svg>
               </a>
             </div>
           </div>

@@ -37,6 +37,9 @@ const slides = [
 
 export default function HeroCarousel({ onShopNowClick, onWhatsAppClick }: HeroCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [hasSwiped, setHasSwiped] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -53,6 +56,42 @@ export default function HeroCarousel({ onShopNowClick, onWhatsAppClick }: HeroCa
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
   };
 
+  const handleTouchStart = (event: React.TouchEvent<HTMLElement>) => {
+    const touch = event.touches[0];
+    setTouchStartX(touch.clientX);
+    setTouchStartY(touch.clientY);
+    setHasSwiped(false);
+  };
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLElement>) => {
+    if (touchStartX === null || touchStartY === null || hasSwiped) {
+      return;
+    }
+
+    const touch = event.touches[0];
+    const deltaX = touch.clientX - touchStartX;
+    const deltaY = touch.clientY - touchStartY;
+    const isHorizontalSwipe = Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) + 12;
+
+    if (!isHorizontalSwipe) {
+      return;
+    }
+
+    if (deltaX < 0) {
+      nextSlide();
+    } else {
+      prevSlide();
+    }
+
+    setHasSwiped(true);
+  };
+
+  const handleTouchEnd = () => {
+    setTouchStartX(null);
+    setTouchStartY(null);
+    setHasSwiped(false);
+  };
+
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-dark-bg via-dark-bg to-dark-card border-b border-dark-border py-4 sm:py-6 md:py-10">
       {/* Visual background glow */}
@@ -60,7 +99,13 @@ export default function HeroCarousel({ onShopNowClick, onWhatsAppClick }: HeroCa
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-gold-600/5 blur-3xl -z-10 pointer-events-none" />
  
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-        <div className="relative min-h-[460px] xs:min-h-[490px] sm:min-h-[520px] md:min-h-[480px] lg:min-h-[500px] w-full flex items-center justify-center overflow-hidden">
+        <div
+          className="relative min-h-[460px] xs:min-h-[490px] sm:min-h-[520px] md:min-h-[480px] lg:min-h-[500px] w-full flex items-center justify-center overflow-hidden"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
+        >
           
           {/* Slide items */}
           <AnimatePresence mode="popLayout">
