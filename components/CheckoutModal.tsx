@@ -553,10 +553,6 @@ export default function CheckoutModal({
                   <span>المجموع الفرعي:</span>
                   <span className="text-gray-200 font-bold font-mono">{formatPrice(subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-gray-400">
-                  <span>توصيل وتركيب المعدات:</span>
-                  <span className="text-gray-200 font-bold">تكاليف الشحن تقدر من خلال الوكيل الخاص بمنطقتك</span>
-                </div>
                 <hr className="border-dark-border my-1" />
                 <div className="flex justify-between text-sm sm:text-base font-black text-gold-500 pt-1">
                   <span>الإجمالي الكلي:</span>
