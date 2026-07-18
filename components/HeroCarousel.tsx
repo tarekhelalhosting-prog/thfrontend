@@ -30,7 +30,7 @@ const slides = [
     title: "الأجهزة الكهربائية والكماليات الأصلية",
     subtitle: "ماركات عالمية وأصلية 100%",
     description: "مجففات شعر، ماكينات تدريج احترافية، أجهزة بخار وعربات تنظيم لتسهيل عملك اليومي وضمان رضا عملائك.",
-    image: "https://images.unsplash.com/photo-1593702295094-aec22597af65?q=80&w=800&auto=format&fit=crop",
+    image: "https://i.pinimg.com/originals/c4/14/41/c414414c44e5a76a11e841db88e91a23.jpg",
     tagline: "تقسيط ميسر يصل لـ 6 شهور بدون فوائد"
   }
 ];

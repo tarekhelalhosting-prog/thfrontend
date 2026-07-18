@@ -489,15 +489,6 @@ export default function CheckoutModal({
                 <div className="pt-2">
                   <label className="text-[10px] text-gray-400 font-bold block mb-2">طريقة الدفع المناسبة لك:</label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('cod')}
-                      className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${paymentMethod === 'cod' ? 'bg-gold-500/10 border-gold-400 text-gold-500' : 'bg-dark-card border-dark-border text-gray-400 hover:text-white'}`}
-                    >
-                      <Coins size={18} className="mb-1" />
-                      <span className="text-xs font-bold">الدفع عند الاستلام</span>
-                      <span className="text-[8px] opacity-70 mt-0.5">الدفع نقداً للمندوب</span>
-                    </button>
 
                     <button
                       type="button"

@@ -77,13 +77,13 @@ export const products: Product[] = [
     name: "مغسلة شامبو صالون متكاملة سيراميك",
     description: "وحدة غسيل شعر متكاملة لصالونات التجميل الفاخرة، تتميز بحوض سيراميك عميق قابل للتعديل ومقعد مبطن مريح جداً بكسوة جلدية فاخرة مقاومة للبقع والرطوبة.",
     price: 9800,
-    image: "https://images.unsplash.com/photo-1521590832167-7bcbfea00f4d?q=80&w=600",
+    image: "https://m.media-amazon.com/images/I/61DmXXCipcL._AC_UF1000,1000_QL80_.jpg",
     category: "cat-2",
     variants: [
       { id: "v3-1", product_id: "p3", price: 9800 }
     ],
     images: [
-      { id: "img3-1", product_id: "p3", media_url: "https://images.unsplash.com/photo-1521590832167-7bcbfea00f4d?q=80&w=600", is_primary: true, sort_order: 1 }
+      { id: "img3-1", product_id: "p3", media_url: "https://m.media-amazon.com/images/I/61DmXXCipcL._AC_UF1000,1000_QL80_.jpg", is_primary: true, sort_order: 1 }
     ]
   },
   {
@@ -137,7 +137,7 @@ export const products: Product[] = [
     name: "كرسي حلاقة هيدروليك عريض فضي",
     description: "نسخة عريضة من كراسي الحلاقة الحديثة، مخصصة لتوفير أقصى ثبات ومساحة جلوس ممتازة. مطعمة بالكامل بحديد مكسو بطلاء الفضة اللامع والكروم.",
     price: 14500,
-    image: "https://images.unsplash.com/photo-1593121925329-7a33a044709a?q=80&w=600",
+    image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRRcTSxyPBbGvLJRtpLI0D_IuSwaVfKtAijxKzj2J7UJQ&s=10",
     category: "cat-1",
     variants: [
       { id: "v7-1", product_id: "p7", price: 14500 }
@@ -152,13 +152,13 @@ export const products: Product[] = [
     name: "مغسلة شامبو إيطالية فخمة متحركة",
     description: "مغسلة فاخرة بتصميم إيطالي حديث مع حوض متأرجح لتوفير ملامسة مريحة لرقبة العميل دون التسبب في أي آلام أثناء عمليات الغسيل الطويلة وصباغة الشعر.",
     price: 13900,
-    image: "https://images.unsplash.com/photo-1600948836101-f9ffdb5965eb?q=80&w=600",
+    image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTaQ-cBTKF_agcOr5cbf4yWeUzpXdiLeG3rJGWUItYyGE7S3mzV3PMh7vY&s=10",
     category: "cat-2",
     variants: [
       { id: "v8-1", product_id: "p8", price: 13900 }
     ],
     images: [
-      { id: "img8-1", product_id: "p8", media_url: "https://images.unsplash.com/photo-1600948836101-f9ffdb5965eb?q=80&w=600", is_primary: true, sort_order: 1 }
+      { id: "img8-1", product_id: "p8", media_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTaQ-cBTKF_agcOr5cbf4yWeUzpXdiLeG3rJGWUItYyGE7S3mzV3PMh7vY&s=10", is_primary: true, sort_order: 1 }
     ]
   }
 ];

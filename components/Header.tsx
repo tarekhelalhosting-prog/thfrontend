@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import Image from "next/image";
 import { Search, ShoppingCart, User, Menu, Phone, MapPin, X, ChevronDown, ShieldAlert, LogOut } from "lucide-react";
 import { Category, User as UserType } from "../src/types";
 
@@ -36,6 +37,7 @@ export default function Header({
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const logoSrc = "/WhatsApp%20Image%202026-07-17%20at%2010.31.27%20PM.jpeg";
 
   return (
     <>
@@ -49,15 +51,15 @@ export default function Header({
               onClick={() => onCategorySelect("all")} 
               className="flex items-center gap-1 sm:gap-3 cursor-pointer select-none group"
             >
-              <div className="relative flex items-center justify-center w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-gradient-to-br from-gold-400 to-gold-600 shadow-lg shadow-gold-500/10 shrink-0">
-                {/* Crown Icon / Logo Monogram */}
-                <span className="font-extrabold text-sm sm:text-xl text-dark-bg font-sans tracking-tighter">TH</span>
-                {/* Decorative Crown */}
-                <div className="absolute -top-2.5 sm:-top-3 left-1/2 -translate-x-1/2 text-gold-400 drop-shadow-[0_2px_4px_rgba(197,161,83,0.5)]">
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 fill-current" viewBox="0 0 24 24">
-                    <path d="M2 19h20v2H2v-2zm2-2.5l2-6.5 4 4 4-10 4 10 4-4 2 6.5H4z" />
-                  </svg>
-                </div>
+              <div className="relative w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl overflow-hidden border border-gold-400/30 shadow-lg shadow-gold-500/10 shrink-0 bg-dark-card">
+                <Image
+                  src={logoSrc}
+                  alt="شعار طارق هلال"
+                  fill
+                  sizes="(max-width: 640px) 32px, 44px"
+                  className="object-cover"
+                  priority
+                />
               </div>
               <div className="flex flex-col">
                 <h1 className="text-xs xs:text-sm sm:text-lg md:text-xl font-black text-white tracking-tight leading-none group-hover:text-gold-400 transition-colors">

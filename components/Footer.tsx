@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import Image from "next/image";
 import { Phone, MapPin, ChevronUp, ArrowLeft } from "lucide-react";
 import { Category } from "../src/types";
 
@@ -10,6 +11,7 @@ interface FooterProps {
 }
 
 export default function Footer({ categories, onCategorySelect, onContactClick }: FooterProps) {
+  const logoSrc = "/WhatsApp%20Image%202026-07-17%20at%2010.31.27%20PM.jpeg";
   
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -41,8 +43,14 @@ export default function Footer({ categories, onCategorySelect, onContactClick }:
           {/* Logo & About Column (4 columns) */}
           <div className="lg:col-span-4 text-right">
             <div className="flex items-center gap-3 mb-4 select-none">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gold-400 to-gold-600 shadow-md shadow-gold-500/10 flex items-center justify-center">
-                <span className="font-extrabold text-lg text-dark-bg font-sans tracking-tighter">TH</span>
+              <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-gold-400/30 shadow-md shadow-gold-500/10 bg-dark-card shrink-0">
+                <Image
+                  src={logoSrc}
+                  alt="شعار طارق هلال"
+                  fill
+                  sizes="40px"
+                  className="object-cover"
+                />
               </div>
               <div className="flex flex-col">
                 <h3 className="text-base sm:text-lg font-black text-white leading-none">
