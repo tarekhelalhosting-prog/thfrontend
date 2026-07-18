@@ -199,7 +199,15 @@ export default function Footer({ categories, onCategorySelect, onContactClick }:
             جميع الحقوق محفوظة © 2026 متجر طارق هلال لمعدات الصالونات.
           </p>
           <p className="flex items-center gap-1">
-            <span>تم التطوير بكل حب لأجل صالونات الحلاقة الفاخرة</span>
+            <span>تم تطوير الموقع بواسطة</span>
+            <a
+              href="https://agentiknet.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gold-400 hover:text-gold-300 transition-colors font-bold"
+            >
+              AgentikNet
+            </a>
           </p>
         </div>
 

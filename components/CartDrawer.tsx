@@ -28,9 +28,7 @@ export default function CartDrawer({
 
   // Calculations
   const subtotal = cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
-  const shippingThreshold = 20000;
-  const shippingCost = subtotal >= shippingThreshold || subtotal === 0 ? 0 : 250; // 250 EGP shipping for heavy equipment
-  const total = subtotal + shippingCost;
+  const total = subtotal;
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
@@ -156,15 +154,9 @@ export default function CartDrawer({
                   <span className="font-bold text-gray-200">{formatPrice(subtotal)}</span>
                 </div>
                 
-                <div className="flex text-xs justify-between text-gray-500">
-                - تكاليف الشحن تقدر من خلال الوكيل الخاص بمنطقتك 
+                <div className="flex text-xs justify-between text-gray-500 leading-relaxed">
+                  <span>تكاليف الشحن تقدر من خلال الوكيل الخاص بمنطقتك</span>
                 </div>
-
-                {shippingCost > 0 && (
-                  <p className="text-[10px] text-gray-500 text-right">
-                    تبقي لك <span className="text-gold-400 font-bold">{formatPrice(shippingThreshold - subtotal)}</span> للحصول على شحن مجاني تماماً.
-                  </p>
-                )}
 
                 <hr className="border-dark-border my-2" />
 

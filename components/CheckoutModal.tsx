@@ -56,8 +56,7 @@ export default function CheckoutModal({
   const subtotal = selectedBundle 
     ? selectedBundle.price 
     : cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
-  const shippingCost = subtotal >= 20000 || subtotal === 0 ? 0 : 250;
-  const total = subtotal + shippingCost;
+  const total = subtotal;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -194,7 +193,7 @@ export default function CheckoutModal({
 
     messageText += `-------------------------------------------\n`;
     messageText += `*المجموع الفرعي:* ${formatPrice(subtotal)}\n`;
-    messageText += `*تكلفة التوصيل:* ${shippingCost === 0 ? "مجاني" : formatPrice(shippingCost)}\n`;
+    messageText += `*تكاليف الشحن:* تقدر من خلال الوكيل الخاص بمنطقتك\n`;
     messageText += `*الإجمالي الكلي:* ${formatPrice(total)}\n`;
     messageText += `-------------------------------------------\n`;
     messageText += `_تم تسجيل طلبكم آلياً في لوحة التحكم الخاصة بمعارض طارق هلال._`;
@@ -281,7 +280,7 @@ export default function CheckoutModal({
                 </div>
                 <div className="flex justify-between text-gray-400">
                   <span>تكلفة الشحن والتوصيل:</span>
-                  تكلفه الشحن تقدر من خلال الوكيل الخاص بمنطقتك 
+                  <span className="text-gray-200 font-bold">تكاليف الشحن تقدر من خلال الوكيل الخاص بمنطقتك</span>
                 </div>
                 <div className="flex justify-between text-sm sm:text-base font-black pt-2 border-t border-dark-border/20 text-gold-500">
                   <span>المبلغ الإجمالي الكلي:</span>
@@ -556,7 +555,7 @@ export default function CheckoutModal({
                 </div>
                 <div className="flex justify-between text-gray-400">
                   <span>توصيل وتركيب المعدات:</span>
-                  <span className="text-gray-200 font-bold">{shippingCost === 0 ? "مجاني" : formatPrice(shippingCost)}</span>
+                  <span className="text-gray-200 font-bold">تكاليف الشحن تقدر من خلال الوكيل الخاص بمنطقتك</span>
                 </div>
                 <hr className="border-dark-border my-1" />
                 <div className="flex justify-between text-sm sm:text-base font-black text-gold-500 pt-1">

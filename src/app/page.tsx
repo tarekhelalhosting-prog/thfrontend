@@ -20,10 +20,10 @@ function StoreFrontContent() {
   const searchParams = useSearchParams();
   const { value: currentUser, setValue: setCurrentUser, isHydrated: isUserHydrated } = usePersistentLocalState<User | null>(STORAGE_KEYS.currentUser, null);
   const { value: cart, setValue: setCart, isHydrated: isCartHydrated } = usePersistentLocalState<CartItem[]>(STORAGE_KEYS.cart, []);
+  const { value: favorites, setValue: setFavorites } = usePersistentLocalState<string[]>(STORAGE_KEYS.favorites, []);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [favorites, setFavorites] = useState<string[]>([]);
   const hydratedUser = isUserHydrated ? currentUser : null;
   const hydratedCart = isCartHydrated ? cart : [];
 
@@ -152,6 +152,12 @@ function StoreFrontContent() {
               <div className="text-right">
                 <span className="text-gold-400 font-bold text-xs uppercase tracking-widest block mb-1">طارق هلال</span>
                 <h3 className="text-xl sm:text-2xl font-black text-white">{catalogTitle}</h3>
+                <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-gold-400/20 bg-gold-400/10 px-3 py-1 text-[10px] sm:text-xs text-gold-400 font-bold">
+                  <span>المفضلة</span>
+                  <span className="min-w-5 h-5 px-1.5 rounded-full bg-gold-400 text-dark-bg flex items-center justify-center font-black">
+                    {favorites.length}
+                  </span>
+                </div>
               </div>
               <span className="text-xs text-gray-400">
                 {filteredProducts.length} منتج
@@ -188,7 +194,13 @@ function StoreFrontContent() {
         onClose={() => setIsCartOpen(false)} 
         cartItems={hydratedCart} 
         onUpdateQuantity={(id: string, q: number) => {
-          const updated = hydratedCart.map(item => item.product.id === id ? { ...item, quantity: q } : item).filter(item => item.quantity > 0);
+          const updated = hydratedCart
+            .map((item) =>
+              item.product.id === id
+                ? { ...item, quantity: Math.max(1, item.quantity + q) }
+                : item
+            )
+            .filter((item) => item.quantity > 0);
           setCart(updated);
         }}
         onRemoveItem={(id: string) => {
