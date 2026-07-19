@@ -38,6 +38,7 @@ export default function Header({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const logoSrc = "/logo.png";
+  const isAdminUser = currentUser?.role === "Admin";
 
   return (
     <>
@@ -94,14 +95,16 @@ export default function Header({
           {/* Action Buttons */}
           <div className="flex items-center gap-1 sm:gap-2.5">
             {/* Admin Panel Access */}
-            <button
-              onClick={onAdminClick}
-              className={`hidden sm:flex p-1.5 sm:px-3 sm:py-2.5 rounded-xl border items-center gap-1.5 transition-all text-xs font-bold ${currentView === "admin" ? "bg-gold-400 text-dark-bg border-gold-400" : "bg-dark-card border-dark-border text-gold-500 hover:bg-gold-50/50"}`}
-              title="لوحة التحكم"
-            >
-              <ShieldAlert className="w-4 h-4" />
-              <span className="hidden lg:inline">لوحة التحكم</span>
-            </button>
+            {isAdminUser && (
+              <button
+                onClick={onAdminClick}
+                className={`hidden sm:flex p-1.5 sm:px-3 sm:py-2.5 rounded-xl border items-center gap-1.5 transition-all text-xs font-bold ${currentView === "admin" ? "bg-gold-400 text-dark-bg border-gold-400" : "bg-dark-card border-dark-border text-gold-500 hover:bg-gold-50/50"}`}
+                title="لوحة التحكم"
+              >
+                <ShieldAlert className="w-4 h-4" />
+                <span className="hidden lg:inline">لوحة التحكم</span>
+              </button>
+            )}
 
             {/* Account Info */}
             {currentUser ? (
@@ -374,16 +377,18 @@ export default function Header({
 
               <hr className="border-dark-border my-2" />
               <p className="text-[10px] text-gray-400 font-bold px-2">روابط سريعة</p>
-              <button
-                onClick={() => {
-                  onAdminClick();
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full text-right px-4 py-2.5 rounded-xl hover:bg-dark-card/50 text-gray-300 text-xs flex items-center justify-between"
-              >
-                <span>لوحة تحكم المدير</span>
-                <span className="bg-gold-400/10 text-gold-400 border border-gold-400/20 px-2 py-0.5 rounded text-[9px] font-bold">تجريبي</span>
-              </button>
+              {isAdminUser && (
+                <button
+                  onClick={() => {
+                    onAdminClick();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full text-right px-4 py-2.5 rounded-xl hover:bg-dark-card/50 text-gray-300 text-xs flex items-center justify-between"
+                >
+                  <span>لوحة تحكم المدير</span>
+                  <span className="bg-gold-400/10 text-gold-400 border border-gold-400/20 px-2 py-0.5 rounded text-[9px] font-bold">تجريبي</span>
+                </button>
+              )}
               <button
                 onClick={() => {
                   onContactClick();

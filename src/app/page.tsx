@@ -10,15 +10,16 @@ import CartDrawer from "../../components/CartDrawer";
 import AccountModal from "../../components/AccountModal";
 import CheckoutModal from "../../components/CheckoutModal";
 import ProductCard from "../../components/ProductCard";
-import { Product, CartItem, User } from "../types";
+import { Product, CartItem } from "../types";
 import { products, categories } from "../data/salondata";
 import { STORAGE_KEYS } from "../lib/browser-storage";
 import { usePersistentLocalState } from "../hooks/usePersistentLocalState";
+import { useAuthSession } from "../hooks/useAuthSession";
 
 function StoreFrontContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { value: currentUser, setValue: setCurrentUser, isHydrated: isUserHydrated } = usePersistentLocalState<User | null>(STORAGE_KEYS.currentUser, null);
+  const { currentUser, isHydrated: isUserHydrated, login, logout } = useAuthSession();
   const { value: cart, setValue: setCart, isHydrated: isCartHydrated } = usePersistentLocalState<CartItem[]>(STORAGE_KEYS.cart, []);
   const { value: favorites, setValue: setFavorites } = usePersistentLocalState<string[]>(STORAGE_KEYS.favorites, []);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -48,7 +49,6 @@ function StoreFrontContent() {
       } else {
         updated = [...prev, { product, quantity }];
       }
-      localStorage.setItem("th_cart", JSON.stringify(updated));
       return updated;
     });
     setIsCartOpen(true);
@@ -129,7 +129,7 @@ function StoreFrontContent() {
         currentUser={hydratedUser} 
         onAccountClick={() => setIsAccountOpen(true)}
         onCartClick={() => setIsCartOpen(true)}
-        onLogout={() => setCurrentUser(null)} 
+        onLogout={logout}
         cartCount={hydratedCart.reduce((sum, item) => sum + item.quantity, 0)}
         currentView="home"
         onAdminClick={() => router.push("/admin")}
@@ -217,7 +217,7 @@ function StoreFrontContent() {
         isOpen={isAccountOpen} 
         onClose={() => setIsAccountOpen(false)} 
         currentUser={hydratedUser} 
-        onLogin={setCurrentUser} 
+        onLogin={login}
         orders={[]} 
       />
 

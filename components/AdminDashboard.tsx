@@ -1,7 +1,17 @@
 "use client";
 import React, { useState } from "react";
-import { X, Plus, Edit2, Trash2, ShieldAlert, ShoppingBag, ClipboardList, Users, Save, Sparkles, Filter } from "lucide-react";
+import { X, Plus, Edit2, Trash2, ShieldAlert, ShoppingBag, ClipboardList, Users, Save, Sparkles, Filter, Shapes, UserRoundPlus } from "lucide-react";
 import { Product, Order, User, Category, Payment } from "../src/types";
+import {
+  createUserByAdmin,
+  createCategory,
+  createProduct,
+  deleteCategory,
+  deleteProduct,
+  updateCategory,
+  updateOrderStatus as updateOrderStatusApi,
+  updateProduct,
+} from "../src/lib/api";
 
 interface AdminDashboardProps {
   products: Product[];
@@ -9,6 +19,7 @@ interface AdminDashboardProps {
   orders: Order[];
   onUpdateOrders: (newOrders: Order[]) => void;
   categories: Category[];
+  onUpdateCategories: (newCategories: Category[]) => void;
   onClose: () => void;
 }
 
@@ -18,9 +29,11 @@ export default function AdminDashboard({
   orders,
   onUpdateOrders,
   categories,
+  onUpdateCategories,
   onClose
 }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'customers'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'orders' | 'customers'>('products');
+  const [isSaving, setIsSaving] = useState(false);
   
   // Product CRUD states
   const [isEditingProduct, setIsEditingProduct] = useState(false);
@@ -32,6 +45,18 @@ export default function AdminDashboard({
     image: "",
     category: ""
   });
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState("");
+  const [newUserForm, setNewUserForm] = useState({
+    first_name: "",
+    last_name: "",
+    phone: "",
+    password: "",
+    confirmPassword: "",
+    role: "Customer" as User["role"],
+  });
+  const [adminSuccessMessage, setAdminSuccessMessage] = useState("");
 
   // Filter orders
   const [orderFilter, setOrderFilter] = useState<'all' | 'pending' | 'processing' | 'shipped' | 'delivered'>('all');
@@ -101,10 +126,21 @@ export default function AdminDashboard({
   };
 
   const handleDeleteProduct = (productId: string) => {
-    if (window.confirm("هل أنت متأكد من رغبتك في حذف هذا المنتج نهائياً من المتجر؟")) {
-      const updated = products.filter(p => p.id !== productId);
-      onUpdateProducts(updated);
-    }
+    void (async () => {
+      if (!window.confirm("هل أنت متأكد من رغبتك في حذف هذا المنتج نهائياً من المتجر؟")) {
+        return;
+      }
+
+      try {
+        setIsSaving(true);
+        await deleteProduct(productId);
+        onUpdateProducts(products.filter((product) => product.id !== productId));
+      } catch (error) {
+        alert(error instanceof Error ? error.message : "تعذر حذف المنتج الآن.");
+      } finally {
+        setIsSaving(false);
+      }
+    })();
   };
 
   const handleSaveProduct = (e: React.FormEvent) => {
@@ -114,50 +150,60 @@ export default function AdminDashboard({
       return;
     }
 
-    if (editingProduct) {
-      // Edit
-      const updated = products.map(p => {
-        if (p.id === editingProduct.id) {
-          return {
-            ...p,
+    void (async () => {
+      try {
+        setIsSaving(true);
+
+        if (editingProduct) {
+          const updatedProduct = await updateProduct(editingProduct.id, {
             name: productForm.name,
             description: productForm.description,
             price: Number(productForm.price),
             image: productForm.image,
             category: productForm.category,
-            category_id: productForm.category
-          };
-        }
-        return p;
-      });
-      onUpdateProducts(updated);
-    } else {
-      // Add
-      const newProd: Product = {
-        id: "prod-" + Math.floor(1000 + Math.random() * 9000),
-        category_id: productForm.category,
-        name: productForm.name,
-        description: productForm.description,
-        price: Number(productForm.price),
-        image: productForm.image,
-        category: productForm.category
-      };
-      onUpdateProducts([newProd, ...products]);
-    }
+            category_id: productForm.category,
+          });
 
-    setIsEditingProduct(false);
-    setEditingProduct(null);
+          onUpdateProducts(
+            products.map((product) =>
+              product.id === editingProduct.id ? updatedProduct : product
+            )
+          );
+        } else {
+          const createdProduct = await createProduct({
+            category_id: productForm.category,
+            category: productForm.category,
+            name: productForm.name,
+            description: productForm.description,
+            price: Number(productForm.price),
+            image: productForm.image,
+          } as Omit<Product, "id">);
+
+          onUpdateProducts([createdProduct, ...products]);
+        }
+
+        setIsEditingProduct(false);
+        setEditingProduct(null);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : "تعذر حفظ المنتج الآن.");
+      } finally {
+        setIsSaving(false);
+      }
+    })();
   };
 
   // --- Order Status Change Actions ---
   const handleUpdateOrderStatus = (orderId: string, status: Order['status']) => {
-    const updated = orders.map(o => {
-      if (o.id === orderId) {
-        return { ...o, status };
+    void (async () => {
+      try {
+        const updatedOrder = await updateOrderStatusApi(orderId, { status });
+        onUpdateOrders(
+          orders.map((order) => (order.id === orderId ? updatedOrder : order))
+        );
+      } catch (error) {
+        alert(error instanceof Error ? error.message : "تعذر تحديث حالة الطلب.");
       }
-      return o;
-    });
-    onUpdateOrders(updated);
+    })();
   };
 
   const handleUpdatePaymentStatus = (orderId: string, status: Payment["status"]) => {
@@ -180,6 +226,137 @@ export default function AdminDashboard({
       return o;
     });
     onUpdateOrders(updated);
+  };
+
+  const handleAddCategory = () => {
+    void (async () => {
+      const trimmedName = newCategoryName.trim();
+      if (!trimmedName) {
+        alert("أدخل اسم القسم الجديد أولاً.");
+        return;
+      }
+
+      try {
+        setIsSaving(true);
+        const category = await createCategory({ name: trimmedName });
+        onUpdateCategories([category, ...categories]);
+        setNewCategoryName("");
+      } catch (error) {
+        alert(error instanceof Error ? error.message : "تعذر إنشاء القسم.");
+      } finally {
+        setIsSaving(false);
+      }
+    })();
+  };
+
+  const startEditCategory = (category: Category) => {
+    setEditingCategoryId(category.id);
+    setEditingCategoryName(category.name);
+  };
+
+  const handleSaveCategory = () => {
+    void (async () => {
+      if (!editingCategoryId) {
+        return;
+      }
+
+      const trimmedName = editingCategoryName.trim();
+      if (!trimmedName) {
+        alert("اسم القسم لا يمكن أن يكون فارغاً.");
+        return;
+      }
+
+      try {
+        setIsSaving(true);
+        const updatedCategory = await updateCategory(editingCategoryId, { name: trimmedName });
+        onUpdateCategories(
+          categories.map((category) =>
+            category.id === editingCategoryId ? updatedCategory : category
+          )
+        );
+        setEditingCategoryId(null);
+        setEditingCategoryName("");
+      } catch (error) {
+        alert(error instanceof Error ? error.message : "تعذر تعديل القسم.");
+      } finally {
+        setIsSaving(false);
+      }
+    })();
+  };
+
+  const handleDeleteCategory = (categoryId: string) => {
+    void (async () => {
+      if (!window.confirm("هل تريد حذف هذا القسم؟")) {
+        return;
+      }
+
+      try {
+        setIsSaving(true);
+        await deleteCategory(categoryId);
+        onUpdateCategories(categories.filter((category) => category.id !== categoryId));
+      } catch (error) {
+        alert(error instanceof Error ? error.message : "تعذر حذف القسم.");
+      } finally {
+        setIsSaving(false);
+      }
+    })();
+  };
+
+  const saveRegisteredUserLocally = (user: User) => {
+    const savedUsersStr = localStorage.getItem("th_users");
+    const registered: User[] = savedUsersStr ? JSON.parse(savedUsersStr) : [];
+    const filtered = registered.filter((existingUser) => existingUser.id !== user.id && existingUser.phone !== user.phone);
+    const mergedUsers = [user, ...filtered];
+    localStorage.setItem("th_users", JSON.stringify(mergedUsers));
+  };
+
+  const handleCreateUser = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    void (async () => {
+      const trimmedFirstName = newUserForm.first_name.trim();
+      const trimmedLastName = newUserForm.last_name.trim();
+      const trimmedPhone = newUserForm.phone.trim();
+
+      if (!trimmedFirstName || !trimmedLastName || !trimmedPhone || !newUserForm.password) {
+        alert("الرجاء إدخال الاسم الأول واسم العائلة والهاتف وكلمة المرور.");
+        return;
+      }
+
+      if (newUserForm.password !== newUserForm.confirmPassword) {
+        alert("كلمتا المرور غير متطابقتين.");
+        return;
+      }
+
+      try {
+        setIsSaving(true);
+        setAdminSuccessMessage("");
+
+        const createdUser = await createUserByAdmin({
+          first_name: trimmedFirstName,
+          last_name: trimmedLastName,
+          phone: trimmedPhone,
+          password: newUserForm.password,
+          role: newUserForm.role,
+        });
+
+        saveRegisteredUserLocally(createdUser);
+
+        setNewUserForm({
+          first_name: "",
+          last_name: "",
+          phone: "",
+          password: "",
+          confirmPassword: "",
+          role: "Customer",
+        });
+        setAdminSuccessMessage("تم إنشاء المستخدم الجديد بنجاح.");
+      } catch (error) {
+        alert(error instanceof Error ? error.message : "تعذر إنشاء المستخدم حالياً.");
+      } finally {
+        setIsSaving(false);
+      }
+    })();
   };
 
   const filteredOrders = orderFilter === 'all' 
@@ -262,6 +439,14 @@ export default function AdminDashboard({
             <ShoppingBag size={16} />
             <span>إدارة المنتجات والموديلات ({products.length})</span>
           </button>
+
+          <button
+            onClick={() => { setActiveTab('categories'); setIsEditingProduct(false); }}
+            className={`flex-1 py-3 text-xs sm:text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${activeTab === 'categories' ? 'bg-gold-400 text-dark-bg' : 'text-gray-400 hover:text-white'}`}
+          >
+            <Shapes size={16} />
+            <span>إدارة الأقسام ({categories.length})</span>
+          </button>
           
           <button
             onClick={() => { setActiveTab('orders'); setIsEditingProduct(false); }}
@@ -289,6 +474,7 @@ export default function AdminDashboard({
                   <h3 className="text-sm sm:text-base font-black text-white">منتجات ومعدات المتجر المعروضة حالياً</h3>
                   <button
                     onClick={handleOpenAddProduct}
+                    disabled={isSaving}
                     className="flex items-center gap-1.5 bg-gold-400 hover:bg-gold-500 text-dark-bg px-4 py-2 rounded-xl text-xs font-extrabold transition-all shadow-md"
                   >
                     <Plus size={16} />
@@ -333,6 +519,7 @@ export default function AdminDashboard({
                               </button>
                               <button
                                 onClick={() => handleDeleteProduct(prod.id)}
+                                disabled={isSaving}
                                 className="p-1.5 rounded-lg bg-dark-bg hover:bg-red-500/10 text-gray-400 hover:text-red-500 border border-dark-border"
                                 title="حذف المنتج"
                               >
@@ -345,6 +532,7 @@ export default function AdminDashboard({
                     </tbody>
                   </table>
                 </div>
+
               </div>
             ) : (
               /* PRODUCT ADD/EDIT FORM VIEW */
@@ -430,6 +618,7 @@ export default function AdminDashboard({
                   </button>
                   <button
                     type="submit"
+                    disabled={isSaving}
                     className="py-3 bg-gold-400 hover:bg-gold-500 text-dark-bg rounded-xl text-xs font-black transition-colors flex items-center justify-center gap-1.5"
                   >
                     <Save size={16} />
@@ -441,7 +630,170 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* TAB 2: ORDERS MANAGEMENT */}
+        {/* TAB 2: CATEGORIES MANAGEMENT */}
+        {activeTab === 'categories' && (
+          <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
+            <div className="xl:col-span-3 bg-dark-card border border-dark-border rounded-2xl p-5 space-y-4">
+              <h3 className="text-sm sm:text-base font-black text-white">كل الأقسام الحالية وإضافة قسم جديد</h3>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  placeholder="اسم قسم جديد"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  className="flex-1 bg-dark-bg border border-dark-border focus:border-gold-400 rounded-xl py-2 px-3 text-xs text-white focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCategory}
+                  disabled={isSaving}
+                  className="px-4 py-2 rounded-xl bg-gold-400 text-dark-bg text-xs font-black hover:bg-gold-500"
+                >
+                  إضافة قسم
+                </button>
+              </div>
+
+              <div className="space-y-2 max-h-[420px] overflow-y-auto">
+                {categories.map((category) => (
+                  <div key={category.id} className="flex items-center gap-2 rounded-xl border border-dark-border/40 bg-dark-bg/40 p-2.5">
+                    {editingCategoryId === category.id ? (
+                      <>
+                        <input
+                          type="text"
+                          value={editingCategoryName}
+                          onChange={(e) => setEditingCategoryName(e.target.value)}
+                          className="flex-1 bg-dark-bg border border-dark-border focus:border-gold-400 rounded-lg py-1.5 px-2 text-xs text-white focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSaveCategory}
+                          disabled={isSaving}
+                          className="px-2.5 py-1.5 rounded-lg bg-gold-400 text-dark-bg text-[11px] font-black"
+                        >
+                          حفظ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingCategoryId(null);
+                            setEditingCategoryName("");
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-dark-bg border border-dark-border text-[11px] text-gray-300"
+                        >
+                          إلغاء
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="flex-1 text-xs text-gray-200 font-bold">{category.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => startEditCategory(category)}
+                          className="p-1.5 rounded-lg bg-dark-bg border border-dark-border text-gray-400 hover:text-gold-400"
+                          title="تعديل القسم"
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCategory(category.id)}
+                          disabled={isSaving}
+                          className="p-1.5 rounded-lg bg-dark-bg border border-dark-border text-gray-400 hover:text-red-500"
+                          title="حذف القسم"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="xl:col-span-2 bg-dark-card border border-dark-border rounded-2xl p-5 space-y-4">
+              <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                <UserRoundPlus size={16} className="text-gold-400" />
+                <span>إنشاء مستخدم جديد</span>
+              </h3>
+
+              {adminSuccessMessage && (
+                <div className="rounded-xl border border-green-500/40 bg-green-500/10 p-3 text-xs font-bold text-green-400">
+                  {adminSuccessMessage}
+                </div>
+              )}
+
+              <form onSubmit={handleCreateUser} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    required
+                    placeholder="الاسم الأول"
+                    value={newUserForm.first_name}
+                    onChange={(e) => setNewUserForm((prev) => ({ ...prev, first_name: e.target.value }))}
+                    className="w-full bg-dark-bg border border-dark-border focus:border-gold-400 rounded-xl py-2 px-3 text-xs text-white focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    required
+                    placeholder="اسم العائلة"
+                    value={newUserForm.last_name}
+                    onChange={(e) => setNewUserForm((prev) => ({ ...prev, last_name: e.target.value }))}
+                    className="w-full bg-dark-bg border border-dark-border focus:border-gold-400 rounded-xl py-2 px-3 text-xs text-white focus:outline-none"
+                  />
+                </div>
+
+                <input
+                  type="text"
+                  required
+                  placeholder="رقم الهاتف"
+                  value={newUserForm.phone}
+                  onChange={(e) => setNewUserForm((prev) => ({ ...prev, phone: e.target.value }))}
+                  className="w-full bg-dark-bg border border-dark-border focus:border-gold-400 rounded-xl py-2 px-3 text-xs text-white focus:outline-none"
+                />
+
+                <select
+                  value={newUserForm.role}
+                  onChange={(e) => setNewUserForm((prev) => ({ ...prev, role: e.target.value as User["role"] }))}
+                  className="w-full bg-dark-bg border border-dark-border focus:border-gold-400 rounded-xl py-2 px-3 text-xs text-white focus:outline-none"
+                >
+                  <option value="Customer">عميل</option>
+                  <option value="Moderator">مشرف</option>
+                  <option value="Admin">مدير</option>
+                </select>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    type="password"
+                    required
+                    placeholder="كلمة المرور"
+                    value={newUserForm.password}
+                    onChange={(e) => setNewUserForm((prev) => ({ ...prev, password: e.target.value }))}
+                    className="w-full bg-dark-bg border border-dark-border focus:border-gold-400 rounded-xl py-2 px-3 text-xs text-white focus:outline-none"
+                  />
+                  <input
+                    type="password"
+                    required
+                    placeholder="تأكيد كلمة المرور"
+                    value={newUserForm.confirmPassword}
+                    onChange={(e) => setNewUserForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                    className="w-full bg-dark-bg border border-dark-border focus:border-gold-400 rounded-xl py-2 px-3 text-xs text-white focus:outline-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="w-full py-2.5 rounded-xl bg-gold-400 hover:bg-gold-500 text-dark-bg text-xs font-black"
+                >
+                  إنشاء المستخدم
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: ORDERS MANAGEMENT */}
         {activeTab === 'orders' && (
           <div className="space-y-4">
             <div className="bg-dark-card border border-dark-border rounded-2xl p-5">
@@ -568,7 +920,7 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* TAB 3: CUSTOMERS MANAGEMENT */}
+        {/* TAB 4: CUSTOMERS MANAGEMENT */}
         {activeTab === 'customers' && (
           <div className="bg-dark-card border border-dark-border rounded-2xl p-5">
             <h3 className="text-sm sm:text-base font-black text-white pb-4 border-b border-dark-border/60 mb-5">صالونات التجميل والحلاقين المشتركين</h3>

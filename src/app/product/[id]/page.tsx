@@ -9,9 +9,10 @@ import Footer from "../../../../components/Footer";
 import CartDrawer from "../../../../components/CartDrawer";
 import AccountModal from "../../../../components/AccountModal";
 import CheckoutModal from "../../../../components/CheckoutModal";
-import { CartItem, Product, User } from "../../../types";
+import { CartItem, Product } from "../../../types";
 import { STORAGE_KEYS } from "../../../lib/browser-storage";
 import { usePersistentLocalState } from "../../../hooks/usePersistentLocalState";
+import { useAuthSession } from "../../../hooks/useAuthSession";
 
 function ProductDetailsContent({
   product,
@@ -214,12 +215,12 @@ export default function ProductDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const product = products.find((item) => item.id === params.id);
-  const { value: currentUser, setValue: setCurrentUser } = usePersistentLocalState<User | null>(STORAGE_KEYS.currentUser, null);
+  const { currentUser, login, logout, isHydrated: isUserHydrated } = useAuthSession();
   const { value: cart, setValue: setCart } = usePersistentLocalState<CartItem[]>(STORAGE_KEYS.cart, []);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const hydratedUser = currentUser;
+  const hydratedUser = isUserHydrated ? currentUser : null;
   const hydratedCart = cart;
 
   const handleAddToCart = (nextProduct: Product, quantity = 1) => {
@@ -275,7 +276,7 @@ export default function ProductDetailPage() {
         currentUser={hydratedUser}
         onAccountClick={() => setIsAccountOpen(true)}
         onCartClick={() => setIsCartOpen(true)}
-        onLogout={() => setCurrentUser(null)}
+        onLogout={logout}
         cartCount={hydratedCart.reduce((sum, item) => sum + item.quantity, 0)}
         currentView="home"
         onAdminClick={() => router.push("/admin")}
@@ -323,7 +324,7 @@ export default function ProductDetailPage() {
         isOpen={isAccountOpen}
         onClose={() => setIsAccountOpen(false)}
         currentUser={hydratedUser}
-        onLogin={setCurrentUser}
+        onLogin={login}
         orders={[]}
       />
 

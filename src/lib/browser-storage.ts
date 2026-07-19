@@ -1,6 +1,8 @@
 export const STORAGE_KEYS = {
   cart: "th_cart",
   currentUser: "th_user",
+  authAccessToken: "th_access_token",
+  authRefreshToken: "th_refresh_token",
   favorites: "th_favorites",
 } as const;
 

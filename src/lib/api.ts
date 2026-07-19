@@ -1,4 +1,5 @@
 import { Product, Category, Order, OrderItem, ProductImage, ProductVariant, User } from "../types";
+import { STORAGE_KEYS, readStorageValue, removeStorageValue, writeStorageValue } from "./browser-storage";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
@@ -18,7 +19,184 @@ type ApiOrderItem = Partial<OrderItem> & {
 type ApiOrder = Partial<Order> & {
   items?: ApiOrderItem[];
   user?: ApiUser;
+  payment?: Partial<Payment>;
 };
+
+type ApiAuthResponse = {
+  token?: string;
+  access?: string;
+  access_token?: string;
+  refresh?: string;
+  user?: ApiUser;
+};
+
+type AuthTokens = {
+  accessToken: string | null;
+  refreshToken: string | null;
+};
+
+function readStringValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function normalizeUserRole(rawRole: unknown): User["role"] {
+  const normalized = readStringValue(rawRole).trim().toLowerCase();
+
+  if (normalized === "admin" || normalized === "superadmin" || normalized === "super_admin") {
+    return "Admin";
+  }
+
+  if (normalized === "moderator" || normalized === "staff" || normalized === "manager") {
+    return "Moderator";
+  }
+
+  return "Customer";
+}
+
+function parseAuthPayload(payload: unknown): { user: ApiUser; token?: string } {
+  const record = (payload ?? {}) as Record<string, unknown>;
+  const nestedUser = record.user as ApiUser | undefined;
+  const userPayload = nestedUser ?? (record as ApiUser);
+  const token =
+    readStringValue(record.token) ||
+    readStringValue(record.access) ||
+    readStringValue(record.access_token) ||
+    undefined;
+
+  return {
+    user: userPayload,
+    token,
+  };
+}
+
+function parseAuthTokens(payload: unknown): AuthTokens {
+  const record = (payload ?? {}) as Record<string, unknown>;
+
+  return {
+    accessToken:
+      readStringValue(record.access) ||
+      readStringValue(record.access_token) ||
+      readStringValue(record.token) ||
+      null,
+    refreshToken: readStringValue(record.refresh) || null,
+  };
+}
+
+function getStoredAuthTokens(): AuthTokens {
+  const accessToken = readStorageValue<string | null>(STORAGE_KEYS.authAccessToken, null);
+  const refreshToken = readStorageValue<string | null>(STORAGE_KEYS.authRefreshToken, null);
+  return { accessToken, refreshToken };
+}
+
+function storeAuthTokens(tokens: AuthTokens) {
+  if (tokens.accessToken) {
+    writeStorageValue(STORAGE_KEYS.authAccessToken, tokens.accessToken);
+  }
+
+  if (tokens.refreshToken) {
+    writeStorageValue(STORAGE_KEYS.authRefreshToken, tokens.refreshToken);
+  }
+}
+
+function clearStoredAuthTokens() {
+  removeStorageValue(STORAGE_KEYS.authAccessToken);
+  removeStorageValue(STORAGE_KEYS.authRefreshToken);
+}
+
+function buildAuthHeaders(withJson = true): HeadersInit {
+  const { accessToken } = getStoredAuthTokens();
+  const headers: Record<string, string> = {};
+
+  if (withJson) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  return headers;
+}
+
+async function fetchFromFirstAvailable(
+  paths: string[],
+  init: RequestInit = {}
+): Promise<Response> {
+  let lastResponse: Response | null = null;
+
+  for (const path of paths) {
+    const response = await fetch(`${BASE_URL}${path}`, {
+      ...init,
+      cache: "no-store",
+    });
+
+    if (response.status === 404) {
+      lastResponse = response;
+      continue;
+    }
+
+    return response;
+  }
+
+  return (
+    lastResponse ??
+    new Response(null, {
+      status: 404,
+    })
+  );
+}
+
+function hasMeaningfulUserData(user: ApiUser): boolean {
+  const source = user as Record<string, unknown>;
+  return Boolean(
+    readStringValue(source.id) ||
+      readStringValue(source.first_name) ||
+      readStringValue(source.firstName) ||
+      readStringValue(source.phone) ||
+      readStringValue(source.phone_number)
+  );
+}
+
+function mapDjangoPayment(djangoPayment: Partial<Payment> | undefined, order: ApiOrder): Payment | undefined {
+  if (!djangoPayment && !order.id) {
+    return undefined;
+  }
+
+  if (!djangoPayment) {
+    return {
+      id: `pay-${order.id || "pending"}`,
+      order_id: order.id || "",
+      provider: "Paymob",
+      transaction_id: order.orderNumber || order.id || "",
+      status: "Pending",
+      amount: Number(order.total || 0),
+      paid_at: null,
+    };
+  }
+
+  return {
+    id: readStringValue(djangoPayment.id) || `pay-${order.id || "pending"}`,
+    order_id: readStringValue(djangoPayment.order_id) || order.id || "",
+    provider: djangoPayment.provider || "Paymob",
+    transaction_id: readStringValue(djangoPayment.transaction_id) || order.orderNumber || order.id || "",
+    status: djangoPayment.status || "Pending",
+    amount: Number(djangoPayment.amount ?? order.total ?? 0),
+    paid_at: typeof djangoPayment.paid_at === "string" ? djangoPayment.paid_at : null,
+  };
+}
+
+function mapDjangoOrderItem(item: ApiOrderItem): OrderItem {
+  return {
+    id: readStringValue(item.id) || `item-${Math.random().toString(36).slice(2, 9)}`,
+    order_id: readStringValue(item.order_id) || "",
+    product_variant_id: readStringValue(item.product_variant_id) || readStringValue(item.productId) || "",
+    product_name: readStringValue(item.product_name) || readStringValue(item.productName) || "",
+    variant_description: readStringValue(item.variant_description) || "Default",
+    price: Number(item.price || 0),
+    quantity: Number(item.quantity || 1),
+    subtotal: Number(item.subtotal || Number(item.price || 0) * Number(item.quantity || 1)),
+  };
+}
 
 // --- MAPPING UTILITIES ---
 
@@ -65,7 +243,7 @@ export function mapDjangoCategory(djangoCat: Partial<Category>): Category {
   }
   return {
     ...djangoCat,
-    id: djangoCat.id || "",
+    id: String(djangoCat.id || ""),
     name: djangoCat.name || "",
     media_url: djangoCat.media_url || "",
     image: djangoCat.media_url || djangoCat.image || "https://images.unsplash.com/photo-1621605815971-fbc98d665033?q=80&w=400"
@@ -86,15 +264,24 @@ export function mapDjangoUser(djangoUser: ApiUser): User {
       deleted_at: null,
     };
   }
+
+  const source = djangoUser as Record<string, unknown>;
+  const firstName = readStringValue(source.first_name) || readStringValue(source.firstName);
+  const lastName = readStringValue(source.last_name) || readStringValue(source.lastName);
+  const phone = readStringValue(source.phone) || readStringValue(source.phone_number);
+  const createdAt = readStringValue(source.created_at) || readStringValue(source.createdAt);
+  const updatedAt = readStringValue(source.updated_at) || readStringValue(source.updatedAt);
+  const deletedAt = source.deleted_at ?? source.deletedAt ?? null;
+
   return {
-    id: djangoUser.id || "",
-    first_name: djangoUser.first_name || "",
-    last_name: djangoUser.last_name || "",
-    phone: djangoUser.phone || "",
-    role: djangoUser.role || "Customer",
-    created_at: djangoUser.created_at || new Date().toISOString(),
-    updated_at: djangoUser.updated_at || new Date().toISOString(),
-    deleted_at: djangoUser.deleted_at || null
+    id: readStringValue(source.id) || "",
+    first_name: firstName,
+    last_name: lastName,
+    phone,
+    role: normalizeUserRole(source.role),
+    created_at: createdAt || new Date().toISOString(),
+    updated_at: updatedAt || new Date().toISOString(),
+    deleted_at: typeof deletedAt === "string" ? deletedAt : null,
   };
 }
 
@@ -132,6 +319,8 @@ export function mapDjangoOrder(djangoOrder: ApiOrder): Order {
     customerPhone: djangoOrder.customerPhone || djangoOrder.user?.phone || "",
     city: djangoOrder.city || "القاهرة",
     address: djangoOrder.address || "العنوان بالتفصيل",
+    payment: mapDjangoPayment(djangoOrder.payment, djangoOrder),
+    items: Array.isArray(djangoOrder.items) ? djangoOrder.items.map(mapDjangoOrderItem) : djangoOrder.items,
   };
 }
 
@@ -139,7 +328,9 @@ export function mapDjangoOrder(djangoOrder: ApiOrder): Order {
 
 // Fetch all products from Django API
 export async function fetchProducts(): Promise<Product[]> {
-  const response = await fetch(`${BASE_URL}/products`);
+  const response = await fetchFromFirstAvailable([
+    "/products/products/",
+  ]);
   if (!response.ok) {
     throw new Error("حدث خطأ أثناء جلب المنتجات من الخادم");
   }
@@ -149,7 +340,7 @@ export async function fetchProducts(): Promise<Product[]> {
 
 // Fetch all categories from Django API
 export async function fetchCategories(): Promise<Category[]> {
-  const response = await fetch(`${BASE_URL}/categories`);
+  const response = await fetch(`${BASE_URL}/categories/`);
   if (!response.ok) {
     throw new Error("حدث خطأ أثناء جلب الأقسام من الخادم");
   }
@@ -159,7 +350,10 @@ export async function fetchCategories(): Promise<Category[]> {
 
 // Fetch all orders (Admin only) from Django API
 export async function fetchOrders(): Promise<Order[]> {
-  const response = await fetch(`${BASE_URL}/orders`);
+  const response = await fetch(`${BASE_URL}/orders/`, {
+    headers: buildAuthHeaders(false),
+    cache: "no-store",
+  });
   if (!response.ok) {
     throw new Error("حدث خطأ أثناء جلب الطلبات من الخادم");
   }
@@ -187,7 +381,7 @@ export async function createOrder(orderData: Partial<Order>): Promise<Order> {
     })) || []
   };
 
-  const response = await fetch(`${BASE_URL}/orders`, {
+  const response = await fetch(`${BASE_URL}/orders/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -203,7 +397,7 @@ export async function createOrder(orderData: Partial<Order>): Promise<Order> {
 
 // Login user via Django API using Phone Number as unique ID
 export async function loginUser(credentials: { phone: string; password?: string }): Promise<{ user: User; token?: string }> {
-  const response = await fetch(`${BASE_URL}/auth/login`, {
+  const response = await fetch(`${BASE_URL}/auth/login/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -213,10 +407,19 @@ export async function loginUser(credentials: { phone: string; password?: string 
   if (!response.ok) {
     throw new Error("رقم الهاتف أو كلمة المرور غير صحيحة");
   }
-  const data = await response.json();
+  const data = (await response.json()) as ApiAuthResponse;
+  const tokens = parseAuthTokens(data);
+
+  if (!tokens.accessToken) {
+    throw new Error("تعذر إكمال تسجيل الدخول بسبب استجابة غير متوقعة");
+  }
+
+  storeAuthTokens(tokens);
+
+  const user = await fetchCurrentUser(tokens.accessToken);
   return {
-    user: mapDjangoUser(data.user),
-    token: data.token
+    user,
+    token: tokens.accessToken,
   };
 }
 
@@ -230,7 +433,7 @@ export async function registerUser(userData: { first_name: string; last_name: st
     role: "Customer"
   };
 
-  const response = await fetch(`${BASE_URL}/auth/register`, {
+  const response = await fetch(`${BASE_URL}/auth/register/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -240,20 +443,98 @@ export async function registerUser(userData: { first_name: string; last_name: st
   if (!response.ok) {
     throw new Error("فشل تسجيل الحساب، رقم الهاتف قد يكون مسجلاً بالفعل");
   }
-  const data = await response.json();
-  return {
-    user: mapDjangoUser(data.user),
-    token: data.token
+
+  return loginUser({
+    phone: userData.phone,
+    password: userData.password,
+  });
+}
+
+export async function createUserByAdmin(userData: {
+  first_name: string;
+  last_name: string;
+  phone: string;
+  password?: string;
+  role?: User["role"];
+}): Promise<User> {
+  const djangoPayload = {
+    first_name: userData.first_name,
+    last_name: userData.last_name,
+    phone: userData.phone,
+    password: userData.password,
+    role: userData.role || "Customer",
   };
+
+  const response = await fetch(`${BASE_URL}/auth/register/`, {
+    method: "POST",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify(djangoPayload),
+  });
+
+  if (!response.ok) {
+    throw new Error("فشل إنشاء المستخدم الجديد، تحقق من البيانات ثم حاول مرة أخرى");
+  }
+
+  const data = (await response.json()) as { user?: ApiUser } | ApiUser;
+  const parsed = parseAuthPayload(data);
+
+  if (hasMeaningfulUserData(parsed.user)) {
+    return mapDjangoUser(parsed.user);
+  }
+
+  return mapDjangoUser(data as ApiUser);
+}
+
+export async function fetchCurrentUser(accessTokenOverride?: string): Promise<User> {
+  const accessToken = accessTokenOverride ?? getStoredAuthTokens().accessToken;
+
+  if (!accessToken) {
+    throw new Error("AUTH_UNAUTHORIZED");
+  }
+
+  const response = await fetch(`${BASE_URL}/auth/me/`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    cache: "no-store",
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("AUTH_UNAUTHORIZED");
+  }
+
+  if (!response.ok) {
+    throw new Error("تعذر جلب بيانات المستخدم الحالية");
+  }
+
+  const data = (await response.json()) as { user?: ApiUser } | ApiUser;
+  const parsed = parseAuthPayload(data);
+  return mapDjangoUser(parsed.user);
+}
+
+export async function logoutUser(): Promise<void> {
+  const { refreshToken } = getStoredAuthTokens();
+
+  if (refreshToken) {
+    await fetch(`${BASE_URL}/auth/logout/`, {
+      method: "POST",
+      headers: {
+        ...buildAuthHeaders(),
+      },
+      body: JSON.stringify({ refresh: refreshToken }),
+    });
+  }
+
+  clearStoredAuthTokens();
 }
 
 // Update order status (Admin only)
 export async function updateOrderStatus(orderId: string, updates: { status?: Order["status"] }): Promise<Order> {
-  const response = await fetch(`${BASE_URL}/orders/${orderId}`, {
+  const response = await fetch(`${BASE_URL}/orders/${orderId}/`, {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: buildAuthHeaders(),
     body: JSON.stringify(updates),
   });
   if (!response.ok) {
@@ -265,12 +546,18 @@ export async function updateOrderStatus(orderId: string, updates: { status?: Ord
 
 // Product CRUD (Admin only)
 export async function createProduct(productData: Omit<Product, "id">): Promise<Product> {
-  const response = await fetch(`${BASE_URL}/products`, {
+  const response = await fetchFromFirstAvailable([
+    "/products/products/",
+  ], {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(productData),
+    headers: buildAuthHeaders(),
+    body: JSON.stringify({
+      name: productData.name,
+      description: productData.description,
+      category: productData.category_id || productData.category,
+      price: productData.price,
+      image: productData.image,
+    }),
   });
   if (!response.ok) {
     throw new Error("فشل إضافة المنتج الجديد");
@@ -280,12 +567,15 @@ export async function createProduct(productData: Omit<Product, "id">): Promise<P
 }
 
 export async function updateProduct(productId: string, productData: Partial<Product>): Promise<Product> {
-  const response = await fetch(`${BASE_URL}/products/${productId}`, {
+  const response = await fetchFromFirstAvailable([
+    `/products/products/${productId}/`,
+  ], {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(productData),
+    headers: buildAuthHeaders(),
+    body: JSON.stringify({
+      ...productData,
+      category: productData.category_id || productData.category,
+    }),
   });
   if (!response.ok) {
     throw new Error("فشل تعديل المنتج");
@@ -295,11 +585,62 @@ export async function updateProduct(productId: string, productData: Partial<Prod
 }
 
 export async function deleteProduct(productId: string): Promise<boolean> {
-  const response = await fetch(`${BASE_URL}/products/${productId}`, {
+  const response = await fetchFromFirstAvailable([
+    `/products/products/${productId}/`,
+  ], {
     method: "DELETE",
   });
   if (!response.ok) {
     throw new Error("فشل حذف المنتج");
   }
   return true;
+}
+
+export async function createCategory(categoryData: { name: string; image?: string }): Promise<Category> {
+  const response = await fetch(`${BASE_URL}/categories/`, {
+    method: "POST",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify({
+      name: categoryData.name,
+      media_url: categoryData.image || "",
+      image: categoryData.image || "",
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("فشل إنشاء القسم");
+  }
+
+  const data = await response.json();
+  return mapDjangoCategory(data);
+}
+
+export async function updateCategory(categoryId: string, categoryData: { name: string; image?: string }): Promise<Category> {
+  const response = await fetch(`${BASE_URL}/categories/${categoryId}/`, {
+    method: "PUT",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify({
+      name: categoryData.name,
+      media_url: categoryData.image || "",
+      image: categoryData.image || "",
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("فشل تعديل القسم");
+  }
+
+  const data = await response.json();
+  return mapDjangoCategory(data);
+}
+
+export async function deleteCategory(categoryId: string): Promise<void> {
+  const response = await fetch(`${BASE_URL}/categories/${categoryId}/`, {
+    method: "DELETE",
+    headers: buildAuthHeaders(false),
+  });
+
+  if (!response.ok) {
+    throw new Error("فشل حذف القسم");
+  }
 }
