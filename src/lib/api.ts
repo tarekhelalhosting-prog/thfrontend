@@ -72,18 +72,65 @@ function buildAuthHeaders(withJson = true): HeadersInit {
   return headers;
 }
 
+let refreshRequest: Promise<boolean> | null = null;
+
+async function refreshAccessToken(): Promise<boolean> {
+  if (!refreshRequest) {
+    refreshRequest = (async () => {
+      const response = await fetch(`${BASE_URL}/auth/refresh/`, {
+        method: "POST",
+        credentials: "include",
+        headers: buildAuthHeaders(false),
+        cache: "no-store",
+      });
+
+      return response.ok;
+    })();
+  }
+
+  try {
+    return await refreshRequest;
+  } finally {
+    refreshRequest = null;
+  }
+}
+
+async function fetchWithAutoRefresh(
+  path: string,
+  init: RequestInit = {},
+  retryOnUnauthorized = false
+): Promise<Response> {
+  const runRequest = () =>
+    fetch(`${BASE_URL}${path}`, {
+      ...init,
+      cache: init.cache ?? "no-store",
+      credentials: "include",
+    });
+
+  const response = await runRequest();
+
+  if (!retryOnUnauthorized || response.status !== 401) {
+    return response;
+  }
+
+  const refreshed = await refreshAccessToken();
+
+  if (!refreshed) {
+    return response;
+  }
+
+  return runRequest();
+}
+
 async function fetchFromFirstAvailable(
   paths: string[],
-  init: RequestInit = {}
+  init: RequestInit = {},
+  retryOnUnauthorized = false
 ): Promise<Response> {
   let lastResponse: Response | null = null;
 
   for (const path of paths) {
-    const response = await fetch(`${BASE_URL}${path}`, {
-      ...init,
-      cache: "no-store",
-      credentials: "include",
-    });
+    const response = await fetchWithAutoRefresh(path, init, retryOnUnauthorized);
 
     if (response.status === 404) {
       lastResponse = response;
@@ -295,9 +342,7 @@ export async function fetchProducts(): Promise<Product[]> {
 
 // Fetch all categories from Django API
 export async function fetchCategories(): Promise<Category[]> {
-  const response = await fetch(`${BASE_URL}/categories/`, {
-    credentials: "include",
-  });
+  const response = await fetchWithAutoRefresh("/categories/", {}, true);
   if (!response.ok) {
     throw new Error("حدث خطأ أثناء جلب الأقسام من الخادم");
   }
@@ -307,11 +352,9 @@ export async function fetchCategories(): Promise<Category[]> {
 
 // Fetch all orders (Admin only) from Django API
 export async function fetchOrders(): Promise<Order[]> {
-  const response = await fetch(`${BASE_URL}/orders/`, {
-    credentials: "include",
+  const response = await fetchWithAutoRefresh("/orders/", {
     headers: buildAuthHeaders(false),
-    cache: "no-store",
-  });
+  }, true);
   if (!response.ok) {
     throw new Error("حدث خطأ أثناء جلب الطلبات من الخادم");
   }
@@ -339,14 +382,13 @@ export async function createOrder(orderData: Partial<Order>): Promise<Order> {
     })) || []
   };
 
-  const response = await fetch(`${BASE_URL}/orders/`, {
+  const response = await fetchWithAutoRefresh("/orders/", {
     method: "POST",
-    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(djangoPayload),
-  });
+  }, true);
   if (!response.ok) {
     throw new Error("فشل إرسال الطلب، الرجاء المحاولة مرة أخرى");
   }
@@ -422,12 +464,11 @@ export async function createUserByAdmin(userData: {
     role: userData.role || "Customer",
   };
 
-  const response = await fetch(`${BASE_URL}/auth/register/`, {
+  const response = await fetchWithAutoRefresh("/auth/register/", {
     method: "POST",
-    credentials: "include",
     headers: buildAuthHeaders(),
     body: JSON.stringify(djangoPayload),
-  });
+  }, true);
 
   if (!response.ok) {
     throw new Error("فشل إنشاء المستخدم الجديد، تحقق من البيانات ثم حاول مرة أخرى");
@@ -444,12 +485,11 @@ export async function createUserByAdmin(userData: {
 }
 
 export async function fetchCurrentUser(): Promise<User> {
-  const response = await fetch(`${BASE_URL}/auth/me/`, {
+  const response = await fetchWithAutoRefresh("/auth/me/", {
     method: "GET",
-    credentials: "include",
     headers: buildAuthHeaders(),
     cache: "no-store",
-  });
+  }, true);
 
   if (response.status === 401 || response.status === 403) {
     throw new Error("AUTH_UNAUTHORIZED");
@@ -465,21 +505,19 @@ export async function fetchCurrentUser(): Promise<User> {
 }
 
 export async function logoutUser(): Promise<void> {
-  await fetch(`${BASE_URL}/auth/logout/`, {
+  await fetchWithAutoRefresh("/auth/logout/", {
     method: "POST",
-    credentials: "include",
     headers: buildAuthHeaders(),
-  });
+  }, true);
 }
 
 // Update order status (Admin only)
 export async function updateOrderStatus(orderId: string, updates: { status?: Order["status"] }): Promise<Order> {
-  const response = await fetch(`${BASE_URL}/orders/${orderId}/`, {
+  const response = await fetchWithAutoRefresh(`/orders/${orderId}/`, {
     method: "PATCH",
-    credentials: "include",
     headers: buildAuthHeaders(),
     body: JSON.stringify(updates),
-  });
+  }, true);
   if (!response.ok) {
     throw new Error("فشل تحديث حالة الطلب");
   }
@@ -501,7 +539,7 @@ export async function createProduct(productData: Omit<Product, "id">): Promise<P
       price: productData.price,
       image: productData.image,
     }),
-  });
+  }, true);
   if (!response.ok) {
     throw new Error("فشل إضافة المنتج الجديد");
   }
@@ -519,7 +557,7 @@ export async function updateProduct(productId: string, productData: Partial<Prod
       ...productData,
       category: productData.category_id || productData.category,
     }),
-  });
+  }, true);
   if (!response.ok) {
     throw new Error("فشل تعديل المنتج");
   }
@@ -532,7 +570,7 @@ export async function deleteProduct(productId: string): Promise<boolean> {
     `/products/products/${productId}/`,
   ], {
     method: "DELETE",
-  });
+  }, true);
   if (!response.ok) {
     throw new Error("فشل حذف المنتج");
   }
@@ -540,16 +578,15 @@ export async function deleteProduct(productId: string): Promise<boolean> {
 }
 
 export async function createCategory(categoryData: { name: string; image?: string }): Promise<Category> {
-  const response = await fetch(`${BASE_URL}/categories/`, {
+  const response = await fetchWithAutoRefresh("/categories/", {
     method: "POST",
-    credentials: "include",
     headers: buildAuthHeaders(),
     body: JSON.stringify({
       name: categoryData.name,
       media_url: categoryData.image || "",
       image: categoryData.image || "",
     }),
-  });
+  }, true);
 
   if (!response.ok) {
     throw new Error("فشل إنشاء القسم");
@@ -560,16 +597,15 @@ export async function createCategory(categoryData: { name: string; image?: strin
 }
 
 export async function updateCategory(categoryId: string, categoryData: { name: string; image?: string }): Promise<Category> {
-  const response = await fetch(`${BASE_URL}/categories/${categoryId}/`, {
+  const response = await fetchWithAutoRefresh(`/categories/${categoryId}/`, {
     method: "PUT",
-    credentials: "include",
     headers: buildAuthHeaders(),
     body: JSON.stringify({
       name: categoryData.name,
       media_url: categoryData.image || "",
       image: categoryData.image || "",
     }),
-  });
+  }, true);
 
   if (!response.ok) {
     throw new Error("فشل تعديل القسم");
@@ -580,11 +616,10 @@ export async function updateCategory(categoryId: string, categoryData: { name: s
 }
 
 export async function deleteCategory(categoryId: string): Promise<void> {
-  const response = await fetch(`${BASE_URL}/categories/${categoryId}/`, {
+  const response = await fetchWithAutoRefresh(`/categories/${categoryId}/`, {
     method: "DELETE",
-    credentials: "include",
     headers: buildAuthHeaders(false),
-  });
+  }, true);
 
   if (!response.ok) {
     throw new Error("فشل حذف القسم");
