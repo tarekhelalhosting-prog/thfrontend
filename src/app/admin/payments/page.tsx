@@ -70,7 +70,7 @@ export default function PaymentsPage() {
         <SectionHeader eyebrow="Payments" title="فلاتر المدفوعات" subtitle="Paid, Pending, Failed, Cancelled" />
         <div className="flex flex-wrap gap-2 px-5 py-5">
           {filters.map((item) => (
-            <button key={item} type="button" onClick={() => setFilter(item)} className={`rounded-full border px-4 py-2 text-xs font-bold ${filter === item ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
+            <button key={item} type="button" onClick={() => setFilter(item)} className={`rounded-full border px-4 py-2 text-xs font-bold ${filter === item ? "border-slate-950 bg-green-300 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
               {item}
             </button>
           ))}

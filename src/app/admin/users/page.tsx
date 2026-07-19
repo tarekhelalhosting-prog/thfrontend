@@ -57,7 +57,7 @@ export default function UsersPage() {
       title="المستخدمون"
       subtitle="هذه الصفحة خاصة فقط بـ Admin و Moderator ولا تعرض العملاء مطلقاً."
       actions={
-        <button type="button" onClick={() => setModalOpen(true)} className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800">
+        <button type="button" onClick={() => setModalOpen(true)} className="inline-flex items-center gap-2 rounded-2xl bg-green-300 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-400">
           <Plus className="h-4 w-4" />
           <span>إضافة مستخدم إداري</span>
         </button>
@@ -107,7 +107,7 @@ export default function UsersPage() {
         footer={
           <>
             <button type="button" onClick={() => setModalOpen(false)} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700">إلغاء</button>
-            <button type="button" onClick={handleSave} className="rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white">حفظ</button>
+            <button type="button" onClick={handleSave} className="rounded-2xl bg-green-300 px-4 py-2.5 text-sm font-bold text-white">حفظ</button>
           </>
         }
       >

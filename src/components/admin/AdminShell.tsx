@@ -7,6 +7,7 @@ import {
   BadgePercent,
   CreditCard,
   FolderTree,
+  House,
   LayoutDashboard,
   Menu,
   Package,
@@ -40,6 +41,10 @@ const navItems: NavItem[] = [
 ];
 
 function isActivePath(pathname: string, href: string) {
+  if (href === "/admin") {
+    return pathname === "/admin";
+  }
+
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -134,6 +139,20 @@ export default function AdminShell({ title, subtitle, actions, children }: Admin
                 <span className="flex-1 text-right">
                   <span className="block text-sm font-bold">إضافة منتج</span>
                   <span className="block text-[11px] text-amber-100/70">فتح نموذج الفاريانت</span>
+                </span>
+              </Link>
+
+              <Link
+                href="/"
+                onClick={() => setMobileOpen(false)}
+                className="mt-2 flex items-center gap-3 rounded-2xl border border-green-300/30 bg-green-300 px-4 py-3.5 text-slate-950 transition-colors hover:bg-green-400"
+              >
+                <span className="rounded-xl bg-white/60 p-2 text-slate-950">
+                  <House className="h-4 w-4" />
+                </span>
+                <span className="flex-1 text-right">
+                  <span className="block text-sm font-bold">الرجوع للصفحة الرئيسية</span>
+                  <span className="block text-[11px] text-slate-800/80">عودة سريعة للمتجر</span>
                 </span>
               </Link>
             </nav>

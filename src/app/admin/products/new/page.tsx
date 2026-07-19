@@ -113,7 +113,7 @@ export default function NewProductPage() {
                 <label key={index} className="grid gap-2 rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm font-bold text-slate-700">
                   <span className="flex items-center gap-2"><UploadCloud className="h-4 w-4" /> صورة #{index + 1}</span>
                   <input value={item} onChange={(event) => updateGalleryItem(index, event.target.value)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-normal outline-none focus:border-amber-400" placeholder="https://..." />
-                  <button type="button" onClick={() => setPrimaryImageIndex(index)} className={`rounded-2xl border px-4 py-2 text-xs font-bold ${primaryImageIndex === index ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
+                  <button type="button" onClick={() => setPrimaryImageIndex(index)} className={`rounded-2xl border px-4 py-2 text-xs font-bold ${primaryImageIndex === index ? "border-slate-950 bg-green-300 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
                     {primaryImageIndex === index ? "الصورة الرئيسية" : "تعيين كصورة رئيسية"}
                   </button>
                 </label>
@@ -160,7 +160,7 @@ export default function NewProductPage() {
               <Plus className="h-4 w-4" />
               <span>إضافة Variant</span>
             </button>
-            <button type="button" onClick={handleSave} disabled={isSaving} className="rounded-2xl bg-slate-950 px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-60">
+            <button type="button" onClick={handleSave} disabled={isSaving} className="rounded-2xl bg-green-300 px-5 py-2.5 text-sm font-bold text-white hover:bg-green-400 disabled:opacity-60">
               حفظ المنتج
             </button>
           </div>

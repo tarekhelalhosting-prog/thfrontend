@@ -1,5 +1,4 @@
-import { Product, Category, Order, OrderItem, ProductImage, ProductVariant, User } from "../types";
-import { STORAGE_KEYS, readStorageValue, removeStorageValue, writeStorageValue } from "./browser-storage";
+import { Product, Category, Order, OrderItem, Payment, ProductImage, ProductVariant, User } from "../types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
@@ -28,11 +27,6 @@ type ApiAuthResponse = {
   access_token?: string;
   refresh?: string;
   user?: ApiUser;
-};
-
-type AuthTokens = {
-  accessToken: string | null;
-  refreshToken: string | null;
 };
 
 function readStringValue(value: unknown): string {
@@ -68,51 +62,11 @@ function parseAuthPayload(payload: unknown): { user: ApiUser; token?: string } {
     token,
   };
 }
-
-function parseAuthTokens(payload: unknown): AuthTokens {
-  const record = (payload ?? {}) as Record<string, unknown>;
-
-  return {
-    accessToken:
-      readStringValue(record.access) ||
-      readStringValue(record.access_token) ||
-      readStringValue(record.token) ||
-      null,
-    refreshToken: readStringValue(record.refresh) || null,
-  };
-}
-
-function getStoredAuthTokens(): AuthTokens {
-  const accessToken = readStorageValue<string | null>(STORAGE_KEYS.authAccessToken, null);
-  const refreshToken = readStorageValue<string | null>(STORAGE_KEYS.authRefreshToken, null);
-  return { accessToken, refreshToken };
-}
-
-function storeAuthTokens(tokens: AuthTokens) {
-  if (tokens.accessToken) {
-    writeStorageValue(STORAGE_KEYS.authAccessToken, tokens.accessToken);
-  }
-
-  if (tokens.refreshToken) {
-    writeStorageValue(STORAGE_KEYS.authRefreshToken, tokens.refreshToken);
-  }
-}
-
-function clearStoredAuthTokens() {
-  removeStorageValue(STORAGE_KEYS.authAccessToken);
-  removeStorageValue(STORAGE_KEYS.authRefreshToken);
-}
-
 function buildAuthHeaders(withJson = true): HeadersInit {
-  const { accessToken } = getStoredAuthTokens();
   const headers: Record<string, string> = {};
 
   if (withJson) {
     headers["Content-Type"] = "application/json";
-  }
-
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
   }
 
   return headers;
@@ -128,6 +82,7 @@ async function fetchFromFirstAvailable(
     const response = await fetch(`${BASE_URL}${path}`, {
       ...init,
       cache: "no-store",
+      credentials: "include",
     });
 
     if (response.status === 404) {
@@ -340,7 +295,9 @@ export async function fetchProducts(): Promise<Product[]> {
 
 // Fetch all categories from Django API
 export async function fetchCategories(): Promise<Category[]> {
-  const response = await fetch(`${BASE_URL}/categories/`);
+  const response = await fetch(`${BASE_URL}/categories/`, {
+    credentials: "include",
+  });
   if (!response.ok) {
     throw new Error("حدث خطأ أثناء جلب الأقسام من الخادم");
   }
@@ -351,6 +308,7 @@ export async function fetchCategories(): Promise<Category[]> {
 // Fetch all orders (Admin only) from Django API
 export async function fetchOrders(): Promise<Order[]> {
   const response = await fetch(`${BASE_URL}/orders/`, {
+    credentials: "include",
     headers: buildAuthHeaders(false),
     cache: "no-store",
   });
@@ -383,6 +341,7 @@ export async function createOrder(orderData: Partial<Order>): Promise<Order> {
 
   const response = await fetch(`${BASE_URL}/orders/`, {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
@@ -399,6 +358,7 @@ export async function createOrder(orderData: Partial<Order>): Promise<Order> {
 export async function loginUser(credentials: { phone: string; password?: string }): Promise<{ user: User; token?: string }> {
   const response = await fetch(`${BASE_URL}/auth/login/`, {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
@@ -408,18 +368,14 @@ export async function loginUser(credentials: { phone: string; password?: string 
     throw new Error("رقم الهاتف أو كلمة المرور غير صحيحة");
   }
   const data = (await response.json()) as ApiAuthResponse;
-  const tokens = parseAuthTokens(data);
+  const parsed = parseAuthPayload(data);
+  const user = hasMeaningfulUserData(parsed.user)
+    ? mapDjangoUser(parsed.user)
+    : await fetchCurrentUser();
 
-  if (!tokens.accessToken) {
-    throw new Error("تعذر إكمال تسجيل الدخول بسبب استجابة غير متوقعة");
-  }
-
-  storeAuthTokens(tokens);
-
-  const user = await fetchCurrentUser(tokens.accessToken);
   return {
     user,
-    token: tokens.accessToken,
+    token: undefined,
   };
 }
 
@@ -435,6 +391,7 @@ export async function registerUser(userData: { first_name: string; last_name: st
 
   const response = await fetch(`${BASE_URL}/auth/register/`, {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
@@ -467,6 +424,7 @@ export async function createUserByAdmin(userData: {
 
   const response = await fetch(`${BASE_URL}/auth/register/`, {
     method: "POST",
+    credentials: "include",
     headers: buildAuthHeaders(),
     body: JSON.stringify(djangoPayload),
   });
@@ -485,19 +443,11 @@ export async function createUserByAdmin(userData: {
   return mapDjangoUser(data as ApiUser);
 }
 
-export async function fetchCurrentUser(accessTokenOverride?: string): Promise<User> {
-  const accessToken = accessTokenOverride ?? getStoredAuthTokens().accessToken;
-
-  if (!accessToken) {
-    throw new Error("AUTH_UNAUTHORIZED");
-  }
-
+export async function fetchCurrentUser(): Promise<User> {
   const response = await fetch(`${BASE_URL}/auth/me/`, {
     method: "GET",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
+    credentials: "include",
+    headers: buildAuthHeaders(),
     cache: "no-store",
   });
 
@@ -515,25 +465,18 @@ export async function fetchCurrentUser(accessTokenOverride?: string): Promise<Us
 }
 
 export async function logoutUser(): Promise<void> {
-  const { refreshToken } = getStoredAuthTokens();
-
-  if (refreshToken) {
-    await fetch(`${BASE_URL}/auth/logout/`, {
-      method: "POST",
-      headers: {
-        ...buildAuthHeaders(),
-      },
-      body: JSON.stringify({ refresh: refreshToken }),
-    });
-  }
-
-  clearStoredAuthTokens();
+  await fetch(`${BASE_URL}/auth/logout/`, {
+    method: "POST",
+    credentials: "include",
+    headers: buildAuthHeaders(),
+  });
 }
 
 // Update order status (Admin only)
 export async function updateOrderStatus(orderId: string, updates: { status?: Order["status"] }): Promise<Order> {
   const response = await fetch(`${BASE_URL}/orders/${orderId}/`, {
     method: "PATCH",
+    credentials: "include",
     headers: buildAuthHeaders(),
     body: JSON.stringify(updates),
   });
@@ -599,6 +542,7 @@ export async function deleteProduct(productId: string): Promise<boolean> {
 export async function createCategory(categoryData: { name: string; image?: string }): Promise<Category> {
   const response = await fetch(`${BASE_URL}/categories/`, {
     method: "POST",
+    credentials: "include",
     headers: buildAuthHeaders(),
     body: JSON.stringify({
       name: categoryData.name,
@@ -618,6 +562,7 @@ export async function createCategory(categoryData: { name: string; image?: strin
 export async function updateCategory(categoryId: string, categoryData: { name: string; image?: string }): Promise<Category> {
   const response = await fetch(`${BASE_URL}/categories/${categoryId}/`, {
     method: "PUT",
+    credentials: "include",
     headers: buildAuthHeaders(),
     body: JSON.stringify({
       name: categoryData.name,
@@ -637,6 +582,7 @@ export async function updateCategory(categoryId: string, categoryData: { name: s
 export async function deleteCategory(categoryId: string): Promise<void> {
   const response = await fetch(`${BASE_URL}/categories/${categoryId}/`, {
     method: "DELETE",
+    credentials: "include",
     headers: buildAuthHeaders(false),
   });
 

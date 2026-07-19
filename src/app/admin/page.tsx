@@ -140,7 +140,7 @@ export default function AdminPage() {
       <button
         type="button"
         onClick={() => router.push("/admin/products/new")}
-        className="hidden items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-slate-800 sm:flex"
+        className="hidden items-center gap-2 rounded-2xl bg-green-300 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-green-400 sm:flex"
       >
         <Sparkles className="h-4 w-4" />
         <span>إضافة منتج</span>

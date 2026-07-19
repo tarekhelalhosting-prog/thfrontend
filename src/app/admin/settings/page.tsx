@@ -23,7 +23,7 @@ export default function SettingsPage() {
             { id: "contact", label: "التواصل" },
             { id: "pages", label: "الصفحات" },
           ].map((item) => (
-            <button key={item.id} type="button" onClick={() => setTab(item.id as SettingsTab)} className={`rounded-full border px-4 py-2 text-xs font-bold ${tab === item.id ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
+            <button key={item.id} type="button" onClick={() => setTab(item.id as SettingsTab)} className={`rounded-full border px-4 py-2 text-xs font-bold ${tab === item.id ? "border-slate-950 bg-green-300 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
               {item.label}
             </button>
           ))}

@@ -128,7 +128,7 @@ export default function ProductsPage() {
       title="المنتجات"
       subtitle="جدول المنتجات مستقل بالكامل، مع زر إضافة منتج يفتح نموذج الفاريانت المنفصل."
       actions={
-        <Link href="/admin/products/new" className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-slate-800">
+        <Link href="/admin/products/new" className="inline-flex items-center gap-2 rounded-2xl bg-green-300 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-green-400">
           <Plus className="h-4 w-4" />
           <span>إضافة منتج</span>
         </Link>
@@ -149,11 +149,11 @@ export default function ProductsPage() {
           />
 
           <div className="flex flex-wrap gap-2 px-5 pt-5">
-            <button type="button" onClick={() => setCategoryFilter("all")} className={`rounded-full border px-4 py-2 text-xs font-bold ${categoryFilter === "all" ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
+            <button type="button" onClick={() => setCategoryFilter("all")} className={`rounded-full border px-4 py-2 text-xs font-bold ${categoryFilter === "all" ? "border-slate-950 bg-green-300 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
               كل التصنيفات
             </button>
             {categories.map((category) => (
-              <button key={category.id} type="button" onClick={() => setCategoryFilter(category.id)} className={`rounded-full border px-4 py-2 text-xs font-bold ${categoryFilter === category.id ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
+              <button key={category.id} type="button" onClick={() => setCategoryFilter(category.id)} className={`rounded-full border px-4 py-2 text-xs font-bold ${categoryFilter === category.id ? "border-slate-950 bg-green-300 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
                 {category.name}
               </button>
             ))}
@@ -220,7 +220,7 @@ export default function ProductsPage() {
         footer={
           <>
             <button type="button" onClick={() => setModalOpen(false)} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">إلغاء</button>
-            <button type="button" onClick={handleSave} disabled={isSaving} className="rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-60">حفظ</button>
+            <button type="button" onClick={handleSave} disabled={isSaving} className="rounded-2xl bg-green-300 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-400 disabled:opacity-60">حفظ</button>
           </>
         }
       >

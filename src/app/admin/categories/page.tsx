@@ -108,7 +108,7 @@ export default function CategoriesPage() {
       title="التصنيفات"
       subtitle="كل تصنيف يمتلك صفحة إدارة مستقلة. هنا فقط الصورة، الاسم، وعدد المنتجات التابعة له."
       actions={
-        <button type="button" onClick={openCreateModal} className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-slate-800">
+        <button type="button" onClick={openCreateModal} className="inline-flex items-center gap-2 rounded-2xl bg-green-300 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-green-400">
           <Plus className="h-4 w-4" />
           <span>إضافة تصنيف جديد</span>
         </button>
@@ -190,7 +190,7 @@ export default function CategoriesPage() {
         footer={
           <>
             <button type="button" onClick={() => setModalOpen(false)} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">إلغاء</button>
-            <button type="button" onClick={handleSave} disabled={isSaving} className="rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-60">حفظ</button>
+            <button type="button" onClick={handleSave} disabled={isSaving} className="rounded-2xl bg-green-300 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-400 disabled:opacity-60">حفظ</button>
           </>
         }
       >
