@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
 import { ShoppingCart, Heart } from "lucide-react";
-import { Product } from "../src/types";
-import { categories } from "../src/data/salondata";
+import { Category, Product } from "../src/types";
+import { categories as fallbackCategories } from "../src/data/salondata";
 
 interface ProductCardProps {
   product: Product;
@@ -10,6 +10,7 @@ interface ProductCardProps {
   isFavorite: boolean;
   onToggleFavorite: (p: Product) => void;
   onViewDetails: (p: Product) => void;
+  categories?: Category[];
 }
 
 export default function ProductCard({
@@ -17,7 +18,8 @@ export default function ProductCard({
   onAddToCart,
   isFavorite,
   onToggleFavorite,
-  onViewDetails
+  onViewDetails,
+  categories,
 }: ProductCardProps) {
   
   // Format price helper
@@ -25,7 +27,8 @@ export default function ProductCard({
     return price.toLocaleString("en-EG") + " جنيه";
   };
 
-  const categoryName = categories.find((category) => category.id === product.category)?.name;
+  const categorySource = categories?.length ? categories : fallbackCategories;
+  const categoryName = categorySource.find((category) => category.id === product.category)?.name;
 
   // WhatsApp click handler for this specific product
   const handleWhatsAppClick = (e: React.MouseEvent) => {

@@ -1,11 +1,44 @@
-import { Product, Category, Order, OrderItem, Payment, ProductImage, ProductVariant, User, Address } from "../types";
+import { Product, Category, Order, OrderItem, Payment, ProductImage, ProductVariant, ProductVariantAttribute, User, Address } from "../types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
+const CLOUDINARY_UPLOAD_ENDPOINT = "/api/cloudinary/upload";
+const PRODUCT_IMAGE_PLACEHOLDER = "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=600";
 
-type ApiProduct = Partial<Product> & {
-  images?: ProductImage[];
-  variants?: ProductVariant[];
+// Raw shapes as returned by the Django REST Framework serializers.
+// ProductImageSerializer only exposes (id, image, is_primary) and
+// ProductVariantSerializer only exposes (id, price, image, attributes) -
+// neither includes the parent FK, so those are reattached during mapping.
+type ApiProductImage = {
+  id?: string | number;
+  image?: string;
+  is_primary?: boolean;
+};
+
+type ApiProductVariantAttribute = {
+  id?: string | number;
+  attribute_type?: string;
+  value?: string;
+};
+
+type ApiProductVariant = {
+  id?: string | number;
+  price?: string | number;
+  image?: string;
+  attributes?: ApiProductVariantAttribute[];
+};
+
+type ApiProduct = Omit<Partial<Product>, "images" | "variants" | "category"> & {
+  images?: ApiProductImage[];
+  variants?: ApiProductVariant[];
   media_url?: string;
+  category?: string | number;
+};
+
+export type CloudinaryUploadResult = {
+  url: string;
+  public_id?: string;
+  width?: number;
+  height?: number;
 };
 
 type ApiUser = Partial<User>;
@@ -39,6 +72,25 @@ type ApiEnvelope<T> = {
   data?: T;
   error?: string;
   errors?: Record<string, unknown>;
+};
+
+type ProductVariantAttributePayload = {
+  attribute_type: string;
+  value: string;
+};
+
+type ProductVariantPayload = {
+  id?: string;
+  price: string | number;
+  image?: string;
+  attributes: ProductVariantAttributePayload[];
+};
+
+type ProductPayload = {
+  name: string;
+  description: string;
+  category: string | number;
+  variants?: ProductVariantPayload[];
 };
 
 function isAddressLikeRecord(value: unknown): value is ApiAddress {
@@ -146,6 +198,99 @@ function buildAuthHeaders(withJson = true): HeadersInit {
   }
 
   return headers;
+}
+
+export async function uploadProductImageToCloudinary(file: File): Promise<CloudinaryUploadResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(CLOUDINARY_UPLOAD_ENDPOINT, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let message = "تعذر رفع الصورة إلى Cloudinary";
+
+    try {
+      const payload = await response.json() as { message?: string };
+      if (payload.message) {
+        message = payload.message;
+      }
+    } catch {
+      // keep default error message
+    }
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<CloudinaryUploadResult>;
+}
+
+export async function createProductImage(payload: {
+  product_id: string;
+  image: string;
+  is_primary?: boolean;
+}): Promise<ProductImage> {
+  const response = await fetchWithAutoRefresh("/product-images/", {
+    method: "POST",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify({
+      product_id: payload.product_id,
+      image: payload.image,
+      is_primary: payload.is_primary ?? false,
+    }),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر حفظ صورة المنتج");
+  }
+
+  const data = await response.json();
+
+  return {
+    id: readStringValue(data.id) || `img-${Math.random().toString(36).slice(2, 9)}`,
+    product_id: readStringValue(data.product_id) || payload.product_id,
+    media_url: readStringValue(data.image) || readStringValue(data.media_url) || payload.image,
+    is_primary: Boolean(data.is_primary ?? payload.is_primary),
+    sort_order: Number(data.sort_order ?? 1),
+  };
+}
+
+export async function updateProductImage(
+  imageId: string,
+  updates: { is_primary?: boolean; image?: string }
+): Promise<ProductImage> {
+  const response = await fetchWithAutoRefresh(`/product-images/${imageId}/`, {
+    method: "PATCH",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify(updates),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر تحديث صورة المنتج");
+  }
+
+  const data = await response.json();
+
+  return {
+    id: readStringValue(data.id) || imageId,
+    product_id: readStringValue(data.product_id),
+    media_url: readStringValue(data.image) || readStringValue(data.media_url) || updates.image || "",
+    is_primary: Boolean(data.is_primary ?? updates.is_primary),
+    sort_order: Number(data.sort_order ?? 0),
+  };
+}
+
+export async function deleteProductImage(imageId: string): Promise<void> {
+  const response = await fetchWithAutoRefresh(`/product-images/${imageId}/`, {
+    method: "DELETE",
+    headers: buildAuthHeaders(false),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر حذف صورة المنتج");
+  }
 }
 
 let refreshRequest: Promise<boolean> | null = null;
@@ -278,6 +423,46 @@ function mapDjangoOrderItem(item: ApiOrderItem): OrderItem {
 
 // --- MAPPING UTILITIES ---
 
+// ProductImageSerializer returns { id, image, is_primary } with no FK or
+// ordering field, so `product_id` and `sort_order` are reattached here.
+function mapDjangoProductImage(rawImage: ApiProductImage, productId: string, index: number): ProductImage {
+  return {
+    id: readStringValue(rawImage?.id) || `img-${productId}-${index}`,
+    product_id: productId,
+    media_url: readStringValue(rawImage?.image),
+    is_primary: Boolean(rawImage?.is_primary),
+    sort_order: index,
+  };
+}
+
+// ProductVariantAttributeSerializer returns { id, attribute_type, value }
+// with no FK back to the variant, so `product_variant_id` is reattached here.
+function mapDjangoVariantAttribute(rawAttribute: ApiProductVariantAttribute, variantId: string): ProductVariantAttribute {
+  return {
+    id: Number(rawAttribute?.id) || 0,
+    product_variant_id: variantId,
+    attribute_type: readStringValue(rawAttribute?.attribute_type),
+    value: readStringValue(rawAttribute?.value),
+  };
+}
+
+// ProductVariantSerializer returns { id, price, image, attributes } with no
+// FK back to the product, so `product_id` is reattached here, and `image` is
+// remapped to the UI-facing `media_url` field.
+function mapDjangoProductVariant(rawVariant: ApiProductVariant, productId: string): ProductVariant {
+  const variantId = readStringValue(rawVariant?.id) || `variant-${productId}-${Math.random().toString(36).slice(2, 9)}`;
+
+  return {
+    id: variantId,
+    product_id: productId,
+    price: Number(rawVariant?.price ?? 0),
+    media_url: readStringValue(rawVariant?.image) || null,
+    attributes: Array.isArray(rawVariant?.attributes)
+      ? rawVariant.attributes.map((attribute) => mapDjangoVariantAttribute(attribute, variantId))
+      : [],
+  };
+}
+
 export function mapDjangoProduct(djangoProd: ApiProduct): Product {
   if (!djangoProd) {
     return {
@@ -290,23 +475,44 @@ export function mapDjangoProduct(djangoProd: ApiProduct): Product {
       category: "",
     };
   }
-  
+
+  const productId = readStringValue(djangoProd.id);
+
+  const variants: ProductVariant[] = Array.isArray(djangoProd.variants)
+    ? djangoProd.variants.map((variant) => mapDjangoProductVariant(variant, productId))
+    : [];
+
+  // The backend has no explicit image ordering field, so images are mapped
+  // in the order returned, then re-sorted with the primary image first so
+  // the storefront gallery and product card thumbnail stay consistent.
+  const images: ProductImage[] = (Array.isArray(djangoProd.images) ? djangoProd.images : [])
+    .map((image, index) => mapDjangoProductImage(image, productId, index))
+    .sort((left, right) => Number(right.is_primary) - Number(left.is_primary))
+    .map((image, index) => ({ ...image, sort_order: index }));
+
   // Extract primary image or fallback to first, or generic placeholder
-  const primaryImg = djangoProd.images?.find((img) => img.is_primary) || djangoProd.images?.[0];
-  const imageUrl = primaryImg?.media_url || djangoProd.media_url || djangoProd.image || "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=600";
-  
+  const primaryImg = images.find((img) => img.is_primary) || images[0];
+  const imageUrl = primaryImg?.media_url || djangoProd.media_url || PRODUCT_IMAGE_PLACEHOLDER;
+
   // Extract price from first variant, or use flat price
-  const price = djangoProd.variants?.[0]?.price || djangoProd.price || 0;
-  
+  const price = variants[0]?.price ?? Number(djangoProd.price ?? 0);
+
+  // `category` is a PrimaryKeyRelatedField on the backend (just the id), and
+  // `category_id` is never actually sent by the API, so both UI-facing
+  // fields are derived from the same `category` value here.
+  const categoryValue = readStringValue(djangoProd.category);
+
   return {
     ...djangoProd,
-    id: djangoProd.id || "",
-    category_id: djangoProd.category_id || "",
+    id: productId,
+    category_id: categoryValue,
     name: djangoProd.name || "",
     description: djangoProd.description || "",
+    images,
+    variants,
     price: Number(price),
     image: imageUrl,
-    category: djangoProd.category || djangoProd.category_id || "",
+    category: categoryValue,
   };
 }
 
@@ -421,16 +627,47 @@ export function mapDjangoAddress(djangoAddress: ApiAddress): Address {
 
 // --- API ACTIONS ---
 
-// Fetch all products from Django API
+// Fetch all products from Django API, following pagination until every page is collected
 export async function fetchProducts(): Promise<Product[]> {
-  const response = await fetchFromFirstAvailable([
-    "/products/products/",
-  ]);
-  if (!response.ok) {
-    throw new Error("حدث خطأ أثناء جلب المنتجات من الخادم");
+  const collected: ApiProduct[] = [];
+  let nextPath: string | null = "/products/?page_size=100";
+
+  while (nextPath) {
+    const response = await fetchFromFirstAvailable([nextPath]);
+    if (!response.ok) {
+      throw new Error("حدث خطأ أثناء جلب المنتجات من الخادم");
+    }
+
+    const data = await response.json();
+
+    if (Array.isArray(data)) {
+      collected.push(...data);
+      break;
+    }
+
+    if (data && Array.isArray(data.results)) {
+      collected.push(...data.results);
+      const nextUrl = typeof data.next === "string" ? data.next : null;
+      nextPath = nextUrl ? nextUrl.slice(nextUrl.indexOf("/products/")) : null;
+    } else {
+      break;
+    }
   }
+
+  return collected.map(mapDjangoProduct);
+}
+
+export async function fetchProductById(productId: string): Promise<Product> {
+  const response = await fetchFromFirstAvailable([
+    `/products/${productId}/`,
+  ]);
+
+  if (!response.ok) {
+    throw new Error("تعذر جلب بيانات المنتج");
+  }
+
   const data = await response.json();
-  return Array.isArray(data) ? data.map(mapDjangoProduct) : [];
+  return mapDjangoProduct(data);
 }
 
 // Fetch all categories from Django API
@@ -757,18 +994,17 @@ export async function updateOrderStatus(orderId: string, updates: { status?: Ord
 }
 
 // Product CRUD (Admin only)
-export async function createProduct(productData: Omit<Product, "id">): Promise<Product> {
+export async function createProduct(productData: ProductPayload): Promise<Product> {
   const response = await fetchFromFirstAvailable([
-    "/products/products/",
+    "/products/",
   ], {
     method: "POST",
     headers: buildAuthHeaders(),
     body: JSON.stringify({
       name: productData.name,
       description: productData.description,
-      category: productData.category_id || productData.category,
-      price: productData.price,
-      image: productData.image,
+      category: productData.category,
+      variants: productData.variants || [],
     }),
   }, true);
   if (!response.ok) {
@@ -778,15 +1014,15 @@ export async function createProduct(productData: Omit<Product, "id">): Promise<P
   return mapDjangoProduct(data);
 }
 
-export async function updateProduct(productId: string, productData: Partial<Product>): Promise<Product> {
+export async function updateProduct(productId: string, productData: Partial<ProductPayload>): Promise<Product> {
   const response = await fetchFromFirstAvailable([
-    `/products/products/${productId}/`,
+    `/products/${productId}/`,
   ], {
     method: "PUT",
     headers: buildAuthHeaders(),
     body: JSON.stringify({
       ...productData,
-      category: productData.category_id || productData.category,
+      category: productData.category,
     }),
   }, true);
   if (!response.ok) {
@@ -798,7 +1034,7 @@ export async function updateProduct(productId: string, productData: Partial<Prod
 
 export async function deleteProduct(productId: string): Promise<boolean> {
   const response = await fetchFromFirstAvailable([
-    `/products/products/${productId}/`,
+    `/products/${productId}/`,
   ], {
     method: "DELETE",
   }, true);
@@ -806,6 +1042,40 @@ export async function deleteProduct(productId: string): Promise<boolean> {
     throw new Error("فشل حذف المنتج");
   }
   return true;
+}
+
+// Soft-deleted products recycle bin (Admin only)
+export async function fetchDeletedProducts(): Promise<Product[]> {
+  const response = await fetchWithAutoRefresh("/products/deleted/", {
+    headers: buildAuthHeaders(false),
+  }, true);
+  if (!response.ok) {
+    throw new Error("تعذر جلب المنتجات المحذوفة");
+  }
+  const data = await response.json();
+  const results = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+  return results.map(mapDjangoProduct);
+}
+
+export async function restoreProduct(productId: string): Promise<Product> {
+  const response = await fetchWithAutoRefresh(`/products/${productId}/restore/`, {
+    method: "PATCH",
+    headers: buildAuthHeaders(false),
+  }, true);
+  if (!response.ok) {
+    throw new Error("فشل استرجاع المنتج");
+  }
+  return fetchProductById(productId);
+}
+
+export async function hardDeleteProduct(productId: string): Promise<void> {
+  const response = await fetchWithAutoRefresh(`/products/${productId}/hard-delete/`, {
+    method: "DELETE",
+    headers: buildAuthHeaders(false),
+  }, true);
+  if (!response.ok) {
+    throw new Error("فشل الحذف النهائي للمنتج");
+  }
 }
 
 export async function createCategory(categoryData: { name: string; image?: string }): Promise<Category> {

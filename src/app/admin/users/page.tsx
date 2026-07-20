@@ -54,7 +54,7 @@ export default function UsersPage() {
 
   return (
     <AdminShell
-      title="المستخدمون"
+      title="المستخدمين الإداريين"
       subtitle="هذه الصفحة خاصة فقط بـ Admin و Moderator ولا تعرض العملاء مطلقاً."
       actions={
         <button type="button" onClick={() => setModalOpen(true)} className="inline-flex items-center gap-2 rounded-2xl bg-green-300 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-400">

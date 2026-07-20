@@ -1,33 +1,40 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowRight, ShoppingCart } from "lucide-react";
-import { products, categories } from "../../../data/salondata";
+import { categories as fallbackCategories, products as fallbackProducts } from "../../../data/salondata";
 import Header from "../../../../components/Header";
 import Footer from "../../../../components/Footer";
 import CartDrawer from "../../../../components/CartDrawer";
 import AccountModal from "../../../../components/AccountModal";
 import CheckoutModal from "../../../../components/CheckoutModal";
-import { CartItem, Product } from "../../../types";
+import { CartItem, Product, ProductVariant } from "../../../types";
 import { STORAGE_KEYS } from "../../../lib/browser-storage";
 import { usePersistentLocalState } from "../../../hooks/usePersistentLocalState";
 import { useAuthSession } from "../../../hooks/useAuthSession";
+import { fetchCategories, fetchProductById, fetchProducts } from "../../../lib/api";
+import { getCartLineKey } from "../../../lib/cart";
 
 function ProductDetailsContent({
   product,
+  categories,
+  allProducts,
   onAddToCart,
 }: {
   product: Product;
-  onAddToCart: (product: Product, quantity: number) => void;
+  categories: typeof fallbackCategories;
+  allProducts: Product[];
+  onAddToCart: (product: Product, quantity: number, variant: ProductVariant | null) => void;
 }) {
   const router = useRouter();
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(product.image);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(product.variants?.[0]?.id ?? null);
 
   const formatPrice = (price: number) => `${price.toLocaleString("en-EG")} جنيه`;
 
-  const relatedProducts = products
+  const relatedProducts = allProducts
     .filter((item) => item.category === product.category && item.id !== product.id)
     .slice(0, 4);
 
@@ -38,8 +45,23 @@ function ProductDetailsContent({
         .map((image) => image.media_url)
     : [product.image];
   const categoryName = categories.find((category) => category.id === product.category)?.name || "غير محدد";
-  const variantsCount = product.variants?.length || 0;
+  const variants = product.variants || [];
+  const selectedVariant = variants.find((variant) => variant.id === selectedVariantId) || variants[0] || null;
+  const displayPrice = selectedVariant?.price ?? product.price;
+  const variantsCount = variants.length;
   const imagesCount = product.images?.length || 1;
+
+  const handleSelectVariant = (variant: ProductVariant) => {
+    setSelectedVariantId(variant.id);
+    if (variant.media_url) {
+      setActiveImage(variant.media_url);
+    }
+  };
+
+  const describeVariant = (variant: ProductVariant) =>
+    variant.attributes?.length
+      ? variant.attributes.map((attribute) => `${attribute.attribute_type}: ${attribute.value}`).join(" / ")
+      : `نسخة #${variant.id}`;
 
   return (
     <div className="bg-dark-bg text-gray-100 py-5 sm:py-10 px-3 sm:px-6 lg:px-8 font-sans text-right">
@@ -95,7 +117,7 @@ function ProductDetailsContent({
             <div className="p-4 rounded-2xl bg-dark-card border border-dark-border space-y-2">
               <div className="flex flex-wrap items-baseline gap-3">
                 <span className="text-2xl sm:text-3xl font-black text-gold-400 font-mono">
-                  {formatPrice(product.price)}
+                  {formatPrice(displayPrice)}
                 </span>
               </div>
 
@@ -122,6 +144,32 @@ function ProductDetailsContent({
               </p>
             </div>
 
+            {variants.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-xs sm:text-sm font-bold text-gray-300">اختر النسخة المطلوبة:</h3>
+                <div className="flex flex-wrap gap-2">
+                  {variants.map((variant) => {
+                    const isActive = selectedVariant?.id === variant.id;
+                    return (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        onClick={() => handleSelectVariant(variant)}
+                        className={`rounded-xl border px-3 py-2 text-right text-xs font-bold transition-colors ${
+                          isActive
+                            ? "border-gold-400 bg-gold-400/10 text-gold-400"
+                            : "border-dark-border bg-dark-card text-gray-300 hover:border-gold-400/60"
+                        }`}
+                      >
+                        <span className="block">{describeVariant(variant)}</span>
+                        <span className="mt-0.5 block text-[10px] text-gray-500">{formatPrice(variant.price)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="border-t border-b border-dark-border/60 py-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
               <div className="flex items-center justify-between sm:justify-start gap-3 bg-dark-card border border-dark-border rounded-xl p-1 shrink-0">
                 <button
@@ -142,7 +190,7 @@ function ProductDetailsContent({
               </div>
 
               <button
-                onClick={() => onAddToCart(product, quantity)}
+                onClick={() => onAddToCart(product, quantity, selectedVariant)}
                 className="flex-grow flex items-center justify-center gap-2.5 bg-gradient-to-r from-gold-400 to-gold-500 hover:from-gold-500 hover:to-gold-600 text-dark-bg font-black py-3.5 px-6 rounded-xl shadow-lg transition-all text-xs sm:text-sm"
               >
                 <ShoppingCart size={18} />
@@ -155,11 +203,11 @@ function ProductDetailsContent({
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[10px] text-gray-500">سعر القطعة</p>
-                    <p className="text-sm font-black text-gold-400">{formatPrice(product.price)}</p>
+                    <p className="text-sm font-black text-gold-400">{formatPrice(displayPrice)}</p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => onAddToCart(product, quantity)}
+                    onClick={() => onAddToCart(product, quantity, selectedVariant)}
                     className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-gold-400 to-gold-500 text-dark-bg font-black py-3 px-4 rounded-xl text-xs"
                   >
                     <ShoppingCart size={16} />
@@ -214,25 +262,76 @@ function ProductDetailsContent({
 export default function ProductDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const product = products.find((item) => item.id === params.id);
   const { currentUser, login, logout, isHydrated: isUserHydrated } = useAuthSession();
   const { value: cart, setValue: setCart } = usePersistentLocalState<CartItem[]>(STORAGE_KEYS.cart, []);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>(fallbackProducts);
+  const [catalogCategories, setCatalogCategories] = useState(fallbackCategories);
+  const [activeProduct, setActiveProduct] = useState<Product | null>(null);
+  const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const hydratedUser = isUserHydrated ? currentUser : null;
   const hydratedCart = cart;
 
-  const handleAddToCart = (nextProduct: Product, quantity = 1) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const [productResult, productsResult, categoriesResult] = await Promise.allSettled([
+          fetchProductById(params.id),
+          fetchProducts(),
+          fetchCategories(),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        const nextProducts = productsResult.status === "fulfilled" && productsResult.value.length > 0
+          ? productsResult.value
+          : fallbackProducts;
+        const nextCategories = categoriesResult.status === "fulfilled" && categoriesResult.value.length > 0
+          ? categoriesResult.value
+          : fallbackCategories;
+        const nextProduct = productResult.status === "fulfilled"
+          ? productResult.value
+          : nextProducts.find((item) => item.id === params.id) ?? fallbackProducts.find((item) => item.id === params.id) ?? null;
+
+        setCatalogProducts(nextProducts);
+        setCatalogCategories(nextCategories);
+        setActiveProduct(nextProduct);
+      } catch {
+        if (!cancelled) {
+          setCatalogProducts(fallbackProducts);
+          setCatalogCategories(fallbackCategories);
+          setActiveProduct(fallbackProducts.find((item) => item.id === params.id) ?? null);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsCatalogLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
+
+  const handleAddToCart = (nextProduct: Product, quantity = 1, variant: ProductVariant | null = null) => {
     setCart((currentCart) => {
-      const matchingItem = currentCart.find((item) => item.product.id === nextProduct.id);
+      const nextItem: CartItem = { product: nextProduct, quantity, selectedVariant: variant ?? undefined };
+      const nextLineKey = getCartLineKey(nextItem);
+      const matchingItem = currentCart.find((item) => getCartLineKey(item) === nextLineKey);
       const updatedCart = matchingItem
         ? currentCart.map((item) =>
-            item.product.id === nextProduct.id
+            getCartLineKey(item) === nextLineKey
               ? { ...item, quantity: item.quantity + quantity }
               : item
           )
-        : [...currentCart, { product: nextProduct, quantity }];
+        : [...currentCart, nextItem];
       return updatedCart;
     });
 
@@ -259,7 +358,18 @@ export default function ProductDetailPage() {
     router.push(queryString ? `/?${queryString}` : "/");
   };
 
-  if (!product) {
+  if (isCatalogLoading) {
+    return (
+      <div className="min-h-screen bg-dark-bg text-gray-100 flex items-center justify-center px-4">
+        <div className="text-center space-y-4">
+          <h1 className="text-2xl font-black text-white">جاري تحميل المنتج</h1>
+          <p className="text-sm text-gray-400">نحاول جلب بيانات المنتج من الخادم الآن.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!activeProduct) {
     return (
       <div className="min-h-screen bg-dark-bg text-gray-100 flex items-center justify-center px-4">
         <div className="text-center space-y-4">
@@ -289,18 +399,24 @@ export default function ProductDetailPage() {
         onAdminClick={() => router.push("/admin")}
         searchTerm=""
         onSearchChange={(value) => navigateToStore("all", value)}
-        selectedCategory={product.category}
+        selectedCategory={activeProduct.category}
         onCategorySelect={(categoryId) => navigateToStore(categoryId)}
-        categories={categories}
+        categories={catalogCategories}
         onContactClick={handleWhatsAppClick}
       />
 
       <main className="flex-grow">
-        <ProductDetailsContent key={product.id} product={product} onAddToCart={handleAddToCart} />
+        <ProductDetailsContent
+          key={activeProduct.id}
+          product={activeProduct}
+          categories={catalogCategories}
+          allProducts={catalogProducts}
+          onAddToCart={handleAddToCart}
+        />
       </main>
 
       <Footer
-        categories={categories}
+        categories={catalogCategories}
         onCategorySelect={(categoryId) => navigateToStore(categoryId)}
         onContactClick={handleWhatsAppClick}
       />
@@ -312,13 +428,13 @@ export default function ProductDetailPage() {
         onUpdateQuantity={(id: string, delta: number) => {
           const updatedCart = hydratedCart
             .map((item) =>
-              item.product.id === id ? { ...item, quantity: item.quantity + delta } : item
+              getCartLineKey(item) === id ? { ...item, quantity: item.quantity + delta } : item
             )
             .filter((item) => item.quantity > 0);
           setCart(updatedCart);
         }}
         onRemoveItem={(id: string) => {
-          const updatedCart = hydratedCart.filter((item) => item.product.id !== id);
+          const updatedCart = hydratedCart.filter((item) => getCartLineKey(item) !== id);
           setCart(updatedCart);
         }}
         onCheckout={() => {

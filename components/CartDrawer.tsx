@@ -2,6 +2,7 @@
 import React from "react";
 import { X, Trash2, Plus, Minus, ShoppingBag, ArrowLeft } from "lucide-react";
 import { CartItem } from "../src/types";
+import { getCartLineKey, getCartItemUnitPrice, getCartItemImage, describeCartItemVariant } from "../src/lib/cart";
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -27,7 +28,7 @@ export default function CartDrawer({
   };
 
   // Calculations
-  const subtotal = cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+  const subtotal = cartItems.reduce((acc, item) => acc + getCartItemUnitPrice(item) * item.quantity, 0);
   const total = subtotal;
 
   return (
@@ -79,15 +80,19 @@ export default function CartDrawer({
                 </button>
               </div>
             ) : (
-              cartItems.map((item) => (
+              cartItems.map((item) => {
+                const lineKey = getCartLineKey(item);
+                const variantDescription = describeCartItemVariant(item);
+                const unitPrice = getCartItemUnitPrice(item);
+                return (
                 <div
-                  key={item.product.id}
+                  key={lineKey}
                   className="flex items-start sm:items-center gap-3 sm:gap-4 p-3 rounded-xl bg-dark-card border border-dark-border"
                 >
                   {/* Thumbnail */}
                   <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border border-dark-border shrink-0">
                     <img
-                      src={item.product.image}
+                      src={getCartItemImage(item)}
                       alt={item.product.name}
                       className="w-full h-full object-cover"
                     />
@@ -98,15 +103,20 @@ export default function CartDrawer({
                     <h4 className="text-xs sm:text-sm font-bold text-gray-200 line-clamp-1">
                       {item.product.name}
                     </h4>
+                    {variantDescription && (
+                      <span className="text-[10px] text-gray-500 mt-0.5 block">
+                        {variantDescription}
+                      </span>
+                    )}
                     <span className="text-xs font-bold text-gold-400 mt-1 block">
-                      {formatPrice(item.product.price)}
+                      {formatPrice(unitPrice)}
                     </span>
 
                     {/* Quantity Controls */}
                     <div className="flex items-center gap-2 mt-2">
                       <div className="flex items-center bg-dark-bg border border-dark-border rounded-lg p-0.5">
                         <button
-                          onClick={() => onUpdateQuantity(item.product.id, -1)}
+                          onClick={() => onUpdateQuantity(lineKey, -1)}
                           className="p-1 text-gray-400 hover:text-white"
                           title="تقليل الكمية"
                         >
@@ -116,7 +126,7 @@ export default function CartDrawer({
                           {item.quantity}
                         </span>
                         <button
-                          onClick={() => onUpdateQuantity(item.product.id, 1)}
+                          onClick={() => onUpdateQuantity(lineKey, 1)}
                           className="p-1 text-gray-400 hover:text-white"
                           title="زيادة الكمية"
                         >
@@ -126,7 +136,7 @@ export default function CartDrawer({
 
                       {/* Delete Icon */}
                       <button
-                        onClick={() => onRemoveItem(item.product.id)}
+                        onClick={() => onRemoveItem(lineKey)}
                         className="p-1 text-gray-500 hover:text-red-400 transition-colors"
                         title="حذف المنتج من السلة"
                       >
@@ -137,11 +147,12 @@ export default function CartDrawer({
 
                   {/* Individual Item Subtotal */}
                   <div className="text-left font-bold text-xs text-gray-200 shrink-0 pt-0.5 sm:pt-0">
-                    <span className="hidden sm:inline">{formatPrice(item.product.price * item.quantity)}</span>
-                    <span className="sm:hidden text-[10px]">{formatPrice(item.product.price * item.quantity)}</span>
+                    <span className="hidden sm:inline">{formatPrice(unitPrice * item.quantity)}</span>
+                    <span className="sm:hidden text-[10px]">{formatPrice(unitPrice * item.quantity)}</span>
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
 

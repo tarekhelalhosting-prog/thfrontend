@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { X, CheckCircle2, Phone, Calendar, ArrowRight, ClipboardCheck, CreditCard, ShieldAlert, Coins } from "lucide-react";
 import { CartItem, SalonBundle, Order, User } from "../src/types";
+import { getCartLineKey, getCartItemUnitPrice, describeCartItemVariant } from "../src/lib/cart";
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -55,7 +56,7 @@ export default function CheckoutModal({
   // Calculations
   const subtotal = selectedBundle 
     ? selectedBundle.price 
-    : cartItems.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+    : cartItems.reduce((acc, item) => acc + getCartItemUnitPrice(item) * item.quantity, 0);
   const total = subtotal;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -115,13 +116,17 @@ export default function CheckoutModal({
       ? [{
           productId: selectedBundle.id,
           productName: selectedBundle.name,
+          variantId: null as string | null,
+          variantDescription: "",
           price: selectedBundle.price,
           quantity: 1
         }]
       : cartItems.map(item => ({
           productId: item.product.id,
           productName: item.product.name,
-          price: item.product.price,
+          variantId: item.selectedVariant?.id || null,
+          variantDescription: describeCartItemVariant(item),
+          price: getCartItemUnitPrice(item),
           quantity: item.quantity
         }));
 
@@ -146,9 +151,9 @@ export default function CheckoutModal({
       items: items.map(item => ({
         id: Math.random().toString(36).substr(2, 9),
         order_id: orderNo,
-        product_variant_id: item.productId,
+        product_variant_id: item.variantId || item.productId,
         product_name: item.productName,
-        variant_description: "Default",
+        variant_description: item.variantDescription || "Default",
         price: item.price,
         quantity: item.quantity,
         subtotal: item.price * item.quantity
@@ -187,7 +192,7 @@ export default function CheckoutModal({
       messageText += `- ${selectedBundle.name} (عدد 1) بسعر: ${formatPrice(selectedBundle.price)}\n`;
     } else {
       cartItems.forEach((item, index) => {
-        messageText += `${index + 1}. ${item.product.name} (الكمية: ${item.quantity}) - بسعر: ${formatPrice(item.product.price * item.quantity)}\n`;
+        messageText += `${index + 1}. ${item.product.name} (الكمية: ${item.quantity}) - بسعر: ${formatPrice(getCartItemUnitPrice(item) * item.quantity)}\n`;
       });
     }
 
@@ -538,10 +543,15 @@ export default function CheckoutModal({
                   </div>
                 ) : (
                   cartItems.map((item) => (
-                    <div key={item.product.id} className="flex justify-between items-center text-xs">
-                      <span className="text-gray-300 block truncate max-w-[150px]">{item.product.name}</span>
+                    <div key={getCartLineKey(item)} className="flex justify-between items-center text-xs">
+                      <span className="text-gray-300 block truncate max-w-[150px]">
+                        {item.product.name}
+                        {describeCartItemVariant(item) && (
+                          <span className="text-gray-500"> ({describeCartItemVariant(item)})</span>
+                        )}
+                      </span>
                       <span className="text-gold-400 font-bold font-mono">
-                        {item.quantity} x {formatPrice(item.product.price)}
+                        {item.quantity} x {formatPrice(getCartItemUnitPrice(item))}
                       </span>
                     </div>
                   ))

@@ -1,0 +1,375 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Image as ImageIcon, Loader2, Plus, Trash2 } from "lucide-react";
+import { createProduct, updateProduct } from "@/lib/api";
+import { Category, Product } from "@/types";
+import { Panel, SectionHeader } from "@/components/admin/admin-kit";
+
+type ProductVariantAttributeDraft = {
+  id: string;
+  attribute_type: string;
+  value: string;
+};
+
+type VariantDraft = {
+  id: string;
+  price: string;
+  existingImage?: string;
+  attributes: ProductVariantAttributeDraft[];
+};
+
+type ProductManagementFormProps = {
+  mode: "create" | "edit";
+  categories: Category[];
+  initialProduct?: Product | null;
+  defaultCategoryId?: string;
+};
+
+function makeId(prefix: string) {
+  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function makeEmptyAttribute(): ProductVariantAttributeDraft {
+  return {
+    id: makeId("attribute"),
+    attribute_type: "",
+    value: "",
+  };
+}
+
+function makeEmptyVariant(): VariantDraft {
+  return {
+    id: makeId("variant"),
+    price: "",
+    attributes: [makeEmptyAttribute()],
+  };
+}
+
+function normalizeAttributeType(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function buildAttributeKey(attributes: ProductVariantAttributeDraft[]) {
+  return attributes
+    .map((attribute) => `${normalizeAttributeType(attribute.attribute_type)}=${attribute.value.trim().toLowerCase()}`)
+    .sort()
+    .join("|");
+}
+
+function mapVariants(product: Product): VariantDraft[] {
+  if (!product.variants || product.variants.length === 0) {
+    return [makeEmptyVariant()];
+  }
+
+  return product.variants.map((variant) => {
+    const attributeSource = (variant.attributes || []) as Array<{ id?: number; type?: string; attribute_type?: string; value?: string }>;
+
+    return {
+      id: variant.id || makeId("variant"),
+      price: String(variant.price ?? ""),
+      existingImage: variant.media_url || undefined,
+      attributes: attributeSource.length > 0
+        ? attributeSource.map((attribute) => ({
+            id: makeId("attribute"),
+            attribute_type: attribute.attribute_type || attribute.type || "",
+            value: attribute.value || "",
+          }))
+        : [makeEmptyAttribute()],
+    };
+  });
+}
+
+function phaseLabel(mode: "create" | "edit") {
+  return mode === "create" ? "إضافة منتج" : "تعديل المنتج";
+}
+
+export default function ProductManagementForm({ mode, categories, initialProduct, defaultCategoryId }: ProductManagementFormProps) {
+  const router = useRouter();
+  const [name, setName] = useState(() => initialProduct?.name || "");
+  const [description, setDescription] = useState(() => initialProduct?.description || "");
+  const [categoryId, setCategoryId] = useState(() => initialProduct?.category_id || initialProduct?.category || defaultCategoryId || "");
+  const [variants, setVariants] = useState<VariantDraft[]>(() => (initialProduct ? mapVariants(initialProduct) : [makeEmptyVariant()]));
+  const [formError, setFormError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const effectiveCategoryId = categoryId || defaultCategoryId || categories[0]?.id || "";
+
+  const updateVariant = (variantId: string, updater: (variant: VariantDraft) => VariantDraft) => {
+    setVariants((current) => current.map((variant) => (variant.id === variantId ? updater(variant) : variant)));
+  };
+
+  const addVariant = () => {
+    setVariants((current) => [...current, makeEmptyVariant()]);
+  };
+
+  const removeVariant = (variantId: string) => {
+    setVariants((current) => (current.length > 1 ? current.filter((variant) => variant.id !== variantId) : current));
+  };
+
+  const validateForm = () => {
+    if (!name.trim() || !description.trim() || !effectiveCategoryId) {
+      throw new Error("يرجى إدخال الاسم والوصف والتصنيف.");
+    }
+
+    if (variants.length === 0) {
+      throw new Error("يرجى إضافة Variant واحد على الأقل.");
+    }
+
+    const seenCombos = new Set<string>();
+
+    for (const variant of variants) {
+      const parsedPrice = Number(variant.price);
+      if (!variant.price.trim() || Number.isNaN(parsedPrice) || parsedPrice <= 0) {
+        throw new Error("كل Variant يحتاج سعراً صالحاً أكبر من صفر.");
+      }
+
+      const normalizedAttributes = variant.attributes.filter((attribute) => attribute.attribute_type.trim() || attribute.value.trim());
+      if (normalizedAttributes.length === 0) {
+        throw new Error("كل Variant يجب أن يحتوي على Attribute واحد على الأقل.");
+      }
+
+      const duplicateType = normalizedAttributes.some((attribute, index) => {
+        const currentType = normalizeAttributeType(attribute.attribute_type);
+        return currentType && normalizedAttributes.findIndex((item) => normalizeAttributeType(item.attribute_type) === currentType) !== index;
+      });
+
+      if (duplicateType) {
+        throw new Error("لا يمكن تكرار attribute_type داخل نفس Variant.");
+      }
+
+      const missingFields = normalizedAttributes.some((attribute) => !attribute.attribute_type.trim() || !attribute.value.trim());
+      if (missingFields) {
+        throw new Error("attribute_type و value لا يمكن أن يكونا فارغين.");
+      }
+
+      const comboKey = buildAttributeKey(normalizedAttributes);
+      if (seenCombos.has(comboKey)) {
+        throw new Error("يوجد Variant مكرر بنفس مجموعة attributes.");
+      }
+
+      seenCombos.add(comboKey);
+    }
+  };
+
+  const buildProductPayload = () => ({
+    name: name.trim(),
+    description: description.trim(),
+    category: effectiveCategoryId,
+    variants: variants.map((variant) => ({
+      price: Number(variant.price),
+      ...(variant.existingImage ? { image: variant.existingImage } : {}),
+      attributes: variant.attributes
+        .filter((attribute) => attribute.attribute_type.trim() || attribute.value.trim())
+        .map((attribute) => ({
+          attribute_type: attribute.attribute_type.trim(),
+          value: attribute.value.trim(),
+        })),
+    })),
+  });
+
+  const handleSubmit = () => {
+    void (async () => {
+      setFormError("");
+
+      try {
+        validateForm();
+        setIsSubmitting(true);
+
+        const payload = buildProductPayload();
+        const savedProduct = mode === "create"
+          ? await createProduct(payload)
+          : await updateProduct(initialProduct?.id || "", payload);
+
+        if (mode === "create") {
+          router.push(`/admin/products/${savedProduct.id}/images`);
+          return;
+        }
+
+        router.push("/admin/products");
+      } catch (error) {
+        setFormError(error instanceof Error ? error.message : "تعذر حفظ المنتج الآن.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    })();
+  };
+
+  return (
+    <div className="space-y-6">
+      <Panel>
+        <SectionHeader
+          eyebrow="Product"
+          title={phaseLabel(mode)}
+          subtitle={
+            mode === "create"
+              ? "Phase 1: احفظ بيانات المنتج والفاريانت أولاً بدون صور، وسيتم تحويلك بعدها لصفحة رفع الصور."
+              : "عدّل بيانات المنتج والفاريانت. لإدارة صور المنتج والفاريانت استخدم صفحة الصور المخصصة."
+          }
+          action={
+            mode === "edit" && initialProduct ? (
+              <Link
+                href={`/admin/products/${initialProduct.id}/images`}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100"
+              >
+                <ImageIcon className="h-3.5 w-3.5" />
+                <span>إدارة صور المنتج</span>
+              </Link>
+            ) : null
+          }
+        />
+      </Panel>
+
+      <Panel>
+        <SectionHeader eyebrow="Basic Information" title="البيانات الأساسية" subtitle="اسم المنتج، الوصف، والتصنيف." />
+        <div className="grid gap-4 px-5 py-5 sm:grid-cols-2">
+          <label className="grid gap-2 text-sm font-bold text-slate-700 sm:col-span-2">
+            الاسم
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-amber-400"
+              placeholder="مثال: كرسي حلاقة فاخر"
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            التصنيف
+            <select
+              value={effectiveCategoryId}
+              onChange={(event) => setCategoryId(event.target.value)}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-amber-400"
+            >
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm font-bold text-slate-700 sm:col-span-2">
+            الوصف
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              rows={5}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-amber-400"
+              placeholder="وصف تفصيلي للمنتج..."
+            />
+          </label>
+        </div>
+      </Panel>
+
+      <Panel>
+        <SectionHeader eyebrow="Product Variants" title="الفاريانت" subtitle="كل Variant يدعم Price و Attributes غير محدودة. الصور تُدار من صفحة الصور بعد الحفظ." />
+        <div className="overflow-x-auto px-5 py-5">
+          <table className="min-w-full text-right text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
+                <th className="py-3 pl-4">Price</th>
+                <th className="py-3 pl-4">Attributes</th>
+                <th className="py-3 pl-4">Delete</th>
+              </tr>
+            </thead>
+            <tbody>
+              {variants.map((variant) => (
+                <tr key={variant.id} className="border-b border-slate-100 last:border-0 align-top">
+                  <td className="py-4 pl-4">
+                    <input
+                      value={variant.price}
+                      onChange={(event) => updateVariant(variant.id, (current) => ({ ...current, price: event.target.value }))}
+                      type="number"
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-amber-400"
+                      placeholder="350"
+                    />
+                  </td>
+                  <td className="py-4 pl-4">
+                    <div className="space-y-3">
+                      {variant.attributes.map((attribute, attributeIndex) => (
+                        <div key={attribute.id} className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 lg:grid-cols-[1fr_1fr_auto]">
+                          <input
+                            value={attribute.attribute_type}
+                            onChange={(event) => {
+                              updateVariant(variant.id, (current) => ({
+                                ...current,
+                                attributes: current.attributes.map((item) => (item.id === attribute.id ? { ...item, attribute_type: event.target.value } : item)),
+                              }));
+                            }}
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-amber-400"
+                            placeholder="Attribute Type"
+                          />
+                          <input
+                            value={attribute.value}
+                            onChange={(event) => {
+                              updateVariant(variant.id, (current) => ({
+                                ...current,
+                                attributes: current.attributes.map((item) => (item.id === attribute.id ? { ...item, value: event.target.value } : item)),
+                              }));
+                            }}
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-amber-400"
+                            placeholder="Value"
+                          />
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => updateVariant(variant.id, (current) => ({
+                                ...current,
+                                attributes: current.attributes.length > 1 ? current.attributes.filter((item) => item.id !== attribute.id) : current.attributes,
+                              }))}
+                              className="rounded-xl border border-rose-200 bg-rose-50 p-2 text-rose-700 hover:bg-rose-100"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                          {attributeIndex === variant.attributes.length - 1 ? (
+                            <button
+                              type="button"
+                              onClick={() => updateVariant(variant.id, (current) => ({ ...current, attributes: [...current.attributes, makeEmptyAttribute()] }))}
+                              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 lg:col-span-3"
+                            >
+                              <Plus className="h-4 w-4" />
+                              <span>إضافة Attribute</span>
+                            </button>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="py-4 pl-4">
+                    <div className="flex flex-col gap-2">
+                      <button type="button" onClick={() => removeVariant(variant.id)} className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100">
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>حذف</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex items-center justify-between gap-3 px-5 pb-5">
+          <button type="button" onClick={addVariant} className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
+            <Plus className="h-4 w-4" />
+            <span>Add Variant</span>
+          </button>
+        </div>
+      </Panel>
+
+      {formError ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{formError}</div>
+      ) : null}
+
+      <div className="flex items-center justify-end gap-3">
+        <button type="button" onClick={() => router.push("/admin/products")} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
+          إلغاء
+        </button>
+        <button type="button" onClick={handleSubmit} disabled={isSubmitting} className="inline-flex items-center gap-2 rounded-2xl bg-green-300 px-5 py-2.5 text-sm font-bold text-white hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-60">
+          {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          <span>{mode === "create" ? "حفظ المنتج" : "حفظ التعديلات"}</span>
+        </button>
+      </div>
+    </div>
+  );
+}

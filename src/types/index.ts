@@ -97,7 +97,7 @@ export interface ProductVariant {
 export interface ProductVariantAttribute {
   id: number; // PK
   product_variant_id: string; // FK to ProductVariant
-  type: 'Color' | 'Size' | 'Volume' | 'RAM' | string; // attribute type
+  attribute_type: string; // attribute type e.g. Color, Size, Volume...
   value: string; // attribute value (e.g. Black, XL)
 }
 

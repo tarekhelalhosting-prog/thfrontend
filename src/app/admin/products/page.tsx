@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Edit3, Image as ImageIcon, Plus, Search, Trash2 } from "lucide-react";
+import { Edit3, Image as ImageIcon, Plus, RotateCcw, Search, Trash2, XCircle } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
-import { EmptyState, Modal, Panel, SectionHeader } from "@/components/admin/admin-kit";
-import { createProduct, deleteProduct, fetchCategories, fetchProducts, updateProduct } from "@/lib/api";
+import { EmptyState, Panel, SectionHeader } from "@/components/admin/admin-kit";
+import { deleteProduct, fetchCategories, fetchDeletedProducts, fetchProducts, hardDeleteProduct, restoreProduct } from "@/lib/api";
 import { Category, Product } from "@/types";
 
 function formatDate(value?: string) {
@@ -22,10 +22,12 @@ export default function ProductsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", category_id: "", price: "", image: "" });
+  const [isDeleting, setIsDeleting] = useState<string>("");
+  const [viewMode, setViewMode] = useState<"active" | "deleted">("active");
+  const [deletedProducts, setDeletedProducts] = useState<Product[]>([]);
+  const [isDeletedLoading, setIsDeletedLoading] = useState(false);
+  const [isRestoring, setIsRestoring] = useState<string>("");
+  const [isHardDeleting, setIsHardDeleting] = useState<string>("");
 
   useEffect(() => {
     let cancelled = false;
@@ -50,10 +52,37 @@ export default function ProductsPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (viewMode !== "deleted") {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        setIsDeletedLoading(true);
+        const result = await fetchDeletedProducts();
+        if (!cancelled) {
+          setDeletedProducts(result);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsDeletedLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [viewMode]);
+
   const filteredProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
+    const sourceProducts = viewMode === "deleted" ? deletedProducts : products;
 
-    return products.filter((product) => {
+    return sourceProducts.filter((product) => {
       const matchesCategory = categoryFilter === "all" || product.category_id === categoryFilter || product.category === categoryFilter;
       const matchesQuery =
         normalizedQuery.length === 0 ||
@@ -62,55 +91,7 @@ export default function ProductsPage() {
 
       return matchesCategory && matchesQuery;
     });
-  }, [categoryFilter, products, query]);
-
-  const openEditModal = (product: Product) => {
-    setEditingProduct(product);
-    setForm({
-      name: product.name,
-      description: product.description,
-      category_id: product.category_id || product.category || categories[0]?.id || "",
-      price: String(product.price || ""),
-      image: product.image || "",
-    });
-    setModalOpen(true);
-  };
-
-  const handleSave = () => {
-    void (async () => {
-      if (!form.name.trim() || !form.description.trim() || !form.category_id || Number(form.price) <= 0) {
-        return;
-      }
-
-      try {
-        setIsSaving(true);
-        if (editingProduct) {
-          const updated = await updateProduct(editingProduct.id, {
-            name: form.name.trim(),
-            description: form.description.trim(),
-            category_id: form.category_id,
-            category: form.category_id,
-            price: Number(form.price),
-            image: form.image,
-          });
-          setProducts((current) => current.map((item) => (item.id === editingProduct.id ? updated : item)));
-        } else {
-          const created = await createProduct({
-            name: form.name.trim(),
-            description: form.description.trim(),
-            category_id: form.category_id,
-            category: form.category_id,
-            price: Number(form.price),
-            image: form.image,
-          } as Omit<Product, "id">);
-          setProducts((current) => [created, ...current]);
-        }
-        setModalOpen(false);
-      } finally {
-        setIsSaving(false);
-      }
-    })();
-  };
+  }, [categoryFilter, deletedProducts, products, query, viewMode]);
 
   const handleDelete = (productId: string) => {
     void (async () => {
@@ -118,15 +99,49 @@ export default function ProductsPage() {
         return;
       }
 
-      await deleteProduct(productId);
-      setProducts((current) => current.filter((item) => item.id !== productId));
+      try {
+        setIsDeleting(productId);
+        await deleteProduct(productId);
+        setProducts((current) => current.filter((item) => item.id !== productId));
+      } finally {
+        setIsDeleting("");
+      }
+    })();
+  };
+
+  const handleRestore = (productId: string) => {
+    void (async () => {
+      try {
+        setIsRestoring(productId);
+        const restored = await restoreProduct(productId);
+        setDeletedProducts((current) => current.filter((item) => item.id !== productId));
+        setProducts((current) => [restored, ...current.filter((item) => item.id !== productId)]);
+      } finally {
+        setIsRestoring("");
+      }
+    })();
+  };
+
+  const handleHardDelete = (productId: string) => {
+    void (async () => {
+      if (!window.confirm("هذا الإجراء نهائي ولا يمكن التراجع عنه، هل تريد حذف المنتج نهائياً؟")) {
+        return;
+      }
+
+      try {
+        setIsHardDeleting(productId);
+        await hardDeleteProduct(productId);
+        setDeletedProducts((current) => current.filter((item) => item.id !== productId));
+      } finally {
+        setIsHardDeleting("");
+      }
     })();
   };
 
   return (
     <AdminShell
       title="المنتجات"
-      subtitle="جدول المنتجات مستقل بالكامل، مع زر إضافة منتج يفتح نموذج الفاريانت المنفصل."
+      subtitle="The list is route-driven. Create and edit live on dedicated pages that follow the two-phase model."
       actions={
         <Link href="/admin/products/new" className="inline-flex items-center gap-2 rounded-2xl bg-green-300 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-green-400">
           <Plus className="h-4 w-4" />
@@ -135,11 +150,28 @@ export default function ProductsPage() {
       }
     >
       <div className="space-y-6">
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setViewMode("active")}
+            className={`rounded-2xl border px-4 py-2 text-xs font-bold ${viewMode === "active" ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-600"}`}
+          >
+            المنتجات النشطة
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("deleted")}
+            className={`rounded-2xl border px-4 py-2 text-xs font-bold ${viewMode === "deleted" ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-600"}`}
+          >
+            المحذوفة{deletedProducts.length > 0 ? ` (${deletedProducts.length})` : ""}
+          </button>
+        </div>
+
         <Panel>
           <SectionHeader
             eyebrow="Products"
-            title="جدول المنتجات"
-            subtitle="صورة المنتج، اسمه، التصنيف، وعدد الفاريانت فقط. لا توجد كيانات أخرى داخل الصفحة."
+            title={viewMode === "deleted" ? "المنتجات المحذوفة" : "جدول المنتجات"}
+            subtitle={viewMode === "deleted" ? "يمكنك استرجاع المنتج أو حذفه نهائياً بشكل غير قابل للتراجع." : "يعرض الصور والاسم والتصنيف وعدد الفاريانت مع رابط تعديل مباشر لكل منتج."}
             action={
               <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500">
                 <Search className="h-4 w-4" />
@@ -172,8 +204,12 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {isLoading ? (
-                  <tr><td colSpan={6} className="py-10 text-center text-slate-500">جاري تحميل المنتجات...</td></tr>
+                {(viewMode === "deleted" ? isDeletedLoading : isLoading) ? (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-slate-500">
+                      جاري تحميل المنتجات...
+                    </td>
+                  </tr>
                 ) : filteredProducts.length > 0 ? (
                   filteredProducts.map((product) => (
                     <tr key={product.id} className="border-b border-slate-100 last:border-0">
@@ -191,64 +227,45 @@ export default function ProductsPage() {
                       <td className="py-4 pl-4 text-slate-500">{formatDate(product.created_at)}</td>
                       <td className="py-4 pl-4">
                         <div className="flex flex-wrap items-center gap-2">
-                          <button type="button" onClick={() => openEditModal(product)} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
-                            <Edit3 className="h-3.5 w-3.5" />
-                            <span>تعديل</span>
-                          </button>
-                          <button type="button" onClick={() => handleDelete(product.id)} className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100">
-                            <Trash2 className="h-3.5 w-3.5" />
-                            <span>حذف</span>
-                          </button>
+                          {viewMode === "deleted" ? (
+                            <>
+                              <button type="button" onClick={() => handleRestore(product.id)} disabled={isRestoring === product.id} className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60">
+                                <RotateCcw className="h-3.5 w-3.5" />
+                                <span>{isRestoring === product.id ? "جاري الاسترجاع..." : "استرجاع"}</span>
+                              </button>
+                              <button type="button" onClick={() => handleHardDelete(product.id)} disabled={isHardDeleting === product.id} className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-60">
+                                <XCircle className="h-3.5 w-3.5" />
+                                <span>{isHardDeleting === product.id ? "جاري الحذف..." : "حذف نهائي"}</span>
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <Link href={`/admin/products/${product.id}`} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
+                                <Edit3 className="h-3.5 w-3.5" />
+                                <span>تعديل</span>
+                              </Link>
+                              <button type="button" onClick={() => handleDelete(product.id)} disabled={isDeleting === product.id} className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-60">
+                                <Trash2 className="h-3.5 w-3.5" />
+                                <span>{isDeleting === product.id ? "جاري الحذف..." : "حذف"}</span>
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
                   ))
                 ) : (
-                  <tr><td colSpan={6} className="py-10"><EmptyState title="لا توجد منتجات مطابقة" description="جرّب تغيير البحث أو فلتر التصنيف، أو أضف أول منتج من الزر العلوي." /></td></tr>
+                  <tr>
+                    <td colSpan={6} className="py-10">
+                      <EmptyState title={viewMode === "deleted" ? "لا توجد منتجات محذوفة" : "لا توجد منتجات مطابقة"} description={viewMode === "deleted" ? "جميع المنتجات نشطة حالياً." : "جرّب تغيير البحث أو فلتر التصنيف، أو أضف أول منتج من الزر العلوي."} />
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
           </div>
         </Panel>
       </div>
-
-      <Modal
-        open={modalOpen}
-        title={editingProduct ? "تعديل المنتج" : "إضافة منتج"}
-        subtitle="هذا نموذج مختصر للتعديل السريع، أما الفاريانت الكاملة فتوجد في صفحة الإضافة المنفصلة."
-        onClose={() => setModalOpen(false)}
-        footer={
-          <>
-            <button type="button" onClick={() => setModalOpen(false)} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">إلغاء</button>
-            <button type="button" onClick={handleSave} disabled={isSaving} className="rounded-2xl bg-green-300 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-400 disabled:opacity-60">حفظ</button>
-          </>
-        }
-      >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="grid gap-2 text-sm font-bold text-slate-700 sm:col-span-2">
-            اسم المنتج
-            <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-amber-400" />
-          </label>
-          <label className="grid gap-2 text-sm font-bold text-slate-700">
-            التصنيف
-            <select value={form.category_id} onChange={(event) => setForm((current) => ({ ...current, category_id: event.target.value }))} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-amber-400">
-              {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-            </select>
-          </label>
-          <label className="grid gap-2 text-sm font-bold text-slate-700">
-            السعر
-            <input value={form.price} onChange={(event) => setForm((current) => ({ ...current, price: event.target.value }))} type="number" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-amber-400" />
-          </label>
-          <label className="grid gap-2 text-sm font-bold text-slate-700 sm:col-span-2">
-            الصورة الرئيسية
-            <input value={form.image} onChange={(event) => setForm((current) => ({ ...current, image: event.target.value }))} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-amber-400" />
-          </label>
-          <label className="grid gap-2 text-sm font-bold text-slate-700 sm:col-span-2">
-            الوصف
-            <textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} rows={4} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-amber-400" />
-          </label>
-        </div>
-      </Modal>
     </AdminShell>
   );
 }

@@ -167,19 +167,6 @@ export default function CategoriesPage() {
             </table>
           </div>
         </Panel>
-
-        <Panel>
-          <SectionHeader eyebrow="Structure" title="Wireframe للمطلوب" subtitle="التصنيفات هنا بشكل منفصل دون أي أقسام أخرى داخل الصفحة." />
-          <div className="grid gap-4 px-5 py-5 md:grid-cols-3">
-            {[
-              "كارت صورة + اسم + عدد منتجات",
-              "زر إضافة تصنيف جديد في الأعلى",
-              "مودال خفيف باسم التصنيف والصورة فقط",
-            ].map((item) => (
-              <div key={item} className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">{item}</div>
-            ))}
-          </div>
-        </Panel>
       </div>
 
       <Modal

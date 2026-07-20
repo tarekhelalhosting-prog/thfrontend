@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Header from "../../components/Header";
 import HeroCarousel from "../../components/HeroCarousel";
@@ -10,8 +10,10 @@ import CartDrawer from "../../components/CartDrawer";
 import AccountModal from "../../components/AccountModal";
 import CheckoutModal from "../../components/CheckoutModal";
 import ProductCard from "../../components/ProductCard";
-import { Product, CartItem } from "../types";
-import { products, categories } from "../data/salondata";
+import { Product, CartItem, ProductVariant } from "../types";
+import { categories as fallbackCategories, products as fallbackProducts } from "../data/salondata";
+import { fetchCategories, fetchProducts } from "../lib/api";
+import { getCartLineKey } from "../lib/cart";
 import { STORAGE_KEYS } from "../lib/browser-storage";
 import { usePersistentLocalState } from "../hooks/usePersistentLocalState";
 import { useAuthSession } from "../hooks/useAuthSession";
@@ -25,11 +27,64 @@ function StoreFrontContent() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>(fallbackProducts);
+  const [catalogCategories, setCatalogCategories] = useState(fallbackCategories);
+  const [isCatalogLoading, setIsCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
   const hydratedUser = isUserHydrated ? currentUser : null;
   const hydratedCart = isCartHydrated ? cart : [];
 
   const selectedCategory = searchParams.get("category") || "all";
   const searchTerm = searchParams.get("search") || "";
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const [productsResult, categoriesResult] = await Promise.allSettled([
+          fetchProducts(),
+          fetchCategories(),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        if (productsResult.status === "fulfilled" && productsResult.value.length > 0) {
+          setCatalogProducts(productsResult.value);
+        } else {
+          setCatalogProducts(fallbackProducts);
+        }
+
+        if (categoriesResult.status === "fulfilled" && categoriesResult.value.length > 0) {
+          setCatalogCategories(categoriesResult.value);
+        } else {
+          setCatalogCategories(fallbackCategories);
+        }
+
+        if (productsResult.status === "rejected" || categoriesResult.status === "rejected") {
+          setCatalogError("تعذر تحميل بيانات المنتجات من الخادم، وتم استخدام البيانات المحلية مؤقتاً.");
+        } else {
+          setCatalogError(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setCatalogProducts(fallbackProducts);
+          setCatalogCategories(fallbackCategories);
+          setCatalogError("تعذر تحميل بيانات المنتجات من الخادم، وتم استخدام البيانات المحلية مؤقتاً.");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsCatalogLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const scrollToSection = (sectionId: string) => {
     requestAnimationFrame(() => {
@@ -40,14 +95,16 @@ function StoreFrontContent() {
     });
   };
 
-  const handleAddToCart = (product: Product, quantity = 1) => {
+  const handleAddToCart = (product: Product, quantity = 1, variant: ProductVariant | null = null) => {
     setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
+      const nextItem: CartItem = { product, quantity, selectedVariant: variant ?? undefined };
+      const nextLineKey = getCartLineKey(nextItem);
+      const existing = prev.find(item => getCartLineKey(item) === nextLineKey);
       let updated;
       if (existing) {
-        updated = prev.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + quantity } : item);
+        updated = prev.map(item => getCartLineKey(item) === nextLineKey ? { ...item, quantity: item.quantity + quantity } : item);
       } else {
-        updated = [...prev, { product, quantity }];
+        updated = [...prev, nextItem];
       }
       return updated;
     });
@@ -101,7 +158,7 @@ function StoreFrontContent() {
     }
   };
 
-  const filteredProducts = products.filter((product) => {
+  const filteredProducts = catalogProducts.filter((product) => {
     const matchesCategory =
       selectedCategory === "all" ||
       selectedCategory === "salon-bundles" ||
@@ -121,7 +178,7 @@ function StoreFrontContent() {
       ? searchTerm.trim()
         ? "نتائج البحث"
         : "كل المنتجات"
-      : categories.find((category) => category.id === selectedCategory)?.name || "المنتجات";
+      : catalogCategories.find((category) => category.id === selectedCategory)?.name || "المنتجات";
 
   return (
     <div className="min-h-screen bg-dark-bg text-gray-100 flex flex-col justify-between">
@@ -144,17 +201,22 @@ function StoreFrontContent() {
         onSearchChange={handleSearchChange}
         selectedCategory={selectedCategory}
         onCategorySelect={handleCategorySelect}
-        categories={categories}
+        categories={catalogCategories}
         onContactClick={handleWhatsAppClick}
       />
       
       <main className="flex-grow">
         <HeroCarousel onShopNowClick={() => handleCategorySelect("all")} onWhatsAppClick={handleWhatsAppClick} />
         <div id="categories-section">
-          <CategoriesList categories={categories} selectedCategory={selectedCategory} onCategorySelect={handleCategorySelect} />
+          <CategoriesList categories={catalogCategories} selectedCategory={selectedCategory} onCategorySelect={handleCategorySelect} />
         </div>
         <section id="catalog-section" className="py-12 bg-dark-bg border-b border-dark-border scroll-mt-28">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {catalogError && (
+              <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
+                {catalogError}
+              </div>
+            )}
             <div className="flex items-center justify-between gap-4 mb-8 pb-4 border-b border-dark-border/40">
               <div className="text-right">
                 <span className="text-gold-400 font-bold text-xs uppercase tracking-widest block mb-1">طارق هلال</span>
@@ -171,16 +233,21 @@ function StoreFrontContent() {
               </span>
             </div>
 
-            {filteredProducts.length > 0 ? (
+            {isCatalogLoading ? (
+              <div className="rounded-2xl border border-dark-border bg-dark-card p-8 text-center text-gray-400">
+                جاري تحميل المنتجات والأقسام...
+              </div>
+            ) : filteredProducts.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6">
                 {filteredProducts.map((product) => (
                   <ProductCard
                     key={product.id}
                     product={product}
-                    onAddToCart={(p) => handleAddToCart(p)}
+                    onAddToCart={(p) => handleAddToCart(p, 1, p.variants?.[0] ?? null)}
                     isFavorite={favorites.includes(product.id)}
                     onToggleFavorite={handleToggleFavorite}
                     onViewDetails={handleViewProduct}
+                    categories={catalogCategories}
                   />
                 ))}
               </div>
@@ -193,7 +260,7 @@ function StoreFrontContent() {
         </section>
       </main>
 
-      <Footer categories={categories} onCategorySelect={handleCategorySelect} onContactClick={handleWhatsAppClick} />
+      <Footer categories={catalogCategories} onCategorySelect={handleCategorySelect} onContactClick={handleWhatsAppClick} />
 
       {/* المودالز والنوافذ المنبثقة التفاعلية */}
       <CartDrawer 
@@ -203,7 +270,7 @@ function StoreFrontContent() {
         onUpdateQuantity={(id: string, q: number) => {
           const updated = hydratedCart
             .map((item) =>
-              item.product.id === id
+              getCartLineKey(item) === id
                 ? { ...item, quantity: Math.max(1, item.quantity + q) }
                 : item
             )
@@ -211,7 +278,7 @@ function StoreFrontContent() {
           setCart(updated);
         }}
         onRemoveItem={(id: string) => {
-          const updated = hydratedCart.filter(item => item.product.id !== id);
+          const updated = hydratedCart.filter(item => getCartLineKey(item) !== id);
           setCart(updated);
         }}
         onCheckout={() => {
