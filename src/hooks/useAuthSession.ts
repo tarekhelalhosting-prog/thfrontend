@@ -11,6 +11,7 @@ interface UseAuthSessionResult {
   isHydrated: boolean;
   login: (user: User) => void;
   logout: () => void;
+  clearSession: () => void;
 }
 
 export function useAuthSession(): UseAuthSessionResult {
@@ -40,10 +41,15 @@ export function useAuthSession(): UseAuthSessionResult {
     })();
   }, [setCurrentUser]);
 
+  const clearSession = useCallback(() => {
+    setCurrentUser(null);
+  }, [setCurrentUser]);
+
   return {
     currentUser,
     isHydrated: isUserHydrated,
     login,
     logout,
+    clearSession,
   };
 }

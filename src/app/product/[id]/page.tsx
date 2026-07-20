@@ -274,7 +274,14 @@ export default function ProductDetailPage() {
     <div className="min-h-screen bg-dark-bg text-gray-100 flex flex-col justify-between">
       <Header
         currentUser={hydratedUser}
-        onAccountClick={() => setIsAccountOpen(true)}
+        onAccountClick={() => {
+          if (hydratedUser) {
+            router.push("/profile");
+            return;
+          }
+
+          setIsAccountOpen(true);
+        }}
         onCartClick={() => setIsCartOpen(true)}
         onLogout={logout}
         cartCount={hydratedCart.reduce((sum, item) => sum + item.quantity, 0)}

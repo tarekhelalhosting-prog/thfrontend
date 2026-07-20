@@ -13,6 +13,15 @@ import {
 } from "lucide-react";
 import { User as UserType, Order } from "../src/types";
 import { loginUser, registerUser } from "../src/lib/api";
+import {
+  hasValidationErrors,
+  validateCity,
+  validateName,
+  validateOptionalAddressNotes,
+  validatePassword,
+  validatePasswordConfirmation,
+  validatePhone,
+} from "../src/lib/form-validation";
 
 interface AccountModalProps {
   isOpen: boolean;
@@ -29,11 +38,16 @@ export default function AccountModal({
   onLogin,
   orders,
 }: AccountModalProps) {
+  type LoginField = "phone" | "password";
+  type RegisterField = "first_name" | "last_name" | "phone" | "city" | "address" | "password" | "confirmPassword";
+
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loginFieldErrors, setLoginFieldErrors] = useState<Partial<Record<LoginField, string>>>({});
+  const [registerFieldErrors, setRegisterFieldErrors] = useState<Partial<Record<RegisterField, string>>>({});
 
   const [loginData, setLoginData] = useState({
     phone: "",
@@ -72,12 +86,37 @@ export default function AccountModal({
     return `${price.toLocaleString("en-EG")} جنيه`;
   };
 
+  const validateLoginForm = () => {
+    const nextErrors: Partial<Record<LoginField, string>> = {
+      phone: validatePhone(loginData.phone),
+      password: validatePassword(loginData.password),
+    };
+
+    setLoginFieldErrors(nextErrors);
+    return !hasValidationErrors(nextErrors);
+  };
+
+  const validateRegisterForm = () => {
+    const nextErrors: Partial<Record<RegisterField, string>> = {
+      first_name: validateName(registerData.first_name, "الاسم الأول"),
+      last_name: validateName(registerData.last_name, "الاسم الأخير"),
+      phone: validatePhone(registerData.phone),
+      city: validateCity(registerData.city),
+      address: validateOptionalAddressNotes(registerData.address, "العنوان بالتفصيل"),
+      password: validatePassword(registerData.password),
+      confirmPassword: validatePasswordConfirmation(registerData.password, registerData.confirmPassword),
+    };
+
+    setRegisterFieldErrors(nextErrors);
+    return !hasValidationErrors(nextErrors);
+  };
+
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     void (async () => {
-      if (!loginData.phone || !loginData.password) {
-        setErrorMessage("الرجاء إدخال رقم الهاتف وكلمة المرور.");
+      if (!validateLoginForm()) {
+        setErrorMessage("يرجى تصحيح بيانات تسجيل الدخول.");
         return;
       }
 
@@ -113,15 +152,10 @@ export default function AccountModal({
     e.preventDefault();
 
     void (async () => {
-      const { first_name, last_name, phone, password, confirmPassword } = registerData;
+      const { first_name, last_name, phone, password } = registerData;
 
-      if (!first_name || !last_name || !phone || !password) {
-        setErrorMessage("الرجاء ملء بيانات الحساب الاساسية.");
-        return;
-      }
-
-      if (password !== confirmPassword) {
-        setErrorMessage("كلمتا المرور غير متطابقتين.");
+      if (!validateRegisterForm()) {
+        setErrorMessage("يرجى مراجعة بيانات إنشاء الحساب.");
         return;
       }
 
@@ -316,13 +350,21 @@ export default function AccountModal({
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-gray-400">رقم الهاتف الفعال لصالونك *</label>
                   <input
-                    type="text"
+                    type="tel"
                     required
+                    dir="ltr"
+                    inputMode="numeric"
+                    pattern="01[0-9]{9}"
+                    maxLength={11}
                     placeholder="مثال: 01001234567"
                     value={loginData.phone}
-                    onChange={(e) => setLoginData((prev) => ({ ...prev, phone: e.target.value }))}
-                    className="w-full rounded-xl border border-dark-border bg-dark-card px-4 py-2.5 text-left font-mono text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm"
+                    onChange={(e) => {
+                      setLoginData((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, "").slice(0, 11) }));
+                      setLoginFieldErrors((prev) => ({ ...prev, phone: "" }));
+                    }}
+                    className={`w-full rounded-xl border bg-dark-card px-4 py-2.5 text-left font-mono text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm ${loginFieldErrors.phone ? "border-red-500" : "border-dark-border"}`}
                   />
+                  {loginFieldErrors.phone ? <p className="mt-1 text-[11px] font-bold text-red-500">{loginFieldErrors.phone}</p> : null}
                 </div>
 
                 <div className="space-y-1">
@@ -331,10 +373,14 @@ export default function AccountModal({
                     <input
                       type={showPassword ? "text" : "password"}
                       required
+                      minLength={6}
                       placeholder="كلمة المرور الخاصة بحسابك"
                       value={loginData.password}
-                      onChange={(e) => setLoginData((prev) => ({ ...prev, password: e.target.value }))}
-                      className="w-full rounded-xl border border-dark-border bg-dark-card py-2.5 pl-12 pr-4 text-left text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm"
+                      onChange={(e) => {
+                        setLoginData((prev) => ({ ...prev, password: e.target.value }));
+                        setLoginFieldErrors((prev) => ({ ...prev, password: "" }));
+                      }}
+                      className={`w-full rounded-xl border bg-dark-card py-2.5 pl-12 pr-4 text-left text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm ${loginFieldErrors.password ? "border-red-500" : "border-dark-border"}`}
                     />
                     <button
                       type="button"
@@ -345,6 +391,7 @@ export default function AccountModal({
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
+                  {loginFieldErrors.password ? <p className="mt-1 text-[11px] font-bold text-red-500">{loginFieldErrors.password}</p> : null}
                 </div>
 
                 <div className="pt-2">
@@ -373,22 +420,34 @@ export default function AccountModal({
                     <input
                       type="text"
                       required
+                      minLength={2}
+                      maxLength={30}
                       placeholder="مثال: أحمد"
                       value={registerData.first_name}
-                      onChange={(e) => setRegisterData((prev) => ({ ...prev, first_name: e.target.value }))}
-                      className="w-full rounded-xl border border-dark-border bg-dark-card px-3 py-2 text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm"
+                      onChange={(e) => {
+                        setRegisterData((prev) => ({ ...prev, first_name: e.target.value }));
+                        setRegisterFieldErrors((prev) => ({ ...prev, first_name: "" }));
+                      }}
+                      className={`w-full rounded-xl border bg-dark-card px-3 py-2 text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm ${registerFieldErrors.first_name ? "border-red-500" : "border-dark-border"}`}
                     />
+                    {registerFieldErrors.first_name ? <p className="mt-1 text-[11px] font-bold text-red-500">{registerFieldErrors.first_name}</p> : null}
                   </div>
                   <div className="space-y-1">
                     <label className="block text-xs font-bold text-gray-400">الاسم الأخير (العائلة) *</label>
                     <input
                       type="text"
                       required
+                      minLength={2}
+                      maxLength={30}
                       placeholder="مثال: هلال"
                       value={registerData.last_name}
-                      onChange={(e) => setRegisterData((prev) => ({ ...prev, last_name: e.target.value }))}
-                      className="w-full rounded-xl border border-dark-border bg-dark-card px-3 py-2 text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm"
+                      onChange={(e) => {
+                        setRegisterData((prev) => ({ ...prev, last_name: e.target.value }));
+                        setRegisterFieldErrors((prev) => ({ ...prev, last_name: "" }));
+                      }}
+                      className={`w-full rounded-xl border bg-dark-card px-3 py-2 text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm ${registerFieldErrors.last_name ? "border-red-500" : "border-dark-border"}`}
                     />
+                    {registerFieldErrors.last_name ? <p className="mt-1 text-[11px] font-bold text-red-500">{registerFieldErrors.last_name}</p> : null}
                   </div>
                 </div>
 
@@ -397,11 +456,19 @@ export default function AccountModal({
                   <input
                     type="tel"
                     required
+                    dir="ltr"
+                    inputMode="numeric"
+                    pattern="01[0-9]{9}"
+                    maxLength={11}
                     placeholder="01012345678"
                     value={registerData.phone}
-                    onChange={(e) => setRegisterData((prev) => ({ ...prev, phone: e.target.value }))}
-                    className="w-full rounded-xl border border-dark-border bg-dark-card px-3 py-2 text-left font-mono text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm"
+                    onChange={(e) => {
+                      setRegisterData((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, "").slice(0, 11) }));
+                      setRegisterFieldErrors((prev) => ({ ...prev, phone: "" }));
+                    }}
+                    className={`w-full rounded-xl border bg-dark-card px-3 py-2 text-left font-mono text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm ${registerFieldErrors.phone ? "border-red-500" : "border-dark-border"}`}
                   />
+                  {registerFieldErrors.phone ? <p className="mt-1 text-[11px] font-bold text-red-500">{registerFieldErrors.phone}</p> : null}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -410,22 +477,34 @@ export default function AccountModal({
                     <input
                       type="text"
                       required
+                      minLength={2}
+                      maxLength={40}
                       placeholder="مثال: الدقهلية"
                       value={registerData.city}
-                      onChange={(e) => setRegisterData((prev) => ({ ...prev, city: e.target.value }))}
-                      className="w-full rounded-xl border border-dark-border bg-dark-card px-3 py-2 text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm"
+                      onChange={(e) => {
+                        setRegisterData((prev) => ({ ...prev, city: e.target.value }));
+                        setRegisterFieldErrors((prev) => ({ ...prev, city: "" }));
+                      }}
+                      className={`w-full rounded-xl border bg-dark-card px-3 py-2 text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm ${registerFieldErrors.city ? "border-red-500" : "border-dark-border"}`}
                     />
+                    {registerFieldErrors.city ? <p className="mt-1 text-[11px] font-bold text-red-500">{registerFieldErrors.city}</p> : null}
                   </div>
                   <div className="space-y-1">
                     <label className="block text-xs font-bold text-gray-400">العنوان بالتفصيل *</label>
                     <input
                       type="text"
                       required
+                      minLength={5}
+                      maxLength={120}
                       placeholder="مثال: المنصورة - شارع الجيش"
                       value={registerData.address}
-                      onChange={(e) => setRegisterData((prev) => ({ ...prev, address: e.target.value }))}
-                      className="w-full rounded-xl border border-dark-border bg-dark-card px-3 py-2 text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm"
+                      onChange={(e) => {
+                        setRegisterData((prev) => ({ ...prev, address: e.target.value }));
+                        setRegisterFieldErrors((prev) => ({ ...prev, address: "" }));
+                      }}
+                      className={`w-full rounded-xl border bg-dark-card px-3 py-2 text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm ${registerFieldErrors.address ? "border-red-500" : "border-dark-border"}`}
                     />
+                    {registerFieldErrors.address ? <p className="mt-1 text-[11px] font-bold text-red-500">{registerFieldErrors.address}</p> : null}
                   </div>
                 </div>
 
@@ -435,22 +514,32 @@ export default function AccountModal({
                     <input
                       type="password"
                       required
+                      minLength={6}
                       placeholder="حد أدنى 6 رموز"
                       value={registerData.password}
-                      onChange={(e) => setRegisterData((prev) => ({ ...prev, password: e.target.value }))}
-                      className="w-full rounded-xl border border-dark-border bg-dark-card px-3 py-2 text-left text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm"
+                      onChange={(e) => {
+                        setRegisterData((prev) => ({ ...prev, password: e.target.value }));
+                        setRegisterFieldErrors((prev) => ({ ...prev, password: "", confirmPassword: "" }));
+                      }}
+                      className={`w-full rounded-xl border bg-dark-card px-3 py-2 text-left text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm ${registerFieldErrors.password ? "border-red-500" : "border-dark-border"}`}
                     />
+                    {registerFieldErrors.password ? <p className="mt-1 text-[11px] font-bold text-red-500">{registerFieldErrors.password}</p> : null}
                   </div>
                   <div className="space-y-1">
                     <label className="block text-xs font-bold text-gray-400">تأكيد كلمة المرور *</label>
                     <input
                       type="password"
                       required
+                      minLength={6}
                       placeholder="أعد إدخال الرمز"
                       value={registerData.confirmPassword}
-                      onChange={(e) => setRegisterData((prev) => ({ ...prev, confirmPassword: e.target.value }))}
-                      className="w-full rounded-xl border border-dark-border bg-dark-card px-3 py-2 text-left text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm"
+                      onChange={(e) => {
+                        setRegisterData((prev) => ({ ...prev, confirmPassword: e.target.value }));
+                        setRegisterFieldErrors((prev) => ({ ...prev, confirmPassword: "" }));
+                      }}
+                      className={`w-full rounded-xl border bg-dark-card px-3 py-2 text-left text-xs text-white focus:border-gold-400 focus:outline-none sm:text-sm ${registerFieldErrors.confirmPassword ? "border-red-500" : "border-dark-border"}`}
                     />
+                    {registerFieldErrors.confirmPassword ? <p className="mt-1 text-[11px] font-bold text-red-500">{registerFieldErrors.confirmPassword}</p> : null}
                   </div>
                 </div>
 

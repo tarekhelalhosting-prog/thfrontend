@@ -1,4 +1,4 @@
-import { Product, Category, Order, OrderItem, Payment, ProductImage, ProductVariant, User } from "../types";
+import { Product, Category, Order, OrderItem, Payment, ProductImage, ProductVariant, User, Address } from "../types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
@@ -29,8 +29,82 @@ type ApiAuthResponse = {
   user?: ApiUser;
 };
 
+type ApiAddress = Partial<Address> & {
+  user?: string;
+  user_id?: string;
+};
+
+type ApiEnvelope<T> = {
+  message?: string;
+  data?: T;
+  error?: string;
+  errors?: Record<string, unknown>;
+};
+
+function isAddressLikeRecord(value: unknown): value is ApiAddress {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  return Boolean(
+    "street" in record ||
+    "city" in record ||
+    "country" in record ||
+    "title" in record ||
+    "is_default" in record
+  );
+}
+
+function findAddressPayload(value: unknown): ApiAddress[] {
+  if (Array.isArray(value)) {
+    if (value.every((item) => isAddressLikeRecord(item))) {
+      return value as ApiAddress[];
+    }
+
+    for (const item of value) {
+      const nestedMatch = findAddressPayload(item);
+      if (nestedMatch.length > 0) {
+        return nestedMatch;
+      }
+    }
+
+    return [];
+  }
+
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+
+  if (isAddressLikeRecord(value)) {
+    return [value];
+  }
+
+  for (const nestedValue of Object.values(value as Record<string, unknown>)) {
+    const nestedMatch = findAddressPayload(nestedValue);
+    if (nestedMatch.length > 0) {
+      return nestedMatch;
+    }
+  }
+
+  return [];
+}
+
+function extractAddressList(payload: ApiEnvelope<ApiAddress[]> | ApiAddress[] | Record<string, unknown>): ApiAddress[] {
+  return findAddressPayload(payload);
+}
+
 function readStringValue(value: unknown): string {
-  return typeof value === "string" ? value : "";
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return "";
 }
 
 function normalizeUserRole(rawRole: unknown): User["role"] {
@@ -49,8 +123,10 @@ function normalizeUserRole(rawRole: unknown): User["role"] {
 
 function parseAuthPayload(payload: unknown): { user: ApiUser; token?: string } {
   const record = (payload ?? {}) as Record<string, unknown>;
+  const envelopeData = (record.data ?? null) as Record<string, unknown> | null;
   const nestedUser = record.user as ApiUser | undefined;
-  const userPayload = nestedUser ?? (record as ApiUser);
+  const nestedEnvelopeUser = (envelopeData?.user ?? undefined) as ApiUser | undefined;
+  const userPayload = nestedUser ?? nestedEnvelopeUser ?? (envelopeData as ApiUser | null) ?? (record as ApiUser);
   const token =
     readStringValue(record.token) ||
     readStringValue(record.access) ||
@@ -326,6 +402,23 @@ export function mapDjangoOrder(djangoOrder: ApiOrder): Order {
   };
 }
 
+export function mapDjangoAddress(djangoAddress: ApiAddress): Address {
+  const source = (djangoAddress ?? {}) as Record<string, unknown>;
+  const now = new Date().toISOString();
+
+  return {
+    id: readStringValue(source.id) || "",
+    user_id: readStringValue(source.user_id) || readStringValue(source.user) || "",
+    title: readStringValue(source.title),
+    country: readStringValue(source.country),
+    city: readStringValue(source.city),
+    street: readStringValue(source.street),
+    is_default: Boolean(source.is_default),
+    created_at: readStringValue(source.created_at) || now,
+    updated_at: readStringValue(source.updated_at) || now,
+  };
+}
+
 // --- API ACTIONS ---
 
 // Fetch all products from Django API
@@ -433,7 +526,7 @@ export async function registerUser(userData: { first_name: string; last_name: st
 
   const response = await fetch(`${BASE_URL}/auth/register/`, {
     method: "POST",
-    credentials: "include",
+    credentials: "omit",
     headers: {
       "Content-Type": "application/json",
     },
@@ -502,6 +595,144 @@ export async function fetchCurrentUser(): Promise<User> {
   const data = (await response.json()) as { user?: ApiUser } | ApiUser;
   const parsed = parseAuthPayload(data);
   return mapDjangoUser(parsed.user);
+}
+
+export async function updateUserProfile(updates: { first_name: string; last_name: string }): Promise<User> {
+  const response = await fetchWithAutoRefresh("/users/update_profile/", {
+    method: "PUT",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify(updates),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر تحديث بيانات الملف الشخصي");
+  }
+
+  const payload = (await response.json()) as ApiEnvelope<ApiUser> | ApiUser;
+  const userPayload = "data" in (payload as ApiEnvelope<ApiUser>)
+    ? (payload as ApiEnvelope<ApiUser>).data
+    : (payload as ApiUser);
+
+  return mapDjangoUser(userPayload ?? updates);
+}
+
+export async function deleteUserProfile(): Promise<void> {
+  const response = await fetchWithAutoRefresh("/users/delete_profile/", {
+    method: "DELETE",
+    headers: buildAuthHeaders(false),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر حذف الملف الشخصي");
+  }
+}
+
+export async function fetchUserAddresses(): Promise<Address[]> {
+  const response = await fetchWithAutoRefresh("/users/get_addresses/", {
+    method: "GET",
+    headers: buildAuthHeaders(),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر جلب العناوين");
+  }
+
+  const payload = (await response.json()) as ApiEnvelope<ApiAddress[]> | ApiAddress[] | Record<string, unknown>;
+  return extractAddressList(payload).map(mapDjangoAddress);
+}
+
+export async function fetchUserAddressById(addressId: string): Promise<Address> {
+  const response = await fetchWithAutoRefresh(`/users/get_address_by_id/${addressId}/`, {
+    method: "GET",
+    headers: buildAuthHeaders(),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر جلب بيانات العنوان");
+  }
+
+  const payload = (await response.json()) as ApiEnvelope<ApiAddress> | ApiAddress;
+  const addressPayload = "data" in (payload as ApiEnvelope<ApiAddress>)
+    ? (payload as ApiEnvelope<ApiAddress>).data
+    : (payload as ApiAddress);
+
+  return mapDjangoAddress(addressPayload ?? {});
+}
+
+export async function createUserAddress(address: {
+  title: string;
+  country: string;
+  city: string;
+  street: string;
+  is_default?: boolean;
+}): Promise<Address> {
+  const response = await fetchWithAutoRefresh("/users/add_address/", {
+    method: "POST",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify(address),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر إضافة العنوان الجديد");
+  }
+
+  const payload = (await response.json()) as ApiEnvelope<ApiAddress> | ApiAddress;
+  const addressPayload = "data" in (payload as ApiEnvelope<ApiAddress>)
+    ? (payload as ApiEnvelope<ApiAddress>).data
+    : (payload as ApiAddress);
+
+  return mapDjangoAddress(addressPayload ?? address);
+}
+
+export async function updateUserAddress(
+  addressId: string,
+  address: { title: string; country: string; city: string; street: string }
+): Promise<Address> {
+  const response = await fetchWithAutoRefresh(`/users/update_address/${addressId}/`, {
+    method: "PUT",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify(address),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر تحديث العنوان");
+  }
+
+  const payload = (await response.json()) as ApiEnvelope<ApiAddress> | ApiAddress;
+  const addressPayload = "data" in (payload as ApiEnvelope<ApiAddress>)
+    ? (payload as ApiEnvelope<ApiAddress>).data
+    : (payload as ApiAddress);
+
+  return mapDjangoAddress(addressPayload ?? address);
+}
+
+export async function setDefaultUserAddress(addressId: string): Promise<Address> {
+  const response = await fetchWithAutoRefresh(`/users/set_default_address/${addressId}/`, {
+    method: "PUT",
+    headers: buildAuthHeaders(),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر تعيين العنوان الافتراضي");
+  }
+
+  const payload = (await response.json()) as ApiEnvelope<ApiAddress> | ApiAddress;
+  const addressPayload = "data" in (payload as ApiEnvelope<ApiAddress>)
+    ? (payload as ApiEnvelope<ApiAddress>).data
+    : (payload as ApiAddress);
+
+  return mapDjangoAddress(addressPayload ?? {});
+}
+
+export async function deleteUserAddress(addressId: string): Promise<void> {
+  const response = await fetchWithAutoRefresh(`/users/delete_address/${addressId}/`, {
+    method: "DELETE",
+    headers: buildAuthHeaders(false),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر حذف العنوان");
+  }
 }
 
 export async function logoutUser(): Promise<void> {
