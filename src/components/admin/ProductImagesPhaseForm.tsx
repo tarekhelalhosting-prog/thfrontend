@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, Pencil, Plus, X } from "lucide-react";
-import CloudinaryImagePicker from "@/components/admin/CloudinaryImagePicker";
+import CloudinaryImagePicker, { CloudinaryImageValue } from "@/components/admin/CloudinaryImagePicker";
 import { createProductImage, deleteProductImage, fetchCategories, updateProduct, updateProductImage } from "@/lib/api";
 import { Category, Product, ProductImage } from "@/types";
 import { Panel, SectionHeader, Timeline } from "@/components/admin/admin-kit";
@@ -15,6 +15,7 @@ type ProductImagesPhaseFormProps = {
 type VariantImageDraft = {
   id: string;
   image: string;
+  public_id?: string;
 };
 
 export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFormProps) {
@@ -26,8 +27,12 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
   const [initialImages] = useState<ProductImage[]>(() =>
     [...(product.images || [])].sort((left, right) => (left.sort_order || 0) - (right.sort_order || 0))
   );
-  const [productImages, setProductImages] = useState<string[]>(() =>
-    initialImages.length > 0 ? initialImages.map((image) => image.media_url) : product.image ? [product.image] : []
+  const [productImages, setProductImages] = useState<CloudinaryImageValue[]>(() =>
+    initialImages.length > 0
+      ? initialImages.map((image) => ({ url: image.media_url }))
+      : product.image
+        ? [{ url: product.image }]
+        : []
   );
   const [primaryImageIndex, setPrimaryImageIndex] = useState(() => {
     const primaryIndex = initialImages.findIndex((image) => image.is_primary);
@@ -77,12 +82,13 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
     ];
   }, [phase]);
 
-  const updateVariantImage = (variantId: string, image: string) => {
+  const updateVariantImage = (variantId: string, image: CloudinaryImageValue | null) => {
     setVariantImages((current) => ({
       ...current,
       [variantId]: {
         id: variantId,
-        image,
+        image: image?.url || "",
+        public_id: image?.public_id,
       },
     }));
   };
@@ -100,7 +106,7 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
 
         const existingImages = initialImages;
         const existingByUrl = new Map(existingImages.map((image) => [image.media_url, image]));
-        const keptUrls = new Set(productImages);
+        const keptUrls = new Set(productImages.map((image) => image.url));
 
         // Remove images the admin dropped from the gallery.
         const removedImages = existingImages.filter((image) => !keptUrls.has(image.media_url));
@@ -112,24 +118,25 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
         // the product) sequentially, to avoid racing the backend's
         // "first image is primary" logic and its unique-primary constraint.
         const createdIdByUrl = new Map<string, string>();
-        for (const imageUrl of productImages) {
-          if (existingByUrl.has(imageUrl)) {
+        for (const image of productImages) {
+          if (existingByUrl.has(image.url)) {
             continue;
           }
 
           const created = await createProductImage({
             product_id: product.id,
-            image: imageUrl,
+            image: image.url,
+            public_id: image.public_id,
             is_primary: false,
           });
-          createdIdByUrl.set(imageUrl, created.id);
+          createdIdByUrl.set(image.url, created.id);
         }
 
         setPhase("saving");
 
         // Explicitly (re)assert the chosen primary image; the backend
         // automatically clears the previous primary flag when this is set.
-        const finalPrimaryUrl = productImages[primaryImageIndex] ?? productImages[0];
+        const finalPrimaryUrl = productImages[primaryImageIndex]?.url ?? productImages[0]?.url;
         const finalPrimaryId = existingByUrl.get(finalPrimaryUrl)?.id || createdIdByUrl.get(finalPrimaryUrl);
         const wasAlreadyPrimary = existingByUrl.get(finalPrimaryUrl)?.is_primary && keptUrls.has(finalPrimaryUrl);
 
@@ -138,11 +145,16 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
         }
 
         const variantPayloads = (product.variants || []).map((variant) => {
-          const nextVariantImage = variantImages[String(variant.id)]?.image || variant.media_url || "";
+          const variantImageDraft = variantImages[String(variant.id)];
+          const nextVariantImage = variantImageDraft?.image || variant.media_url || "";
 
+          // The backend now matches variants by `id` on update instead of
+          // replacing the whole list, so every entry must include it.
           return {
+            id: variant.id,
             price: variant.price,
             image: nextVariantImage || undefined,
+            public_id: variantImageDraft?.public_id,
             attributes: (variant.attributes || []).map((attribute) => ({
               attribute_type: attribute.attribute_type,
               value: attribute.value,
@@ -150,8 +162,8 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
           };
         });
 
-        // Only resend the full variants list (which the backend fully
-        // replaces on every update) when a variant image actually changed.
+        // Only resend variants (matched by `id`, image-only change) when a
+        // variant image actually changed.
         const variantImagesChanged = (product.variants || []).some((variant) => {
           const nextImage = variantImages[String(variant.id)]?.image || "";
           return nextImage !== (variant.media_url || "");
@@ -195,7 +207,7 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
             <div className="h-28 w-28 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
               {productImages[primaryImageIndex] ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={productImages[primaryImageIndex]} alt={product.name} className="h-full w-full object-cover" />
+                <img src={productImages[primaryImageIndex].url} alt={product.name} className="h-full w-full object-cover" />
               ) : null}
             </div>
             <div className="space-y-1">
@@ -286,8 +298,12 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
               <CloudinaryImagePicker
                 title="Variant Image"
                 description="يمكن رفع صورة واحدة للـ variant ثم حفظ رابطها داخل الـ update النهائي للمنتج."
-                value={variantImages[String(variant.id)]?.image ? [variantImages[String(variant.id)].image] : []}
-                onChange={(nextValue) => updateVariantImage(String(variant.id), nextValue[0] || "")}
+                value={
+                  variantImages[String(variant.id)]?.image
+                    ? [{ url: variantImages[String(variant.id)].image, public_id: variantImages[String(variant.id)].public_id }]
+                    : []
+                }
+                onChange={(nextValue) => updateVariantImage(String(variant.id), nextValue[0] || null)}
                 maxImages={1}
               />
             </div>

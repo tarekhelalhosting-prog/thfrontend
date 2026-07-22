@@ -2,7 +2,6 @@
 import React from "react";
 import { ShoppingCart, Heart } from "lucide-react";
 import { Category, Product } from "../src/types";
-import { categories as fallbackCategories } from "../src/data/salondata";
 
 interface ProductCardProps {
   product: Product;
@@ -27,7 +26,7 @@ export default function ProductCard({
     return price.toLocaleString("en-EG") + " جنيه";
   };
 
-  const categorySource = categories?.length ? categories : fallbackCategories;
+  const categorySource = categories?.length ? categories : [];
   const categoryName = categorySource.find((category) => category.id === product.category)?.name;
 
   // WhatsApp click handler for this specific product

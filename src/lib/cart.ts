@@ -1,27 +1,21 @@
 import { CartItem } from "@/types";
 
-// Two cart lines for the same product but different variants (e.g. Color:
-// Black vs Color: Red) must stay separate, so the cart is keyed by
-// product id + variant id instead of just the product id.
+// The backend enforces a unique (cart, product_variant) constraint, so a
+// cart line is always uniquely identified by its variant id - both for the
+// server-backed cart and the local guest cart mirror.
 export function getCartLineKey(item: CartItem): string {
-  return item.selectedVariant ? `${item.product.id}::${item.selectedVariant.id}` : item.product.id;
+  return item.product_variant_id;
 }
 
 // A variant's own price always wins over the product's fallback price.
 export function getCartItemUnitPrice(item: CartItem): number {
-  return item.selectedVariant?.price ?? item.product.price;
+  return item.unit_price;
 }
 
 export function getCartItemImage(item: CartItem): string {
-  return item.selectedVariant?.media_url || item.product.image;
+  return item.image;
 }
 
 export function describeCartItemVariant(item: CartItem): string {
-  const attributes = item.selectedVariant?.attributes;
-
-  if (!attributes || attributes.length === 0) {
-    return "";
-  }
-
-  return attributes.map((attribute) => attribute.value).join(" - ");
+  return item.variant_description;
 }

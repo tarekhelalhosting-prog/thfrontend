@@ -2,12 +2,18 @@
 
 import { useRef, useState } from "react";
 import { ImagePlus, Loader2, Plus, Trash2, Star } from "lucide-react";
+import { uploadProductImageToCloudinary } from "@/lib/api";
+
+export type CloudinaryImageValue = {
+  url: string;
+  public_id?: string;
+};
 
 type CloudinaryImagePickerProps = {
   title: string;
   description?: string;
-  value: string[];
-  onChange: (nextValue: string[]) => void;
+  value: CloudinaryImageValue[];
+  onChange: (nextValue: CloudinaryImageValue[]) => void;
   primaryIndex?: number;
   onPrimaryIndexChange?: (nextIndex: number) => void;
   maxImages?: number;
@@ -17,22 +23,9 @@ type CloudinaryImagePickerProps = {
 const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const maxFileSizeBytes = 5 * 1024 * 1024;
 
-async function uploadFileDirectToCloudinary(file: File): Promise<string> {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const response = await fetch("/api/cloudinary/upload", {
-    method: "POST",
-    body: formData,
-  });
-
-  const payload = (await response.json().catch(() => null)) as { url?: string; message?: string } | null;
-
-  if (!response.ok) {
-    throw new Error(payload?.message || "تعذر رفع الصورة إلى Cloudinary");
-  }
-
-  return payload?.url || "";
+async function uploadFileDirectToCloudinary(file: File): Promise<CloudinaryImageValue> {
+  const result = await uploadProductImageToCloudinary(file);
+  return { url: result.url, public_id: result.public_id };
 }
 
 export default function CloudinaryImagePicker({
@@ -102,8 +95,8 @@ export default function CloudinaryImagePicker({
 
       for (const file of nextFiles) {
         setCurrentFileName(file.name);
-        const uploadedUrl = await uploadFileDirectToCloudinary(file);
-        nextImages.push(uploadedUrl);
+        const uploadedImage = await uploadFileDirectToCloudinary(file);
+        nextImages.push(uploadedImage);
       }
 
       onChange(nextImages);
@@ -162,19 +155,19 @@ export default function CloudinaryImagePicker({
 
       {value.length > 0 ? (
         <div className={`grid gap-3 ${maxImages === 1 ? "grid-cols-1" : "sm:grid-cols-2"}`}>
-          {value.map((imageUrl, index) => (
-            <div key={`${imageUrl}-${index}`} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          {value.map((image, index) => (
+            <div key={`${image.url}-${index}`} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
               <div className="relative aspect-square bg-slate-100">
-                <img src={imageUrl} alt={`${title}-${index + 1}`} className="h-full w-full object-cover" />
+                <img src={image.url} alt={`${title}-${index + 1}`} className="h-full w-full object-cover" />
                 {index === normalizedPrimaryIndex && (
-                  <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-slate-950 px-3 py-1 text-[10px] font-bold text-white shadow-lg">
+                  <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full border border-gold-400/60 bg-gold-300 px-3 py-1 text-[10px] font-bold text-slate-900 shadow-lg">
                     <Star className="h-3 w-3 fill-current" />
                     الصورة الرئيسية
                   </span>
                 )}
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-xs font-bold text-slate-600">
-                <span className="truncate">{imageUrl}</span>
+                <span className="truncate">{image.url}</span>
                 <div className="flex items-center gap-2">
                   {onPrimaryIndexChange && maxImages > 1 && (
                     <button

@@ -1,8 +1,16 @@
 "use client";
-import React, { useState } from "react";
-import { X, CheckCircle2, Phone, Calendar, ArrowRight, ClipboardCheck, CreditCard, ShieldAlert, Coins } from "lucide-react";
-import { CartItem, SalonBundle, Order, User } from "../src/types";
+import React, { useEffect, useMemo, useState } from "react";
+import { X, CheckCircle2, Calendar, ArrowRight, ClipboardCheck, CreditCard, Coins, MapPin, Plus, Loader2 } from "lucide-react";
+import { Address, CartItem, SalonBundle, Order, User } from "../src/types";
 import { getCartLineKey, getCartItemUnitPrice, describeCartItemVariant } from "../src/lib/cart";
+import { createOrder, createPaymentIntention, createUserAddress, fetchUserAddresses } from "../src/lib/api";
+import {
+  hasValidationErrors,
+  validateAddressTitle,
+  validateCity,
+  validateCountry,
+  validateStreet,
+} from "../src/lib/form-validation";
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -12,7 +20,24 @@ interface CheckoutModalProps {
   onClearCart: () => void;
   currentUser: User | null;
   onOrderSuccess: (order: Order) => void;
+  onRequireLogin: () => void;
 }
+
+type AddressFormState = {
+  title: string;
+  country: string;
+  city: string;
+  street: string;
+};
+
+type AddressField = keyof AddressFormState;
+
+const emptyAddressForm: AddressFormState = {
+  title: "",
+  country: "Egypt",
+  city: "",
+  street: "",
+};
 
 export default function CheckoutModal({
   isOpen,
@@ -21,226 +46,195 @@ export default function CheckoutModal({
   selectedBundle,
   onClearCart,
   currentUser,
-  onOrderSuccess
+  onOrderSuccess,
+  onRequireLogin,
 }: CheckoutModalProps) {
-  if (!isOpen) return null;
-
-  const displayUserFullName = currentUser 
-    ? `${currentUser.first_name} ${currentUser.last_name}`.trim() 
+  const displayUserFullName = currentUser
+    ? `${currentUser.first_name} ${currentUser.last_name}`.trim()
     : "";
 
-  const [formData, setFormData] = useState({
-    name: displayUserFullName,
-    phone: currentUser?.phone || "",
-    city: "الدقهلية",
-    address: "",
-    notes: ""
-  });
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
+  const [addressesError, setAddressesError] = useState("");
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
 
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'card' | 'wallet'>('cod');
-  const [paymentStep, setPaymentStep] = useState<'form' | 'paymob_processing' | 'success'>('form');
-  const [paymobData, setPaymobData] = useState({
-    cardNumber: "",
-    cardExpiry: "",
-    cardCvv: "",
-    walletNumber: ""
-  });
+  const [isAddingAddress, setIsAddingAddress] = useState(false);
+  const [addressForm, setAddressForm] = useState<AddressFormState>(emptyAddressForm);
+  const [addressFieldErrors, setAddressFieldErrors] = useState<Partial<Record<AddressField, string>>>({});
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
 
-  const [generatedOrderNo, setGeneratedOrderNo] = useState("");
+  const [notes, setNotes] = useState("");
+  const [step, setStep] = useState<"details" | "success">("details");
   const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
 
-  const formatPrice = (price: number) => {
-    return price.toLocaleString("en-EG") + " جنيه";
-  };
-
-  // Calculations
-  const subtotal = selectedBundle 
-    ? selectedBundle.price 
-    : cartItems.reduce((acc, item) => acc + getCartItemUnitPrice(item) * item.quantity, 0);
-  const total = subtotal;
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handlePaymobInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setPaymobData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name || !formData.phone || !formData.city || !formData.address) {
-      setErrorMessage("الرجاء ملء جميع الحقول المطلوبة للتوصيل.");
+  useEffect(() => {
+    if (!currentUser) {
       return;
     }
-    setErrorMessage("");
 
-    if (paymentMethod === 'cod') {
-      processOrder('pending', 'cod');
-    } else {
-      setPaymentStep('paymob_processing');
-    }
-  };
+    let cancelled = false;
 
-  const simulatePaymobPayment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (paymentMethod === 'card') {
-      if (!paymobData.cardNumber || !paymobData.cardExpiry || !paymobData.cardCvv) {
-        setErrorMessage("الرجاء إدخال بيانات بطاقة الائتمان كاملة.");
-        return;
+    void (async () => {
+      setIsLoadingAddresses(true);
+      setAddressesError("");
+      try {
+        const result = await fetchUserAddresses();
+        if (cancelled) {
+          return;
+        }
+        setAddresses(result);
+        setSelectedAddressId((current) => current || result.find((address) => address.is_default)?.id || result[0]?.id || null);
+      } catch (error) {
+        if (!cancelled) {
+          setAddressesError(error instanceof Error ? error.message : "تعذر تحميل العناوين المحفوظة.");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingAddresses(false);
+        }
       }
-    } else if (paymentMethod === 'wallet') {
-      if (!paymobData.walletNumber) {
-        setErrorMessage("الرجاء إدخال رقم محفظة الهاتف المحمول.");
-        return;
-      }
-    }
+    })();
 
-    setErrorMessage("");
-    // Simulate Paymob request latency
-    const loader = document.getElementById("paymob-button-loader");
-    if (loader) loader.classList.remove("hidden");
-
-    setTimeout(() => {
-      processOrder('paid', paymentMethod);
-    }, 2000);
-  };
-
-  const processOrder = (paymentStatus: 'pending' | 'paid', method: 'cod' | 'card' | 'wallet') => {
-    const orderNo = "TH-" + Math.floor(100000 + Math.random() * 900000);
-    setGeneratedOrderNo(orderNo);
-
-    const items = selectedBundle 
-      ? [{
-          productId: selectedBundle.id,
-          productName: selectedBundle.name,
-          variantId: null as string | null,
-          variantDescription: "",
-          price: selectedBundle.price,
-          quantity: 1
-        }]
-      : cartItems.map(item => ({
-          productId: item.product.id,
-          productName: item.product.name,
-          variantId: item.selectedVariant?.id || null,
-          variantDescription: describeCartItemVariant(item),
-          price: getCartItemUnitPrice(item),
-          quantity: item.quantity
-        }));
-
-    // Django + UI compatibility Order mapping
-    const newOrder: Order = {
-      id: Math.random().toString(36).substr(2, 9),
-      user_id: currentUser?.id || null,
-      address_id: Math.random().toString(36).substr(2, 9),
-      status: 'Pending',
-      subtotal: subtotal,
-      discount: 0,
-      total: total,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-
-      // UI compatibility fields
-      orderNumber: orderNo,
-      customerName: formData.name,
-      customerPhone: formData.phone,
-      city: formData.city,
-      address: formData.address,
-      items: items.map(item => ({
-        id: Math.random().toString(36).substr(2, 9),
-        order_id: orderNo,
-        product_variant_id: item.variantId || item.productId,
-        product_name: item.productName,
-        variant_description: item.variantDescription || "Default",
-        price: item.price,
-        quantity: item.quantity,
-        subtotal: item.price * item.quantity
-      })),
-      payment: {
-        id: Math.random().toString(36).substr(2, 9),
-        order_id: orderNo,
-        provider: 'Paymob',
-        transaction_id: "TXN-" + Math.floor(100000 + Math.random() * 900000),
-        status: paymentStatus === 'paid' ? 'Paid' : 'Pending',
-        amount: total,
-        paid_at: paymentStatus === 'paid' ? new Date().toISOString() : null
-      }
+    return () => {
+      cancelled = true;
     };
+  }, [currentUser]);
 
-    // Callback to App level database
-    onOrderSuccess(newOrder);
+  const formatPrice = (price: number) => `${price.toLocaleString("en-EG")} جنيه`;
 
-    // Format WhatsApp message to send as fallback confirmation
-    let messageText = `*طلب جديد من متجر طارق هلال لمستحضرات التجميل وتجهيز الصالونات*\n`;
-    messageText += `-------------------------------------------\n`;
-    messageText += `*رقم الطلب:* ${orderNo}\n`;
-    messageText += `*اسم العميل:* ${formData.name}\n`;
-    messageText += `*الهاتف:* ${formData.phone}\n`;
-    messageText += `*المحافظة/المدينة:* ${formData.city}\n`;
-    messageText += `*العنوان:* ${formData.address}\n`;
-    messageText += `*طريقة الدفع:* ${method === 'card' ? 'فيزا/ماستركارد (Paymob)' : method === 'wallet' ? 'محفظة إلكترونية (Paymob)' : 'الدفع عند الاستلام'}\n`;
-    messageText += `*حالة الدفع:* ${paymentStatus === 'paid' ? 'تم الدفع بنجاح ✅' : 'قيد الانتظار ⏳'}\n`;
-    if (formData.notes) {
-      messageText += `*ملاحظات:* ${formData.notes}\n`;
-    }
-    messageText += `-------------------------------------------\n`;
-    messageText += `*المنتجات المطلوبة:*\n`;
+  const subtotal = useMemo(
+    () => cartItems.reduce((acc, item) => acc + getCartItemUnitPrice(item) * item.quantity, 0),
+    [cartItems]
+  );
+  const displayTotal = createdOrder?.total ?? subtotal;
+  const isBundleOnlyCheckout = Boolean(selectedBundle) && cartItems.length === 0;
+  const selectedAddress = addresses.find((address) => address.id === selectedAddressId) || null;
+  const createdOrderDateLabel = useMemo(
+    () => (createdOrder?.created_at ? new Date(createdOrder.created_at).toLocaleDateString("ar-EG") : ""),
+    [createdOrder]
+  );
 
-    if (selectedBundle) {
-      messageText += `- ${selectedBundle.name} (عدد 1) بسعر: ${formatPrice(selectedBundle.price)}\n`;
-    } else {
-      cartItems.forEach((item, index) => {
-        messageText += `${index + 1}. ${item.product.name} (الكمية: ${item.quantity}) - بسعر: ${formatPrice(getCartItemUnitPrice(item) * item.quantity)}\n`;
-      });
-    }
+  const paymentMethodLabel = () => "دفع إلكتروني (فيزا / ماستركارد / محفظة) عبر Paymob";
 
-    messageText += `-------------------------------------------\n`;
-    messageText += `*المجموع الفرعي:* ${formatPrice(subtotal)}\n`;
-    messageText += `*تكاليف الشحن:* تقدر من خلال الوكيل الخاص بمنطقتك\n`;
-    messageText += `*الإجمالي الكلي:* ${formatPrice(total)}\n`;
-    messageText += `-------------------------------------------\n`;
-    messageText += `_تم تسجيل طلبكم آلياً في لوحة التحكم الخاصة بمعارض طارق هلال._`;
+  const handleAddressFieldChange = (field: AddressField, value: string) => {
+    setAddressForm((prev) => ({ ...prev, [field]: value }));
+    setAddressFieldErrors((prev) => ({ ...prev, [field]: "" }));
+  };
 
-    const encodedMessage = encodeURIComponent(messageText);
-    const whatsappURL = `https://wa.me/201501593962?text=${encodedMessage}`;
+  const handleAddAddressSubmit = () => {
+    const nextErrors: Partial<Record<AddressField, string>> = {
+      title: validateAddressTitle(addressForm.title),
+      country: validateCountry(addressForm.country),
+      city: validateCity(addressForm.city),
+      street: validateStreet(addressForm.street),
+    };
+    setAddressFieldErrors(nextErrors);
 
-    // Open WhatsApp
-    try {
-      window.open(whatsappURL, "_blank");
-    } catch (err) {
-      console.log("Could not open WhatsApp window", err);
+    if (hasValidationErrors(nextErrors)) {
+      return;
     }
 
-    setPaymentStep('success');
+    void (async () => {
+      setIsSavingAddress(true);
+      setErrorMessage("");
+      try {
+        const created = await createUserAddress({
+          title: addressForm.title.trim(),
+          country: addressForm.country.trim(),
+          city: addressForm.city.trim(),
+          street: addressForm.street.trim(),
+          is_default: addresses.length === 0,
+        });
+        setAddresses((current) => [...current, created]);
+        setSelectedAddressId(created.id);
+        setIsAddingAddress(false);
+        setAddressForm(emptyAddressForm);
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "تعذر إضافة العنوان الجديد.");
+      } finally {
+        setIsSavingAddress(false);
+      }
+    })();
+  };
+
+  const handleConfirmOrder = (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!currentUser) {
+      onRequireLogin();
+      return;
+    }
+
+    if (!createdOrder) {
+      if (isBundleOnlyCheckout) {
+        setErrorMessage("الرجاء إضافة عناصر الباقة إلى سلة الشراء أولاً ثم إتمام الطلب.");
+        return;
+      }
+
+      if (cartItems.length === 0) {
+        setErrorMessage("سلة الشراء فارغة، أضف منتجات أولاً.");
+        return;
+      }
+
+      if (!selectedAddressId) {
+        setErrorMessage("الرجاء اختيار عنوان توصيل أو إضافة عنوان جديد.");
+        return;
+      }
+    }
+
+    setErrorMessage("");
+    setIsSubmitting(true);
+
+    void (async () => {
+      try {
+        let order = createdOrder;
+
+        if (!order) {
+          order = await createOrder(selectedAddressId as string);
+          setCreatedOrder(order);
+          onClearCart();
+          onOrderSuccess(order);
+        }
+
+        const intention = await createPaymentIntention(order.id);
+        window.location.href = intention.checkoutUrl;
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "تعذر إتمام العملية، الرجاء المحاولة مرة أخرى.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    })();
   };
 
   const handleFinish = () => {
-    onClearCart();
     onClose();
-    setPaymentStep('form');
-    setFormData({
-      name: displayUserFullName,
-      phone: currentUser?.phone || "",
-      city: "الدقهلية",
-      address: "",
-      notes: ""
-    });
   };
+
+  if (!isOpen) {
+    return null;
+  }
+
+  const shouldShowAddressForm = isAddingAddress || (!isLoadingAddresses && addresses.length === 0);
+  const confirmButtonLabel = isSubmitting
+    ? "جاري المعالجة..."
+    : createdOrder
+      ? "إعادة محاولة الدفع الإلكتروني"
+      : "المتابعة للدفع الإلكتروني الآمن";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
       {/* Backdrop */}
-      <div 
-        onClick={onClose} 
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm" 
+      <div
+        onClick={onClose}
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
       />
 
       <div className="relative w-full max-w-3xl h-[100dvh] sm:h-auto sm:max-h-[90dvh] bg-dark-bg border border-dark-border rounded-none sm:rounded-2xl shadow-2xl overflow-hidden z-10 p-4 sm:p-7 animate-in fade-in zoom-in-95 duration-200 text-right font-sans flex flex-col">
-        
+
         {/* Close Button */}
-        {paymentStep !== 'success' && (
+        {step !== 'success' && (
           <button
             onClick={onClose}
             className="absolute top-4 left-4 p-2 rounded-lg bg-dark-card border border-dark-border text-gray-400 hover:text-white transition-colors"
@@ -250,46 +244,55 @@ export default function CheckoutModal({
         )}
 
         <div className="flex-1 overflow-y-auto pt-10 sm:pt-0">
-        {paymentStep === 'success' ? (
+        {!currentUser ? (
+          /* LOGIN REQUIRED */
+          <div className="text-center py-10 max-w-sm mx-auto">
+            <div className="w-14 h-14 rounded-full bg-gold-400/10 border border-gold-400 text-gold-400 flex items-center justify-center mx-auto mb-4">
+              <MapPin size={28} />
+            </div>
+            <h3 className="text-base sm:text-lg font-black text-white mb-2">سجل الدخول لإتمام طلبك</h3>
+            <p className="text-xs text-gray-400 leading-relaxed mb-5">
+              يلزم تسجيل الدخول لحفظ عنوان التوصيل وربط الطلب بحسابك ومتابعته لاحقاً من صفحة الملف الشخصي.
+            </p>
+            <button
+              onClick={onRequireLogin}
+              className="bg-gold-400 hover:bg-gold-500 text-dark-bg font-extrabold text-xs sm:text-sm px-6 py-2.5 rounded-xl transition-colors"
+            >
+              تسجيل الدخول / إنشاء حساب
+            </button>
+          </div>
+        ) : step === 'success' ? (
           /* SUCCESS SCREEN */
           <div className="text-center py-6">
             <div className="w-14 h-14 rounded-full bg-green-500/10 border border-green-500 text-green-400 flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 size={32} />
             </div>
-            
+
             <h3 className="text-lg sm:text-xl font-black text-white mb-1">تم إرسال وتسجيل طلبك بنجاح!</h3>
             <p className="text-xs text-gray-400 max-w-md mx-auto leading-relaxed mb-5">
-              لقد قمنا بتسجيل الطلب في لوحة التحكم وتجهيز الفاتورة، وفتحنا محادثة واتساب لتأكيد الشحن وتفاصيل الألوان.
+              لقد قمنا بتسجيل الطلب في لوحة التحكم، ويمكنك متابعة حالته من صفحة الملف الشخصي، وفتحنا محادثة واتساب لتأكيد الشحن وتفاصيل الألوان.
             </p>
 
             {/* Receipt card */}
             <div className="max-w-md mx-auto bg-dark-card border border-dark-border rounded-xl p-4 text-right mb-6">
               <div className="flex justify-between items-center pb-2.5 border-b border-dark-border/60 mb-3 text-[10px] font-bold text-gray-400">
-                <span>رقم الطلب: <span className="text-white font-mono">{generatedOrderNo}</span></span>
-                <span>التاريخ: {new Date().toLocaleDateString("ar-EG")}</span>
+                <span>رقم الطلب: <span className="text-white font-mono">{createdOrder?.orderNumber || createdOrder?.id}</span></span>
+                <span>التاريخ: {createdOrderDateLabel}</span>
               </div>
 
               <div className="space-y-1.5 mb-3 text-xs">
-                <p className="text-gray-400">اسم المستلم: <span className="text-white font-bold">{formData.name}</span></p>
-                <p className="text-gray-400">رقم الهاتف: <span className="text-white font-bold font-mono">{formData.phone}</span></p>
-                <p className="text-gray-400">عنوان التوصيل: <span className="text-white font-bold">{formData.city} - {formData.address}</span></p>
-                <p className="text-gray-400">طريقة الدفع: <span className="text-gold-500 font-bold">
-                  {paymentMethod === 'card' ? 'فيزا/ماستركارد (دفع إلكتروني)' : paymentMethod === 'wallet' ? 'محفظة هاتف إلكترونية' : 'الدفع نقداً عند الاستلام'}
-                </span></p>
+                <p className="text-gray-400">اسم المستلم: <span className="text-white font-bold">{displayUserFullName}</span></p>
+                <p className="text-gray-400">رقم الهاتف: <span className="text-white font-bold font-mono">{currentUser.phone}</span></p>
+                {selectedAddress && (
+                  <p className="text-gray-400">عنوان التوصيل: <span className="text-white font-bold">{selectedAddress.title} - {selectedAddress.city}, {selectedAddress.street}</span></p>
+                )}
+                <p className="text-gray-400">طريقة الدفع: <span className="text-gold-500 font-bold">{paymentMethodLabel()}</span></p>
               </div>
 
               <div className="border-t border-dark-border/40 pt-3 space-y-2 text-xs">
-                <div className="flex justify-between text-gray-400">
-                  <span>المجموع الفرعي:</span>
-                  <span className="text-gray-200 font-bold">{formatPrice(subtotal)}</span>
-                </div>
-                <div className="flex justify-between text-gray-400">
-                  <span>تكلفة الشحن والتوصيل:</span>
-                  <span className="text-gray-200 font-bold">تكاليف الشحن تقدر من خلال الوكيل الخاص بمنطقتك</span>
-                </div>
-                <div className="flex justify-between text-sm sm:text-base font-black pt-2 border-t border-dark-border/20 text-gold-500">
+                <div className="flex justify-between text-sm sm:text-base font-black pt-2 text-gold-500">
                   <span>المبلغ الإجمالي الكلي:</span>
-                  <span>{formatPrice(total)}</span>
+                  <span>{formatPrice(displayTotal)}</span>
                 </div>
               </div>
             </div>
@@ -302,219 +305,154 @@ export default function CheckoutModal({
               <ArrowRight size={16} />
             </button>
           </div>
-        ) : paymentStep === 'paymob_processing' ? (
-          /* PAYMOB DYNAMIC FORM */
-          <div className="py-1 sm:py-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-dark-border pb-3 mb-4">
-              <div className="flex items-center gap-2 text-gold-500">
-                <Coins size={20} />
-                <h3 className="text-sm sm:text-base font-black text-white">بوابة دفع Paymob الآمنة</h3>
-              </div>
-              <span className="text-[10px] text-gray-400 font-bold">المبلغ المطلوب: {formatPrice(total)}</span>
-            </div>
-
-            <form onSubmit={simulatePaymobPayment} className="max-w-md mx-auto space-y-4">
-              {paymentMethod === 'card' ? (
-                <div className="space-y-3.5 bg-dark-card border border-dark-border p-4 rounded-xl">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-gray-200">الدفع بالبطاقة الائتمانية</span>
-                    <CreditCard className="text-gold-500 w-5 h-5" />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-gray-400 font-bold block">رقم البطاقة (16 رقم) *</label>
-                    <input
-                      type="text"
-                      name="cardNumber"
-                      required
-                      maxLength={19}
-                      placeholder="4000 1234 5678 9010"
-                      value={paymobData.cardNumber}
-                      onChange={handlePaymobInputChange}
-                      className="w-full bg-dark-bg border border-dark-border focus:border-gold-400 rounded-lg py-2 px-3 text-xs text-white text-left font-mono focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-gray-400 font-bold block">تاريخ الانتهاء (MM/YY) *</label>
-                      <input
-                        type="text"
-                        name="cardExpiry"
-                        required
-                        placeholder="12/28"
-                        maxLength={5}
-                        value={paymobData.cardExpiry}
-                        onChange={handlePaymobInputChange}
-                        className="w-full bg-dark-bg border border-dark-border focus:border-gold-400 rounded-lg py-2 px-3 text-xs text-white text-center font-mono focus:outline-none"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-gray-400 font-bold block">الرمز السري (CVV) *</label>
-                      <input
-                        type="password"
-                        name="cardCvv"
-                        required
-                        maxLength={3}
-                        placeholder="123"
-                        value={paymobData.cardCvv}
-                        onChange={handlePaymobInputChange}
-                        className="w-full bg-dark-bg border border-dark-border focus:border-gold-400 rounded-lg py-2 px-3 text-xs text-white text-center font-mono focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3 bg-dark-card border border-dark-border p-4 rounded-xl">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-gray-200">الدفع عبر المحفظة الإلكترونية</span>
-                    <Coins className="text-gold-500 w-5 h-5" />
-                  </div>
-                  <p className="text-[10px] text-gray-400 leading-relaxed">
-                    ادفع مباشرة من رصيد محفظتك (فودافون كاش، أورنج كاش، اتصالات كاش، إلخ) وسيتم إرسال طلب تأكيد فوري لهاتفك.
-                  </p>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-gray-400 font-bold block">رقم محفظة الهاتف المحمول *</label>
-                    <input
-                      type="tel"
-                      name="walletNumber"
-                      required
-                      placeholder="01012345678"
-                      value={paymobData.walletNumber}
-                      onChange={handlePaymobInputChange}
-                      className="w-full bg-dark-bg border border-dark-border focus:border-gold-400 rounded-lg py-2 px-3 text-xs text-white text-left font-mono focus:outline-none"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {errorMessage && (
-                <p className="text-red-500 text-xs font-bold text-center">{errorMessage}</p>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setPaymentStep('form')}
-                  className="bg-dark-card border border-dark-border text-gray-400 hover:text-white py-2.5 rounded-xl text-xs font-bold"
-                >
-                  تعديل بيانات التوصيل
-                </button>
-                <button
-                  type="submit"
-                  className="bg-gold-400 hover:bg-gold-500 text-dark-bg py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5"
-                >
-                  <span id="paymob-button-loader" className="hidden w-4 h-4 border-2 border-dark-bg border-t-transparent rounded-full animate-spin"></span>
-                  <span>إتمام الدفع الآمن {formatPrice(total)}</span>
-                </button>
-              </div>
-
-              <p className="text-[9px] text-gray-500 text-center leading-relaxed mt-2 flex items-center justify-center gap-1">
-                <span>🔒 معتمد ومحمي بالكامل بشهادة سكيوريت وبوابة معالجة Paymob مصر.</span>
-              </p>
-            </form>
-          </div>
         ) : (
-          /* FORM STEP */
+          /* DETAILS STEP */
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start mt-2 sm:mt-4">
-            
+
             {/* Form Column */}
             <div className="lg:col-span-7">
-              <h4 className="text-xs sm:text-sm font-bold text-white mb-3">تفاصيل مالك الصالون وبيانات الشحن:</h4>
-              
-              <form onSubmit={handleFormSubmit} className="space-y-3 text-right">
-                <div className="space-y-1">
-                  <label className="text-[10px] text-gray-400 font-bold block">الاسم بالكامل لمالك الصالون أو الكوافير *</label>
-                  <input
-                    type="text"
-                    name="name"
-                    required
-                    placeholder="مثال: طارق هلال"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="w-full bg-dark-card border border-dark-border focus:border-gold-500 rounded-xl py-2 px-3 text-xs sm:text-sm text-white focus:outline-none"
-                  />
-                </div>
+              <h4 className="text-xs sm:text-sm font-bold text-white mb-3">عنوان التوصيل وطريقة الدفع:</h4>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-gray-400 font-bold block">رقم الهاتف للاتصال والواتساب *</label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      required
-                      placeholder="01001234567"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      className="w-full bg-dark-card border border-dark-border focus:border-gold-500 rounded-xl py-2 px-3 text-xs sm:text-sm text-white text-right font-mono focus:outline-none"
-                    />
+              <form onSubmit={handleConfirmOrder} className="space-y-4 text-right">
+                {/* Address selection */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] text-gray-400 font-bold flex items-center gap-1.5">
+                      <MapPin size={13} className="text-gold-500" />
+                      عنوان التوصيل *
+                    </label>
+                    {addresses.length > 0 && !createdOrder && (
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingAddress((prev) => !prev)}
+                        className="text-[10px] font-bold text-gold-400 hover:text-gold-300 flex items-center gap-1"
+                      >
+                        <Plus size={12} />
+                        {isAddingAddress ? "إلغاء" : "إضافة عنوان جديد"}
+                      </button>
+                    )}
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-gray-400 font-bold block">المحافظة والمدينة *</label>
-                    <input
-                      type="text"
-                      name="city"
-                      required
-                      placeholder="الدقهلية - المنصورة"
-                      value={formData.city}
-                      onChange={handleInputChange}
-                      className="w-full bg-dark-card border border-dark-border focus:border-gold-500 rounded-xl py-2 px-3 text-xs sm:text-sm text-white focus:outline-none"
-                    />
+
+                  {isLoadingAddresses ? (
+                    <p className="text-xs text-gray-500">جاري تحميل العناوين المحفوظة...</p>
+                  ) : addressesError ? (
+                    <p className="text-xs text-red-500 font-bold">{addressesError}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {addresses.map((address) => (
+                        <label
+                          key={address.id}
+                          className={`flex items-start gap-2.5 rounded-xl border p-3 text-xs cursor-pointer transition-colors ${
+                            selectedAddressId === address.id
+                              ? "border-gold-400 bg-gold-400/10"
+                              : "border-dark-border bg-dark-card hover:border-gold-400/40"
+                          } ${createdOrder ? "opacity-60 pointer-events-none" : ""}`}
+                        >
+                          <input
+                            type="radio"
+                            name="selectedAddress"
+                            className="mt-0.5 accent-gold-400"
+                            checked={selectedAddressId === address.id}
+                            onChange={() => setSelectedAddressId(address.id)}
+                            disabled={Boolean(createdOrder)}
+                          />
+                          <span className="space-y-0.5">
+                            <span className="block font-bold text-gray-200">
+                              {address.title}
+                              {address.is_default && <span className="mr-1.5 text-[9px] text-gold-500">(افتراضي)</span>}
+                            </span>
+                            <span className="block text-gray-500">{address.country} - {address.city}, {address.street}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  {shouldShowAddressForm && !createdOrder && (
+                    <div className="rounded-xl border border-dark-border bg-dark-card p-3 space-y-2.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-gray-500 font-bold block">عنوان مختصر (Home/Office) *</label>
+                          <input
+                            type="text"
+                            value={addressForm.title}
+                            onChange={(e) => handleAddressFieldChange("title", e.target.value)}
+                            className={`w-full bg-dark-bg border rounded-lg py-2 px-3 text-xs text-white focus:outline-none ${addressFieldErrors.title ? "border-red-500" : "border-dark-border focus:border-gold-400"}`}
+                          />
+                          {addressFieldErrors.title && <p className="text-[10px] font-bold text-red-500">{addressFieldErrors.title}</p>}
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-gray-500 font-bold block">المحافظة / المدينة *</label>
+                          <input
+                            type="text"
+                            value={addressForm.city}
+                            onChange={(e) => handleAddressFieldChange("city", e.target.value)}
+                            className={`w-full bg-dark-bg border rounded-lg py-2 px-3 text-xs text-white focus:outline-none ${addressFieldErrors.city ? "border-red-500" : "border-dark-border focus:border-gold-400"}`}
+                          />
+                          {addressFieldErrors.city && <p className="text-[10px] font-bold text-red-500">{addressFieldErrors.city}</p>}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 font-bold block">الدولة *</label>
+                        <input
+                          type="text"
+                          value={addressForm.country}
+                          onChange={(e) => handleAddressFieldChange("country", e.target.value)}
+                          className={`w-full bg-dark-bg border rounded-lg py-2 px-3 text-xs text-white focus:outline-none ${addressFieldErrors.country ? "border-red-500" : "border-dark-border focus:border-gold-400"}`}
+                        />
+                        {addressFieldErrors.country && <p className="text-[10px] font-bold text-red-500">{addressFieldErrors.country}</p>}
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 font-bold block">الشارع بالتفصيل *</label>
+                        <input
+                          type="text"
+                          placeholder="الشارع، الدور، علامة مميزة..."
+                          value={addressForm.street}
+                          onChange={(e) => handleAddressFieldChange("street", e.target.value)}
+                          className={`w-full bg-dark-bg border rounded-lg py-2 px-3 text-xs text-white focus:outline-none ${addressFieldErrors.street ? "border-red-500" : "border-dark-border focus:border-gold-400"}`}
+                        />
+                        {addressFieldErrors.street && <p className="text-[10px] font-bold text-red-500">{addressFieldErrors.street}</p>}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isSavingAddress}
+                        onClick={handleAddAddressSubmit}
+                        className="w-full bg-gold-400/10 border border-gold-400 text-gold-400 hover:bg-gold-400/20 rounded-lg py-2 text-xs font-bold disabled:opacity-60"
+                      >
+                        {isSavingAddress ? "جاري الحفظ..." : "حفظ العنوان واستخدامه"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Payment method */}
+                <div className="pt-1">
+                  <label className="text-[10px] text-gray-400 font-bold block mb-2">طريقة الدفع:</label>
+                  <div className="flex items-center gap-2.5 p-3 rounded-xl border border-gold-400 bg-gold-500/10 text-gold-500">
+                    <div className="flex items-center gap-1.5">
+                      <CreditCard size={16} />
+                      <Coins size={16} />
+                    </div>
+                    <span className="text-xs font-bold">دفع إلكتروني عبر Paymob (فيزا / ماستركارد / محفظة)</span>
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] text-gray-400 font-bold block">عنوان الصالون بالتفصيل والشارع *</label>
-                  <input
-                    type="text"
-                    name="address"
-                    required
-                    placeholder="الشارع، الدور، بجوار كافيه أو علامة مميزة لتسهيل النقل..."
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    className="w-full bg-dark-card border border-dark-border focus:border-gold-500 rounded-xl py-2 px-3 text-xs sm:text-sm text-white focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] text-gray-400 font-bold block">ملاحظات أو مواصفات خاصة بالألوان (اختياري)</label>
+                  <label className="text-[10px] text-gray-400 font-bold block">ملاحظات إضافية (اختياري - لا تُحفظ مع الطلب، تُرسل عبر واتساب فقط)</label>
                   <textarea
-                    name="notes"
                     rows={2}
                     placeholder="مثال: أرغب في تنجيد كراسي الحلاقة بالجلد الطبيعي البني الفاتح..."
-                    value={formData.notes}
-                    onChange={handleInputChange}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
                     className="w-full bg-dark-card border border-dark-border focus:border-gold-500 rounded-xl py-2 px-3 text-xs sm:text-sm text-white focus:outline-none resize-none"
                   />
                 </div>
 
-                {/* Choose Payment Method */}
-                <div className="pt-2">
-                  <label className="text-[10px] text-gray-400 font-bold block mb-2">طريقة الدفع المناسبة لك:</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('card')}
-                      className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${paymentMethod === 'card' ? 'bg-gold-500/10 border-gold-400 text-gold-500' : 'bg-dark-card border-dark-border text-gray-400 hover:text-white'}`}
-                    >
-                      <CreditCard size={18} className="mb-1" />
-                      <span className="text-xs font-bold">فيزا / ماستركارد</span>
-                      <span className="text-[8px] text-gold-500 font-bold mt-0.5">عبر بوابة Paymob</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('wallet')}
-                      className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${paymentMethod === 'wallet' ? 'bg-gold-500/10 border-gold-400 text-gold-500' : 'bg-dark-card border-dark-border text-gray-400 hover:text-white'}`}
-                    >
-                      <Coins size={18} className="mb-1" />
-                      <span className="text-xs font-bold">محفظة إلكترونية</span>
-                      <span className="text-[8px] text-gold-500 font-bold mt-0.5">فودافون كاش / Paymob</span>
-                    </button>
-                  </div>
-                </div>
+                {createdOrder && (
+                  <p className="text-[10px] text-gold-400 font-bold text-center bg-gold-400/5 border border-gold-400/30 rounded-lg py-2">
+                    تم إنشاء الطلب رقم {createdOrder.orderNumber || createdOrder.id} بنجاح، أكمل الدفع الإلكتروني لإتمام العملية.
+                  </p>
+                )}
 
                 {errorMessage && (
                   <p className="text-red-500 text-xs font-bold text-center">{errorMessage}</p>
@@ -523,9 +461,11 @@ export default function CheckoutModal({
                 <div className="pt-2">
                   <button
                     type="submit"
-                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-gold-400 to-gold-500 hover:from-gold-500 hover:to-gold-600 text-dark-bg font-extrabold py-3.5 rounded-xl shadow-lg transition-all text-xs sm:text-sm"
+                    disabled={isSubmitting}
+                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-gold-400 to-gold-500 hover:from-gold-500 hover:to-gold-600 text-dark-bg font-extrabold py-3.5 rounded-xl shadow-lg transition-all text-xs sm:text-sm disabled:opacity-60"
                   >
-                    <span> تأكيد الطلب </span>
+                    {isSubmitting && <Loader2 size={16} className="animate-spin" />}
+                    <span>{confirmButtonLabel}</span>
                   </button>
                 </div>
               </form>
@@ -536,16 +476,13 @@ export default function CheckoutModal({
               <h4 className="text-[10px] font-bold text-gray-400 mb-3 pb-2 border-b border-dark-border/40">ملخص سلة الشراء:</h4>
 
               <div className="space-y-2.5 max-h-36 sm:max-h-44 overflow-y-auto mb-3 pr-1">
-                {selectedBundle ? (
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-gray-300 font-bold block truncate max-w-[150px]">{selectedBundle.name}</span>
-                    <span className="text-gold-400 font-bold font-mono">1 x {formatPrice(selectedBundle.price)}</span>
-                  </div>
+                {cartItems.length === 0 ? (
+                  <p className="text-xs text-gray-500">سلة الشراء فارغة حالياً.</p>
                 ) : (
                   cartItems.map((item) => (
                     <div key={getCartLineKey(item)} className="flex justify-between items-center text-xs">
                       <span className="text-gray-300 block truncate max-w-[150px]">
-                        {item.product.name}
+                        {item.product_name}
                         {describeCartItemVariant(item) && (
                           <span className="text-gray-500"> ({describeCartItemVariant(item)})</span>
                         )}
@@ -566,7 +503,7 @@ export default function CheckoutModal({
                 <hr className="border-dark-border my-1" />
                 <div className="flex justify-between text-sm sm:text-base font-black text-gold-500 pt-1">
                   <span>الإجمالي الكلي:</span>
-                  <span className="font-mono">{formatPrice(total)}</span>
+                  <span className="font-mono">{formatPrice(displayTotal)}</span>
                 </div>
               </div>
 

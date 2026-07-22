@@ -89,8 +89,8 @@ export function ChartBars({ data }: { data: { label: string; value: number }[] }
 
   return (
     <div className="space-y-3">
-      {data.map((item) => (
-        <div key={item.label}>
+      {data.map((item, index) => (
+        <div key={`${item.label}-${index}`}>
           <div className="mb-1.5 flex items-center justify-between text-xs font-semibold text-slate-500">
             <span>{item.label}</span>
             <span>{item.value}</span>

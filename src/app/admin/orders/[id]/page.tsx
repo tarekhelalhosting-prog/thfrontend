@@ -5,8 +5,18 @@ import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Clock3, CreditCard } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
 import { EmptyState, Panel, SectionHeader, StatusPill, Timeline } from "@/components/admin/admin-kit";
-import { fetchOrders } from "@/lib/api";
+import { cancelOrder, fetchOrders, updateOrderStatus } from "@/lib/api";
 import { Order } from "@/types";
+
+const ORDER_STATUS_OPTIONS: Order["status"][] = [
+  "Pending",
+  "Confirmed",
+  "Processing",
+  "Ready",
+  "Completed",
+  "Cancelled",
+  "Refunded",
+];
 
 function formatPrice(value: number) {
   return `${value.toLocaleString("ar-EG")} جنيه`;
@@ -19,6 +29,11 @@ function formatDate(value: string) {
 export default function OrderDetailPage({ params }: { params: { id: string } }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedStatus, setSelectedStatus] = useState<Order["status"] | "">("");
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -43,6 +58,54 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
   }, []);
 
   const order = useMemo(() => orders.find((item) => item.id === params.id), [orders, params.id]);
+  const effectiveSelectedStatus = selectedStatus || order?.status || "";
+
+  const isOrderCancellable = order ? order.status === "Pending" || order.status === "Confirmed" : false;
+
+  const handleSaveStatus = () => {
+    if (!order || !effectiveSelectedStatus || effectiveSelectedStatus === order.status) {
+      return;
+    }
+
+    setActionError("");
+    setActionMessage("");
+    setIsSavingStatus(true);
+
+    void (async () => {
+      try {
+        const updated = await updateOrderStatus(order.id, { status: effectiveSelectedStatus });
+        setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, ...updated } : item)));
+        setActionMessage("تم تحديث حالة الطلب.");
+      } catch (error) {
+        setActionError(error instanceof Error ? error.message : "تعذر تحديث حالة الطلب.");
+      } finally {
+        setIsSavingStatus(false);
+      }
+    })();
+  };
+
+  const handleCancelOrder = () => {
+    if (!order || !window.confirm("هل تريد إلغاء هذا الطلب؟")) {
+      return;
+    }
+
+    setActionError("");
+    setActionMessage("");
+    setIsCancelling(true);
+
+    void (async () => {
+      try {
+        await cancelOrder(order.id);
+        setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status: "Cancelled" } : item)));
+        setSelectedStatus("Cancelled");
+        setActionMessage("تم إلغاء الطلب.");
+      } catch (error) {
+        setActionError(error instanceof Error ? error.message : "تعذر إلغاء الطلب.");
+      } finally {
+        setIsCancelling(false);
+      }
+    })();
+  };
 
   if (isLoading) {
     return (
@@ -147,6 +210,47 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                 <span className="text-sm text-slate-600">تاريخ الطلب</span>
                 <span className="font-bold text-slate-950">{formatDate(order.created_at)}</span>
               </div>
+
+              {actionError ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</div>
+              ) : null}
+              {actionMessage ? (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{actionMessage}</div>
+              ) : null}
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="mb-2 text-xs text-slate-500">تغيير حالة الطلب</p>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={effectiveSelectedStatus}
+                    onChange={(event) => setSelectedStatus(event.target.value as Order["status"])}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900"
+                  >
+                    {ORDER_STATUS_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleSaveStatus}
+                    disabled={isSavingStatus || effectiveSelectedStatus === order.status}
+                    className="whitespace-nowrap rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    {isSavingStatus ? "جاري الحفظ..." : "حفظ"}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCancelOrder}
+                disabled={!isOrderCancellable || isCancelling}
+                className="w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 disabled:opacity-50"
+              >
+                {isCancelling ? "جاري الإلغاء..." : "إلغاء الطلب"}
+              </button>
             </div>
           </Panel>
 

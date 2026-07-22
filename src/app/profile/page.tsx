@@ -7,15 +7,16 @@ import Header from "../../../components/Header";
 import Footer from "../../../components/Footer";
 import CartDrawer from "../../../components/CartDrawer";
 import AccountModal from "../../../components/AccountModal";
-import { categories } from "../../data/salondata";
 import { useAuthSession } from "../../hooks/useAuthSession";
-import { usePersistentLocalState } from "../../hooks/usePersistentLocalState";
-import { STORAGE_KEYS } from "../../lib/browser-storage";
+import { useCart } from "../../hooks/useCart";
 import {
+  cancelOrder,
   createUserAddress,
   deleteUserAddress,
   deleteUserProfile,
+  fetchCategories,
   fetchCurrentUser,
+  fetchOrders,
   fetchUserAddressById,
   fetchUserAddresses,
   setDefaultUserAddress,
@@ -30,7 +31,7 @@ import {
   validateName,
   validateStreet,
 } from "../../lib/form-validation";
-import { Address, CartItem } from "../../types";
+import { Address, Category, Order } from "../../types";
 
 type AddressFormState = {
   title: string;
@@ -54,7 +55,8 @@ export default function ProfilePage() {
 
   const router = useRouter();
   const { currentUser, isHydrated, login, logout, clearSession } = useAuthSession();
-  const { value: cart, setValue: setCart, isHydrated: isCartHydrated } = usePersistentLocalState<CartItem[]>(STORAGE_KEYS.cart, []);
+  const hydratedUserForCart = isHydrated ? currentUser : null;
+  const { cartItems: hydratedCart, cartCount, updateQuantity: updateCartQuantity, removeItem: removeCartItem } = useCart(hydratedUserForCart);
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
@@ -74,6 +76,9 @@ export default function ProfilePage() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [addressForm, setAddressForm] = useState<AddressFormState>(emptyAddressForm);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const currentUserId = currentUser?.id;
   const currentUserPhone = currentUser?.phone ?? "";
   const currentUserFirstName = currentUser?.first_name ?? "";
@@ -81,18 +86,43 @@ export default function ProfilePage() {
   const currentUserRole = currentUser?.role ?? "Customer";
   const lastLoadedProfileKeyRef = useRef<string | null>(null);
 
-  const hydratedCart = isCartHydrated ? cart : [];
 
   const sortedAddresses = useMemo(
     () => [...addresses].sort((left, right) => Number(right.is_default) - Number(left.is_default)),
     [addresses]
   );
+  const sortedOrders = useMemo(
+    () => [...orders].sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()),
+    [orders]
+  );
+  const isOrderCancellable = (order: Order) => order.status === "Pending" || order.status === "Confirmed";
   const shouldShowAccountLoader =
     isLoading &&
     !firstName &&
     !lastName &&
     !currentUserFirstName &&
     !currentUserLastName;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const fetchedCategories = await fetchCategories();
+        if (!cancelled) {
+          setCategories(fetchedCategories);
+        }
+      } catch {
+        if (!cancelled) {
+          setCategories([]);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (currentUserFirstName || currentUserLastName) {
@@ -119,7 +149,7 @@ export default function ProfilePage() {
     void (async () => {
       try {
         setIsLoading(true);
-        const [freshUser, userAddresses] = await Promise.all([fetchCurrentUser(), fetchUserAddresses()]);
+        const [freshUser, userAddresses, userOrders] = await Promise.all([fetchCurrentUser(), fetchUserAddresses(), fetchOrders()]);
 
         if (cancelled) {
           return;
@@ -140,6 +170,7 @@ export default function ProfilePage() {
         setFirstName(freshUser.first_name);
         setLastName(freshUser.last_name);
         setAddresses(userAddresses);
+        setOrders(userOrders);
       } catch (error) {
         lastLoadedProfileKeyRef.current = null;
 
@@ -349,6 +380,30 @@ export default function ProfilePage() {
     })();
   };
 
+  const handleCancelOrder = (orderId: string) => {
+    if (!window.confirm("هل تريد إلغاء هذا الطلب؟")) {
+      return;
+    }
+
+    setErrorMessage("");
+    setMessage("");
+    setCancellingOrderId(orderId);
+
+    void (async () => {
+      try {
+        await cancelOrder(orderId);
+        setOrders((current) =>
+          current.map((order) => (order.id === orderId ? { ...order, status: "Cancelled" } : order))
+        );
+        setMessage("تم إلغاء الطلب.");
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "تعذر إلغاء الطلب.");
+      } finally {
+        setCancellingOrderId(null);
+      }
+    })();
+  };
+
   const handleDeleteProfile = () => {
     if (!window.confirm("حذف الحساب نهائي. هل تريد الاستمرار؟")) {
       return;
@@ -375,7 +430,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-dark-bg text-gray-100">
       <Header
-        cartCount={hydratedCart.reduce((sum, item) => sum + item.quantity, 0)}
+        cartCount={cartCount}
         onCartClick={() => setIsCartOpen(true)}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
@@ -386,7 +441,10 @@ export default function ProfilePage() {
         currentUser={currentUser}
         onAccountClick={() => {}}
         onAdminClick={() => router.push("/admin")}
-        onLogout={logout}
+        onLogout={() => {
+          logout();
+          router.replace("/");
+        }}
         currentView="profile"
       />
 
@@ -645,6 +703,49 @@ export default function ProfilePage() {
               )}
             </div>
           </section>
+
+          <section className="rounded-2xl border border-dark-border bg-dark-card p-5 lg:col-span-3">
+            <h2 className="mb-4 text-lg font-black text-white">طلباتي</h2>
+
+            {isLoading ? (
+              <p className="text-sm text-gray-500">جاري تحميل الطلبات...</p>
+            ) : sortedOrders.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-dark-border bg-dark-bg px-4 py-8 text-center text-sm text-gray-500">
+                لا يوجد أي طلبات سابقة حتى الآن.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {sortedOrders.map((order) => (
+                  <article key={order.id} className="rounded-2xl border border-dark-border bg-dark-bg p-4">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-sm font-black text-white">
+                        طلب رقم <span className="font-mono text-gold-400">{order.orderNumber || order.id}</span>
+                      </div>
+                      <span className="rounded-full border border-gold-400/30 bg-gold-50 px-2.5 py-0.5 text-[11px] font-bold text-gold-700">
+                        {order.status}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-gray-500">
+                      {new Date(order.created_at).toLocaleDateString("ar-EG")} - {order.items?.length ?? 0} منتج
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-gray-200">الإجمالي: {order.total.toLocaleString("en-EG")} جنيه</p>
+
+                    {isOrderCancellable(order) ? (
+                      <button
+                        type="button"
+                        onClick={() => handleCancelOrder(order.id)}
+                        disabled={cancellingOrderId === order.id}
+                        className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-600 disabled:opacity-60"
+                      >
+                        {cancellingOrderId === order.id ? "جاري الإلغاء..." : "إلغاء الطلب"}
+                      </button>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       </main>
 
@@ -658,18 +759,8 @@ export default function ProfilePage() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cartItems={hydratedCart}
-        onUpdateQuantity={(id, quantityDelta) => {
-          setCart((currentCart) =>
-            currentCart
-              .map((item) =>
-                item.product.id === id
-                  ? { ...item, quantity: Math.max(1, item.quantity + quantityDelta) }
-                  : item
-              )
-              .filter((item) => item.quantity > 0)
-          );
-        }}
-        onRemoveItem={(id) => setCart((currentCart) => currentCart.filter((item) => item.product.id !== id))}
+        onUpdateQuantity={(id, quantityDelta) => updateCartQuantity(id, quantityDelta)}
+        onRemoveItem={(id) => removeCartItem(id)}
         onCheckout={() => {
           setIsCartOpen(false);
           navigateToStore("all");
@@ -681,7 +772,7 @@ export default function ProfilePage() {
         onClose={() => setIsAccountOpen(false)}
         currentUser={null}
         onLogin={login}
-        orders={[]}
+        orders={orders}
       />
     </div>
   );

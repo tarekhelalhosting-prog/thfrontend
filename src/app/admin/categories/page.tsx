@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Edit3, Image as ImageIcon, Plus, Trash2 } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
+import CloudinaryImagePicker, { CloudinaryImageValue } from "@/components/admin/CloudinaryImagePicker";
 import { EmptyState, Modal, Panel, SectionHeader } from "@/components/admin/admin-kit";
 import { createCategory, deleteCategory, fetchCategories, fetchProducts, updateCategory } from "@/lib/api";
 import { Category, Product } from "@/types";
@@ -22,7 +23,7 @@ export default function CategoriesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [image, setImage] = useState("");
+  const [image, setImage] = useState<CloudinaryImageValue[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -58,14 +59,15 @@ export default function CategoriesPage() {
   const openCreateModal = () => {
     setEditingId(null);
     setName("");
-    setImage("");
+    setImage([]);
     setModalOpen(true);
   };
 
   const openEditModal = (category: Category) => {
     setEditingId(category.id);
     setName(category.name);
-    setImage(category.image || category.media_url || "");
+    const existingUrl = category.image || category.media_url || "";
+    setImage(existingUrl ? [{ url: existingUrl }] : []);
     setModalOpen(true);
   };
 
@@ -78,11 +80,13 @@ export default function CategoriesPage() {
 
       try {
         setIsSaving(true);
+        const imageUrl = image[0]?.url || "";
+        const publicId = image[0]?.public_id;
         if (editingId) {
-          const updated = await updateCategory(editingId, { name: trimmedName, image });
+          const updated = await updateCategory(editingId, { name: trimmedName, image: imageUrl, public_id: publicId });
           setCategories((current) => current.map((item) => (item.id === editingId ? updated : item)));
         } else {
-          const created = await createCategory({ name: trimmedName, image });
+          const created = await createCategory({ name: trimmedName, image: imageUrl, public_id: publicId });
           setCategories((current) => [created, ...current]);
         }
         setModalOpen(false);
@@ -186,13 +190,13 @@ export default function CategoriesPage() {
             اسم التصنيف
             <input value={name} onChange={(event) => setName(event.target.value)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-amber-400" placeholder="مثال: كراسي الحلاقة" />
           </label>
-          <label className="grid gap-2 text-sm font-bold text-slate-700">
-            صورة التصنيف
-            <div className="relative">
-              <input value={image} onChange={(event) => setImage(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pl-12 text-sm outline-none transition-colors focus:border-amber-400" placeholder="https://..." />
-              <ImageIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            </div>
-          </label>
+          <CloudinaryImagePicker
+            title="صورة التصنيف"
+            description="ارفع صورة التصنيف مباشرة إلى Cloudinary، ثم نحفظ الرابط والـ public_id في الباك إند."
+            value={image}
+            onChange={setImage}
+            maxImages={1}
+          />
         </div>
       </Modal>
     </AdminShell>

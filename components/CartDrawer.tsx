@@ -93,7 +93,7 @@ export default function CartDrawer({
                   <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border border-dark-border shrink-0">
                     <img
                       src={getCartItemImage(item)}
-                      alt={item.product.name}
+                      alt={item.product_name}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -101,7 +101,7 @@ export default function CartDrawer({
                   {/* Details */}
                   <div className="flex-1 text-right">
                     <h4 className="text-xs sm:text-sm font-bold text-gray-200 line-clamp-1">
-                      {item.product.name}
+                      {item.product_name}
                     </h4>
                     {variantDescription && (
                       <span className="text-[10px] text-gray-500 mt-0.5 block">

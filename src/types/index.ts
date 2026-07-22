@@ -167,9 +167,14 @@ export interface Payment {
 }
 
 export interface CartItem {
-  product: Product;
-  selectedVariant?: ProductVariant;
+  cart_item_id?: string; // backend CartItem PK; present once persisted server-side (authenticated users only)
+  product_variant_id: string; // FK to ProductVariant - unique key for a cart line (backend enforces one line per variant per cart)
+  product_name: string;
+  variant_description: string; // e.g. "Black - M", empty string when the variant has no attributes
+  image: string;
+  unit_price: number;
   quantity: number;
+  subtotal: number;
 }
 
 export interface Review {

@@ -1,4 +1,4 @@
-import { Product, Category, Order, OrderItem, Payment, ProductImage, ProductVariant, ProductVariantAttribute, User, Address } from "../types";
+import { Product, Category, Order, OrderItem, Payment, ProductImage, ProductVariant, ProductVariantAttribute, User, Address, CartItem } from "../types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 const CLOUDINARY_UPLOAD_ENDPOINT = "/api/cloudinary/upload";
@@ -43,15 +43,42 @@ export type CloudinaryUploadResult = {
 
 type ApiUser = Partial<User>;
 
-type ApiOrderItem = Partial<OrderItem> & {
-  productId?: string;
-  productName?: string;
+// OrderItemReadSerializer only returns (id, product_name, variant_description,
+// price, quantity, subtotal) - no order/product_variant FK, so those stay
+// blank in the mapped OrderItem (they are not needed for display).
+type ApiOrderItem = {
+  id?: string | number;
+  product_name?: string;
+  variant_description?: string;
+  price?: string | number;
+  quantity?: number;
+  subtotal?: string | number;
 };
 
-type ApiOrder = Partial<Order> & {
+// OrderSerializer exposes bare FK ids (`user`, `address`) - never nested
+// objects - and has no `payment` field at all.
+type ApiOrder = {
+  id?: string | number;
+  user?: string | number;
+  address?: string | number;
+  status?: string;
+  subtotal?: string | number;
+  discount?: string | number;
+  total?: string | number;
+  created_at?: string;
+  updated_at?: string;
   items?: ApiOrderItem[];
-  user?: ApiUser;
-  payment?: Partial<Payment>;
+};
+
+type ApiPayment = {
+  payment_id?: string | number;
+  id?: string | number;
+  order_id?: string | number;
+  provider?: string;
+  transaction_id?: string | null;
+  status?: string;
+  amount?: string | number;
+  paid_at?: string | null;
 };
 
 type ApiAuthResponse = {
@@ -65,6 +92,27 @@ type ApiAuthResponse = {
 type ApiAddress = Partial<Address> & {
   user?: string;
   user_id?: string;
+};
+
+// Raw shape returned by CartItemReadSerializer - already flattened for
+// display (no nested product/variant objects), so it maps almost 1:1 onto
+// the frontend's `CartItem` shape.
+type ApiCartItem = {
+  cart_item_id?: string | number;
+  product_variant?: string | number;
+  product_name?: string;
+  variant_description?: string;
+  variant_image?: string | null;
+  unit_price?: string | number;
+  quantity?: number;
+  subtotal?: string | number;
+};
+
+type ApiCart = {
+  cart_id?: string | number;
+  items?: ApiCartItem[];
+  subtotal?: string | number;
+  total_quantity?: number;
 };
 
 type ApiEnvelope<T> = {
@@ -83,6 +131,7 @@ type ProductVariantPayload = {
   id?: string;
   price: string | number;
   image?: string;
+  public_id?: string;
   attributes: ProductVariantAttributePayload[];
 };
 
@@ -173,6 +222,43 @@ function normalizeUserRole(rawRole: unknown): User["role"] {
   return "Customer";
 }
 
+// The Django `OrderStatus`/`PaymentStatus` TextChoices store their UPPERCASE
+// value (e.g. "PENDING", "PAID") on the model, and that's exactly what the
+// API sends back - normalized here to the Title Case union the rest of the
+// UI already renders and filters against.
+function normalizeOrderStatus(rawStatus: unknown): Order["status"] {
+  const normalized = readStringValue(rawStatus).trim().toUpperCase();
+  const known: Record<string, Order["status"]> = {
+    PENDING: "Pending",
+    CONFIRMED: "Confirmed",
+    PROCESSING: "Processing",
+    READY: "Ready",
+    COMPLETED: "Completed",
+    CANCELLED: "Cancelled",
+    REFUNDED: "Refunded",
+  };
+
+  return known[normalized] || "Pending";
+}
+
+// Sends the UI's Title Case status back as the UPPERCASE code the backend's
+// ChoiceField validates against (e.g. "Confirmed" -> "CONFIRMED").
+function denormalizeOrderStatus(status: Order["status"]): string {
+  return status.trim().toUpperCase();
+}
+
+function normalizePaymentStatus(rawStatus: unknown): Payment["status"] {
+  const normalized = readStringValue(rawStatus).trim().toUpperCase();
+  const known: Record<string, Payment["status"]> = {
+    PENDING: "Pending",
+    PAID: "Paid",
+    FAILED: "Failed",
+    CANCELLED: "Cancelled",
+  };
+
+  return known[normalized] || "Pending";
+}
+
 function parseAuthPayload(payload: unknown): { user: ApiUser; token?: string } {
   const record = (payload ?? {}) as Record<string, unknown>;
   const envelopeData = (record.data ?? null) as Record<string, unknown> | null;
@@ -230,6 +316,7 @@ export async function uploadProductImageToCloudinary(file: File): Promise<Cloudi
 export async function createProductImage(payload: {
   product_id: string;
   image: string;
+  public_id?: string;
   is_primary?: boolean;
 }): Promise<ProductImage> {
   const response = await fetchWithAutoRefresh("/product-images/", {
@@ -238,6 +325,7 @@ export async function createProductImage(payload: {
     body: JSON.stringify({
       product_id: payload.product_id,
       image: payload.image,
+      ...(payload.public_id ? { public_id: payload.public_id } : {}),
       is_primary: payload.is_primary ?? false,
     }),
   }, true);
@@ -380,17 +468,17 @@ function hasMeaningfulUserData(user: ApiUser): boolean {
   );
 }
 
-function mapDjangoPayment(djangoPayment: Partial<Payment> | undefined, order: ApiOrder): Payment | undefined {
-  if (!djangoPayment && !order.id) {
-    return undefined;
-  }
-
+// The `OrderSerializer` never embeds a nested `payment`, so this always
+// synthesizes a placeholder "Pending/COD" payment from the order itself
+// unless an actual Payment payload was fetched separately (e.g. via
+// `fetchPaymentStatus`) and passed in.
+function mapDjangoPayment(djangoPayment: ApiPayment | undefined, order: ApiOrder & { id: string }): Payment | undefined {
   if (!djangoPayment) {
     return {
       id: `pay-${order.id || "pending"}`,
       order_id: order.id || "",
       provider: "Paymob",
-      transaction_id: order.orderNumber || order.id || "",
+      transaction_id: "",
       status: "Pending",
       amount: Number(order.total || 0),
       paid_at: null,
@@ -398,11 +486,11 @@ function mapDjangoPayment(djangoPayment: Partial<Payment> | undefined, order: Ap
   }
 
   return {
-    id: readStringValue(djangoPayment.id) || `pay-${order.id || "pending"}`,
+    id: readStringValue(djangoPayment.id ?? djangoPayment.payment_id) || `pay-${order.id || "pending"}`,
     order_id: readStringValue(djangoPayment.order_id) || order.id || "",
-    provider: djangoPayment.provider || "Paymob",
-    transaction_id: readStringValue(djangoPayment.transaction_id) || order.orderNumber || order.id || "",
-    status: djangoPayment.status || "Pending",
+    provider: "Paymob",
+    transaction_id: readStringValue(djangoPayment.transaction_id),
+    status: normalizePaymentStatus(djangoPayment.status),
     amount: Number(djangoPayment.amount ?? order.total ?? 0),
     paid_at: typeof djangoPayment.paid_at === "string" ? djangoPayment.paid_at : null,
   };
@@ -411,9 +499,9 @@ function mapDjangoPayment(djangoPayment: Partial<Payment> | undefined, order: Ap
 function mapDjangoOrderItem(item: ApiOrderItem): OrderItem {
   return {
     id: readStringValue(item.id) || `item-${Math.random().toString(36).slice(2, 9)}`,
-    order_id: readStringValue(item.order_id) || "",
-    product_variant_id: readStringValue(item.product_variant_id) || readStringValue(item.productId) || "",
-    product_name: readStringValue(item.product_name) || readStringValue(item.productName) || "",
+    order_id: "",
+    product_variant_id: "",
+    product_name: readStringValue(item.product_name),
     variant_description: readStringValue(item.variant_description) || "Default",
     price: Number(item.price || 0),
     quantity: Number(item.quantity || 1),
@@ -569,6 +657,12 @@ export function mapDjangoUser(djangoUser: ApiUser): User {
   };
 }
 
+// `OrderSerializer` only ever returns bare FK ids for `user`/`address` and
+// never a nested payment - so `customerName`/`customerPhone`/`address` stay
+// generic placeholders here; callers that already know the real customer
+// (e.g. the profile page showing the logged-in user's own orders, or the
+// checkout flow that already has the selected Address in hand) should
+// override those UI-compatibility fields with the real data they have.
 export function mapDjangoOrder(djangoOrder: ApiOrder): Order {
   if (!djangoOrder) {
     const now = new Date().toISOString();
@@ -585,26 +679,27 @@ export function mapDjangoOrder(djangoOrder: ApiOrder): Order {
     };
   }
 
+  const orderId = readStringValue(djangoOrder.id);
+
   return {
-    ...djangoOrder,
-    id: djangoOrder.id || "",
-    user_id: djangoOrder.user_id || null,
-    address_id: djangoOrder.address_id || null,
-    status: djangoOrder.status || 'Pending',
+    id: orderId,
+    user_id: readStringValue(djangoOrder.user) || null,
+    address_id: readStringValue(djangoOrder.address) || null,
+    status: normalizeOrderStatus(djangoOrder.status),
     subtotal: Number(djangoOrder.subtotal || 0),
     discount: Number(djangoOrder.discount || 0),
     total: Number(djangoOrder.total || 0),
     created_at: djangoOrder.created_at || new Date().toISOString(),
     updated_at: djangoOrder.updated_at || new Date().toISOString(),
-    
+
     // UI compatibility fields
-    orderNumber: djangoOrder.id?.slice(0, 8).toUpperCase() || djangoOrder.orderNumber || "",
-    customerName: djangoOrder.customerName || (djangoOrder.user ? `${djangoOrder.user.first_name} ${djangoOrder.user.last_name}` : "عميل صالون"),
-    customerPhone: djangoOrder.customerPhone || djangoOrder.user?.phone || "",
-    city: djangoOrder.city || "القاهرة",
-    address: djangoOrder.address || "العنوان بالتفصيل",
-    payment: mapDjangoPayment(djangoOrder.payment, djangoOrder),
-    items: Array.isArray(djangoOrder.items) ? djangoOrder.items.map(mapDjangoOrderItem) : djangoOrder.items,
+    orderNumber: orderId ? `TH-${orderId.padStart(6, "0")}` : "",
+    customerName: "عميل صالون",
+    customerPhone: "",
+    city: "القاهرة",
+    address: "العنوان بالتفصيل",
+    payment: mapDjangoPayment(undefined, { ...djangoOrder, id: orderId }),
+    items: Array.isArray(djangoOrder.items) ? djangoOrder.items.map(mapDjangoOrderItem) : [],
   };
 }
 
@@ -680,50 +775,161 @@ export async function fetchCategories(): Promise<Category[]> {
   return Array.isArray(data) ? data.map(mapDjangoCategory) : [];
 }
 
-// Fetch all orders (Admin only) from Django API
+// Fetch all orders visible to the current user (their own orders, or every
+// order for staff/admin accounts) from Django API, following DRF's default
+// pagination until every page is collected.
 export async function fetchOrders(): Promise<Order[]> {
-  const response = await fetchWithAutoRefresh("/orders/", {
-    headers: buildAuthHeaders(false),
-  }, true);
-  if (!response.ok) {
-    throw new Error("حدث خطأ أثناء جلب الطلبات من الخادم");
+  const collected: ApiOrder[] = [];
+  let nextPath: string | null = "/orders/?page_size=100";
+
+  while (nextPath) {
+    const response = await fetchWithAutoRefresh(nextPath, {
+      headers: buildAuthHeaders(false),
+    }, true);
+
+    if (!response.ok) {
+      throw new Error("حدث خطأ أثناء جلب الطلبات من الخادم");
+    }
+
+    const data = await response.json();
+
+    if (Array.isArray(data)) {
+      collected.push(...data);
+      break;
+    }
+
+    if (data && Array.isArray(data.results)) {
+      collected.push(...data.results);
+      const nextUrl = typeof data.next === "string" ? data.next : null;
+      nextPath = nextUrl ? nextUrl.slice(nextUrl.indexOf("/orders/")) : null;
+    } else {
+      break;
+    }
   }
-  const data = await response.json();
-  return Array.isArray(data) ? data.map(mapDjangoOrder) : [];
+
+  return collected.map(mapDjangoOrder);
 }
 
-// Submit a new order to the Django API
-export async function createOrder(orderData: Partial<Order>): Promise<Order> {
-  // Construct payload mapping for Django "Orders" & "Order Items"
-  const djangoPayload = {
-    user_id: orderData.user_id || null,
-    address_id: orderData.address_id || null,
-    status: "Pending",
-    subtotal: orderData.subtotal || orderData.total || 0,
-    discount: orderData.discount || 0,
-    total: orderData.total || 0,
-    items: orderData.items?.map((item) => ({
-      product_variant_id: item.product_variant_id, // references specific selected ProductVariant UUID
-      product_name: item.product_name,
-      variant_description: item.variant_description || "Default",
-      price: item.price,
-      quantity: item.quantity,
-      subtotal: item.price * item.quantity
-    })) || []
-  };
-
-  const response = await fetchWithAutoRefresh("/orders/", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(djangoPayload),
+export async function fetchOrderById(orderId: string): Promise<Order> {
+  const response = await fetchWithAutoRefresh(`/orders/${orderId}/`, {
+    headers: buildAuthHeaders(false),
   }, true);
+
   if (!response.ok) {
-    throw new Error("فشل إرسال الطلب، الرجاء المحاولة مرة أخرى");
+    throw new Error("تعذر جلب بيانات الطلب");
   }
+
   const data = await response.json();
   return mapDjangoOrder(data);
+}
+
+async function readErrorDetail(response: Response, fallbackMessage: string): Promise<string> {
+  try {
+    const payload = await response.json();
+    const record = (payload ?? {}) as Record<string, unknown>;
+
+    if (typeof record.detail === "string") {
+      return record.detail;
+    }
+
+    const firstField = Object.values(record).find((value) => Array.isArray(value) && value.length > 0) as
+      | unknown[]
+      | undefined;
+
+    if (firstField && typeof firstField[0] === "string") {
+      return firstField[0];
+    }
+  } catch {
+    // fall through to default message below
+  }
+
+  return fallbackMessage;
+}
+
+// Submit a new order to the Django API. The backend derives the order's
+// items/subtotal/total from the user's current server-side cart (and clears
+// that cart once the order is created) - the only thing the client sends is
+// which of the user's own addresses to ship to.
+export async function createOrder(addressId: string): Promise<Order> {
+  const response = await fetchWithAutoRefresh("/orders/", {
+    method: "POST",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify({ address: addressId }),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error(await readErrorDetail(response, "فشل إرسال الطلب، الرجاء المحاولة مرة أخرى"));
+  }
+
+  const data = await response.json();
+  return mapDjangoOrder(data);
+}
+
+// Cancel one of the current user's own orders (or any order, for staff).
+export async function cancelOrder(orderId: string): Promise<void> {
+  const response = await fetchWithAutoRefresh(`/orders/${orderId}/cancel/`, {
+    method: "PATCH",
+    headers: buildAuthHeaders(),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error(await readErrorDetail(response, "تعذر إلغاء الطلب"));
+  }
+}
+
+export type PaymentIntention = {
+  paymentId: string;
+  merchantOrderId: string;
+  checkoutUrl: string;
+  clientSecret: string;
+};
+
+// Task 6: create a Paymob payment intention for a pending order and return
+// the hosted checkout URL to redirect the browser to.
+export async function createPaymentIntention(orderId: string): Promise<PaymentIntention> {
+  const response = await fetchWithAutoRefresh(`/orders/${orderId}/pay/`, {
+    method: "POST",
+    headers: buildAuthHeaders(),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error(await readErrorDetail(response, "تعذر إنشاء عملية الدفع الإلكتروني، حاول مرة أخرى"));
+  }
+
+  const data = await response.json();
+
+  return {
+    paymentId: readStringValue(data.payment_id),
+    merchantOrderId: readStringValue(data.merchant_order_id),
+    checkoutUrl: readStringValue(data.checkout_url),
+    clientSecret: readStringValue(data.client_secret),
+  };
+}
+
+export type PaymentStatusResult = {
+  orderStatus: Order["status"];
+  paymentStatus: Payment["status"];
+  transactionId: string | null;
+};
+
+// Polling endpoint for the (non-authoritative) redirect back from Paymob's
+// hosted checkout page - only the order's own owner may call this.
+export async function fetchPaymentStatus(orderId: string): Promise<PaymentStatusResult> {
+  const response = await fetchWithAutoRefresh(`/orders/${orderId}/payment-status/`, {
+    headers: buildAuthHeaders(false),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error(await readErrorDetail(response, "تعذر جلب حالة الدفع"));
+  }
+
+  const data = await response.json();
+
+  return {
+    orderStatus: normalizeOrderStatus(data.order_status),
+    paymentStatus: normalizePaymentStatus(data.payment_status),
+    transactionId: typeof data.transaction_id === "string" ? data.transaction_id : null,
+  };
 }
 
 // Login user via Django API using Phone Number as unique ID
@@ -979,15 +1185,20 @@ export async function logoutUser(): Promise<void> {
   }, true);
 }
 
-// Update order status (Admin only)
+// Update order status (Admin/Moderator only). The backend's ChoiceField
+// validates against the raw UPPERCASE enum value, so the UI's Title Case
+// status is denormalized before sending.
 export async function updateOrderStatus(orderId: string, updates: { status?: Order["status"] }): Promise<Order> {
   const response = await fetchWithAutoRefresh(`/orders/${orderId}/`, {
     method: "PATCH",
     headers: buildAuthHeaders(),
-    body: JSON.stringify(updates),
+    body: JSON.stringify({
+      ...updates,
+      status: updates.status ? denormalizeOrderStatus(updates.status) : undefined,
+    }),
   }, true);
   if (!response.ok) {
-    throw new Error("فشل تحديث حالة الطلب");
+    throw new Error(await readErrorDetail(response, "فشل تحديث حالة الطلب"));
   }
   const data = await response.json();
   return mapDjangoOrder(data);
@@ -1078,7 +1289,44 @@ export async function hardDeleteProduct(productId: string): Promise<void> {
   }
 }
 
-export async function createCategory(categoryData: { name: string; image?: string }): Promise<Category> {
+// The nested `variants` update on PUT/PATCH /products/{id}/ now only edits
+// variants that are sent with an existing `id` - it no longer creates or
+// deletes variants implicitly. Adding/removing a variant on an existing
+// product must go through this dedicated endpoint instead.
+export async function createProductVariant(payload: {
+  product_id: string;
+  price: string | number;
+  image?: string;
+  attributes: ProductVariantAttributePayload[];
+}): Promise<ProductVariant> {
+  const response = await fetchWithAutoRefresh("/product-variants/", {
+    method: "POST",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify({
+      product_id: payload.product_id,
+      price: payload.price,
+      ...(payload.image ? { image: payload.image } : {}),
+      attributes: payload.attributes,
+    }),
+  }, true);
+  if (!response.ok) {
+    throw new Error("تعذر إضافة الـ Variant الجديد");
+  }
+  const data = await response.json();
+  return mapDjangoProductVariant(data, payload.product_id);
+}
+
+export async function deleteProductVariant(variantId: string): Promise<void> {
+  const response = await fetchWithAutoRefresh(`/product-variants/${variantId}/`, {
+    method: "DELETE",
+    headers: buildAuthHeaders(false),
+  }, true);
+  if (!response.ok) {
+    throw new Error("تعذر حذف الـ Variant");
+  }
+}
+
+export async function createCategory(categoryData: { name: string; image?: string; public_id?: string }): Promise<Category> {
   const response = await fetchWithAutoRefresh("/categories/", {
     method: "POST",
     headers: buildAuthHeaders(),
@@ -1086,6 +1334,7 @@ export async function createCategory(categoryData: { name: string; image?: strin
       name: categoryData.name,
       media_url: categoryData.image || "",
       image: categoryData.image || "",
+      ...(categoryData.public_id ? { public_id: categoryData.public_id } : {}),
     }),
   }, true);
 
@@ -1097,7 +1346,7 @@ export async function createCategory(categoryData: { name: string; image?: strin
   return mapDjangoCategory(data);
 }
 
-export async function updateCategory(categoryId: string, categoryData: { name: string; image?: string }): Promise<Category> {
+export async function updateCategory(categoryId: string, categoryData: { name: string; image?: string; public_id?: string }): Promise<Category> {
   const response = await fetchWithAutoRefresh(`/categories/${categoryId}/`, {
     method: "PUT",
     headers: buildAuthHeaders(),
@@ -1105,6 +1354,7 @@ export async function updateCategory(categoryId: string, categoryData: { name: s
       name: categoryData.name,
       media_url: categoryData.image || "",
       image: categoryData.image || "",
+      ...(categoryData.public_id ? { public_id: categoryData.public_id } : {}),
     }),
   }, true);
 
@@ -1125,4 +1375,105 @@ export async function deleteCategory(categoryId: string): Promise<void> {
   if (!response.ok) {
     throw new Error("فشل حذف القسم");
   }
+}
+
+// Cart (Authenticated users only - CartViewSet uses IsAuthenticated).
+// CartItemReadSerializer already returns a flattened, display-ready shape
+// (no nested product/variant objects), so mapping is a straight field rename.
+function mapDjangoCartItem(rawItem: ApiCartItem): CartItem {
+  const quantity = Number(rawItem?.quantity ?? 1);
+  const unitPrice = Number(rawItem?.unit_price ?? 0);
+
+  return {
+    cart_item_id: readStringValue(rawItem?.cart_item_id) || undefined,
+    product_variant_id: readStringValue(rawItem?.product_variant),
+    product_name: readStringValue(rawItem?.product_name),
+    variant_description: readStringValue(rawItem?.variant_description),
+    image: readStringValue(rawItem?.variant_image) || PRODUCT_IMAGE_PLACEHOLDER,
+    unit_price: unitPrice,
+    quantity,
+    subtotal: Number(rawItem?.subtotal ?? unitPrice * quantity),
+  };
+}
+
+export async function fetchCart(): Promise<CartItem[]> {
+  const response = await fetchWithAutoRefresh("/cart/", {
+    headers: buildAuthHeaders(false),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر جلب سلة المشتريات");
+  }
+
+  const data = (await response.json()) as ApiCart;
+  const items = Array.isArray(data?.items) ? data.items : [];
+  return items.map(mapDjangoCartItem);
+}
+
+export async function addCartItem(productVariantId: string, quantity = 1): Promise<CartItem> {
+  const response = await fetchWithAutoRefresh("/cart/items/", {
+    method: "POST",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify({
+      product_variant: productVariantId,
+      quantity,
+    }),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر إضافة المنتج إلى السلة");
+  }
+
+  const data = await response.json();
+  return mapDjangoCartItem(data);
+}
+
+export async function updateCartItem(cartItemId: string, quantity: number): Promise<CartItem> {
+  const response = await fetchWithAutoRefresh(`/cart/items/${cartItemId}/update/`, {
+    method: "PATCH",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify({ quantity }),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر تحديث كمية المنتج في السلة");
+  }
+
+  const data = await response.json();
+  return mapDjangoCartItem(data);
+}
+
+export async function removeCartItem(cartItemId: string): Promise<void> {
+  const response = await fetchWithAutoRefresh(`/cart/items/${cartItemId}/remove/`, {
+    method: "DELETE",
+    headers: buildAuthHeaders(false),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر حذف المنتج من السلة");
+  }
+}
+
+export async function clearCart(): Promise<void> {
+  const response = await fetchWithAutoRefresh("/cart/clear/", {
+    method: "DELETE",
+    headers: buildAuthHeaders(false),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر تفريغ السلة");
+  }
+}
+
+export async function fetchCartCount(): Promise<number> {
+  const response = await fetchWithAutoRefresh("/cart/count/", {
+    headers: buildAuthHeaders(false),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر جلب عدد عناصر السلة");
+  }
+
+  const data = await response.json();
+  return Number(data?.count ?? 0);
 }

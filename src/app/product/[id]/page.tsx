@@ -3,18 +3,15 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowRight, ShoppingCart } from "lucide-react";
-import { categories as fallbackCategories, products as fallbackProducts } from "../../../data/salondata";
 import Header from "../../../../components/Header";
 import Footer from "../../../../components/Footer";
 import CartDrawer from "../../../../components/CartDrawer";
 import AccountModal from "../../../../components/AccountModal";
 import CheckoutModal from "../../../../components/CheckoutModal";
-import { CartItem, Product, ProductVariant } from "../../../types";
-import { STORAGE_KEYS } from "../../../lib/browser-storage";
-import { usePersistentLocalState } from "../../../hooks/usePersistentLocalState";
+import { Category, Order, Product, ProductVariant } from "../../../types";
 import { useAuthSession } from "../../../hooks/useAuthSession";
-import { fetchCategories, fetchProductById, fetchProducts } from "../../../lib/api";
-import { getCartLineKey } from "../../../lib/cart";
+import { useCart } from "../../../hooks/useCart";
+import { fetchCategories, fetchOrders, fetchProductById, fetchProducts } from "../../../lib/api";
 
 function ProductDetailsContent({
   product,
@@ -23,7 +20,7 @@ function ProductDetailsContent({
   onAddToCart,
 }: {
   product: Product;
-  categories: typeof fallbackCategories;
+  categories: Category[];
   allProducts: Product[];
   onAddToCart: (product: Product, quantity: number, variant: ProductVariant | null) => void;
 }) {
@@ -263,16 +260,43 @@ export default function ProductDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { currentUser, login, logout, isHydrated: isUserHydrated } = useAuthSession();
-  const { value: cart, setValue: setCart } = usePersistentLocalState<CartItem[]>(STORAGE_KEYS.cart, []);
+  const hydratedUser = isUserHydrated ? currentUser : null;
+  const { cartItems: hydratedCart, cartCount, addItem: addCartItem, updateQuantity: updateCartQuantity, removeItem: removeCartItem, clearCart } = useCart(hydratedUser);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [catalogProducts, setCatalogProducts] = useState<Product[]>(fallbackProducts);
-  const [catalogCategories, setCatalogCategories] = useState(fallbackCategories);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
+  const [catalogCategories, setCatalogCategories] = useState<Category[]>([]);
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
-  const hydratedUser = isUserHydrated ? currentUser : null;
-  const hydratedCart = cart;
+  const [myOrders, setMyOrders] = useState<Order[]>([]);
+
+  useEffect(() => {
+    const userId = hydratedUser?.id ?? null;
+
+    if (!userId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const ordersResult = await fetchOrders();
+        if (!cancelled) {
+          setMyOrders(ordersResult);
+        }
+      } catch {
+        if (!cancelled) {
+          setMyOrders([]);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hydratedUser?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -289,24 +313,20 @@ export default function ProductDetailPage() {
           return;
         }
 
-        const nextProducts = productsResult.status === "fulfilled" && productsResult.value.length > 0
-          ? productsResult.value
-          : fallbackProducts;
-        const nextCategories = categoriesResult.status === "fulfilled" && categoriesResult.value.length > 0
-          ? categoriesResult.value
-          : fallbackCategories;
+        const nextProducts = productsResult.status === "fulfilled" ? productsResult.value : [];
+        const nextCategories = categoriesResult.status === "fulfilled" ? categoriesResult.value : [];
         const nextProduct = productResult.status === "fulfilled"
           ? productResult.value
-          : nextProducts.find((item) => item.id === params.id) ?? fallbackProducts.find((item) => item.id === params.id) ?? null;
+          : nextProducts.find((item) => item.id === params.id) ?? null;
 
         setCatalogProducts(nextProducts);
         setCatalogCategories(nextCategories);
         setActiveProduct(nextProduct);
       } catch {
         if (!cancelled) {
-          setCatalogProducts(fallbackProducts);
-          setCatalogCategories(fallbackCategories);
-          setActiveProduct(fallbackProducts.find((item) => item.id === params.id) ?? null);
+          setCatalogProducts([]);
+          setCatalogCategories([]);
+          setActiveProduct(null);
         }
       } finally {
         if (!cancelled) {
@@ -321,20 +341,7 @@ export default function ProductDetailPage() {
   }, [params.id]);
 
   const handleAddToCart = (nextProduct: Product, quantity = 1, variant: ProductVariant | null = null) => {
-    setCart((currentCart) => {
-      const nextItem: CartItem = { product: nextProduct, quantity, selectedVariant: variant ?? undefined };
-      const nextLineKey = getCartLineKey(nextItem);
-      const matchingItem = currentCart.find((item) => getCartLineKey(item) === nextLineKey);
-      const updatedCart = matchingItem
-        ? currentCart.map((item) =>
-            getCartLineKey(item) === nextLineKey
-              ? { ...item, quantity: item.quantity + quantity }
-              : item
-          )
-        : [...currentCart, nextItem];
-      return updatedCart;
-    });
-
+    addCartItem(nextProduct, variant, quantity);
     setIsCartOpen(true);
   };
 
@@ -394,7 +401,7 @@ export default function ProductDetailPage() {
         }}
         onCartClick={() => setIsCartOpen(true)}
         onLogout={logout}
-        cartCount={hydratedCart.reduce((sum, item) => sum + item.quantity, 0)}
+        cartCount={cartCount}
         currentView="home"
         onAdminClick={() => router.push("/admin")}
         searchTerm=""
@@ -425,18 +432,8 @@ export default function ProductDetailPage() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cartItems={hydratedCart}
-        onUpdateQuantity={(id: string, delta: number) => {
-          const updatedCart = hydratedCart
-            .map((item) =>
-              getCartLineKey(item) === id ? { ...item, quantity: item.quantity + delta } : item
-            )
-            .filter((item) => item.quantity > 0);
-          setCart(updatedCart);
-        }}
-        onRemoveItem={(id: string) => {
-          const updatedCart = hydratedCart.filter((item) => getCartLineKey(item) !== id);
-          setCart(updatedCart);
-        }}
+        onUpdateQuantity={(id: string, delta: number) => updateCartQuantity(id, delta)}
+        onRemoveItem={(id: string) => removeCartItem(id)}
         onCheckout={() => {
           setIsCartOpen(false);
           setIsCheckoutOpen(true);
@@ -448,7 +445,7 @@ export default function ProductDetailPage() {
         onClose={() => setIsAccountOpen(false)}
         currentUser={hydratedUser}
         onLogin={login}
-        orders={[]}
+        orders={hydratedUser ? myOrders : []}
       />
 
       {isCheckoutOpen && (
@@ -459,11 +456,15 @@ export default function ProductDetailPage() {
           selectedBundle={null}
           currentUser={hydratedUser}
           onClearCart={() => {
-            setCart([]);
+            clearCart();
           }}
-          onOrderSuccess={() => {
-            setCart([]);
+          onOrderSuccess={(order) => {
+            clearCart();
+            setMyOrders((current) => [order, ...current]);
+          }}
+          onRequireLogin={() => {
             setIsCheckoutOpen(false);
+            setIsAccountOpen(true);
           }}
         />
       )}

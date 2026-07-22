@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Image as ImageIcon, Loader2, Plus, Trash2 } from "lucide-react";
-import { createProduct, updateProduct } from "@/lib/api";
+import { createProduct, createProductVariant, deleteProductVariant, updateProduct } from "@/lib/api";
 import { Category, Product } from "@/types";
 import { Panel, SectionHeader } from "@/components/admin/admin-kit";
 
@@ -86,6 +86,21 @@ function phaseLabel(mode: "create" | "edit") {
   return mode === "create" ? "إضافة منتج" : "تعديل المنتج";
 }
 
+// Shared shape sent to both the nested product update (existing variants)
+// and the standalone /product-variants/ endpoint (new variants).
+function mapVariantToPayload(variant: VariantDraft) {
+  return {
+    price: Number(variant.price),
+    ...(variant.existingImage ? { image: variant.existingImage } : {}),
+    attributes: variant.attributes
+      .filter((attribute) => attribute.attribute_type.trim() || attribute.value.trim())
+      .map((attribute) => ({
+        attribute_type: attribute.attribute_type.trim(),
+        value: attribute.value.trim(),
+      })),
+  };
+}
+
 export default function ProductManagementForm({ mode, categories, initialProduct, defaultCategoryId }: ProductManagementFormProps) {
   const router = useRouter();
   const [name, setName] = useState(() => initialProduct?.name || "");
@@ -96,6 +111,12 @@ export default function ProductManagementForm({ mode, categories, initialProduct
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const effectiveCategoryId = categoryId || defaultCategoryId || categories[0]?.id || "";
+
+  // Ids of variants that already existed on the product when this form
+  // loaded. Used on submit to tell apart variants that must be sent through
+  // the nested product update (existing, need an `id`) from ones that must
+  // be created/removed through the dedicated /product-variants/ endpoint.
+  const existingVariantIds = new Set((initialProduct?.variants || []).map((variant) => variant.id));
 
   const updateVariant = (variantId: string, updater: (variant: VariantDraft) => VariantDraft) => {
     setVariants((current) => current.map((variant) => (variant.id === variantId ? updater(variant) : variant)));
@@ -128,7 +149,7 @@ export default function ProductManagementForm({ mode, categories, initialProduct
 
       const normalizedAttributes = variant.attributes.filter((attribute) => attribute.attribute_type.trim() || attribute.value.trim());
       if (normalizedAttributes.length === 0) {
-        throw new Error("كل Variant يجب أن يحتوي على Attribute واحد على الأقل.");
+        throw new Error("يجب إضافة خاصية واحدة على الأقل لكل فاريانت (مثل اللون أو الحجم).");
       }
 
       const duplicateType = normalizedAttributes.some((attribute, index) => {
@@ -158,16 +179,7 @@ export default function ProductManagementForm({ mode, categories, initialProduct
     name: name.trim(),
     description: description.trim(),
     category: effectiveCategoryId,
-    variants: variants.map((variant) => ({
-      price: Number(variant.price),
-      ...(variant.existingImage ? { image: variant.existingImage } : {}),
-      attributes: variant.attributes
-        .filter((attribute) => attribute.attribute_type.trim() || attribute.value.trim())
-        .map((attribute) => ({
-          attribute_type: attribute.attribute_type.trim(),
-          value: attribute.value.trim(),
-        })),
-    })),
+    variants: variants.map(mapVariantToPayload),
   });
 
   const handleSubmit = () => {
@@ -178,14 +190,39 @@ export default function ProductManagementForm({ mode, categories, initialProduct
         validateForm();
         setIsSubmitting(true);
 
-        const payload = buildProductPayload();
-        const savedProduct = mode === "create"
-          ? await createProduct(payload)
-          : await updateProduct(initialProduct?.id || "", payload);
-
         if (mode === "create") {
+          const savedProduct = await createProduct(buildProductPayload());
           router.push(`/admin/products/${savedProduct.id}/images`);
           return;
+        }
+
+        const productId = initialProduct?.id || "";
+
+        // Existing variants must keep their `id` so the backend can locate
+        // them; new ones (added via "add variant" in this session) and
+        // removed ones can no longer be inferred from the array diff, so
+        // they're handled through /product-variants/ explicitly.
+        const existingVariants = variants.filter((variant) => existingVariantIds.has(variant.id));
+        const newVariants = variants.filter((variant) => !existingVariantIds.has(variant.id));
+        const removedVariantIds = [...existingVariantIds].filter(
+          (variantId) => !variants.some((variant) => variant.id === variantId)
+        );
+
+        await updateProduct(productId, {
+          name: name.trim(),
+          description: description.trim(),
+          category: effectiveCategoryId,
+          ...(existingVariants.length > 0
+            ? { variants: existingVariants.map((variant) => ({ id: variant.id, ...mapVariantToPayload(variant) })) }
+            : {}),
+        });
+
+        for (const variantId of removedVariantIds) {
+          await deleteProductVariant(variantId);
+        }
+
+        for (const variant of newVariants) {
+          await createProductVariant({ product_id: productId, ...mapVariantToPayload(variant) });
         }
 
         router.push("/admin/products");

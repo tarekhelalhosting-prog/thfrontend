@@ -154,14 +154,14 @@ export default function ProductsPage() {
           <button
             type="button"
             onClick={() => setViewMode("active")}
-            className={`rounded-2xl border px-4 py-2 text-xs font-bold ${viewMode === "active" ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-600"}`}
+            className={`rounded-2xl border px-4 py-2 text-xs font-bold ${viewMode === "active" ? "border-green-300 bg-green-300 text-slate-900" : "border-slate-200 bg-white text-slate-600"}`}
           >
             المنتجات النشطة
           </button>
           <button
             type="button"
             onClick={() => setViewMode("deleted")}
-            className={`rounded-2xl border px-4 py-2 text-xs font-bold ${viewMode === "deleted" ? "border-slate-950 bg-slate-950 text-white" : "border-slate-200 bg-white text-slate-600"}`}
+            className={`rounded-2xl border px-4 py-2 text-xs font-bold ${viewMode === "deleted" ? "border-green-300 bg-green-300 text-slate-900" : "border-slate-200 bg-white text-slate-600"}`}
           >
             المحذوفة{deletedProducts.length > 0 ? ` (${deletedProducts.length})` : ""}
           </button>
