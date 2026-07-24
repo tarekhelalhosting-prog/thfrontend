@@ -1066,6 +1066,33 @@ async function readErrorDetail(response: Response, fallbackMessage: string): Pro
   return fallbackMessage;
 }
 
+// The address endpoints wrap validation errors as
+// {"message": "Failed to add address.", "errors": {"message": ["This address already exists."]}}
+// - the generic readErrorDetail() above would surface the outer, unhelpful
+// "Failed to add address." wrapper instead of the real reason nested under
+// `errors`, so this reads the nested detail first.
+async function readAddressErrorDetail(response: Response, fallbackMessage: string): Promise<string> {
+  try {
+    const payload = await response.json();
+    const record = (payload ?? {}) as Record<string, unknown>;
+
+    const nestedMessage = findFirstErrorMessage(record.errors);
+    if (nestedMessage) {
+      return nestedMessage.toLowerCase().includes("already exists")
+        ? "هذا العنوان مسجل بالفعل لدى حسابك."
+        : nestedMessage;
+    }
+
+    if (typeof record.message === "string" && record.message !== "Failed to add address.") {
+      return record.message;
+    }
+  } catch {
+    // fall through to default message below
+  }
+
+  return fallbackMessage;
+}
+
 // Submit a new order to the Django API. The backend derives the order's
 // items/subtotal/total from the user's current server-side cart (and clears
 // that cart once the order is created) - the only thing the client sends is
@@ -1152,6 +1179,49 @@ export async function fetchPaymentStatus(orderId: string): Promise<PaymentStatus
   };
 }
 
+// Known Django REST Framework validation messages returned by the auth
+// endpoints (see API_INTEGRATION_GUIDE.md), translated to Arabic so the UI
+// always reflects the real cause of a failure - previously any non-ok
+// response from register/login was replaced with one hardcoded, often wrong
+// guess (e.g. "phone might already be registered" shown for a plain
+// password-length error). Falls back to the raw backend message when no
+// known pattern matches, and only uses the generic fallback when the
+// backend sent nothing usable at all.
+function translateAuthErrorMessage(rawMessage: string | undefined, fallbackMessage: string): string {
+  if (!rawMessage) {
+    return fallbackMessage;
+  }
+
+  const normalized = rawMessage.toLowerCase();
+
+  if (normalized.includes("password")) {
+    return "كلمة المرور يجب ألا تقل عن 8 أحرف.";
+  }
+
+  if (normalized.includes("already exists") || normalized.includes("already registered")) {
+    return "رقم الهاتف مسجل بالفعل، جرب تسجيل الدخول بدلاً من إنشاء حساب جديد.";
+  }
+
+  if (normalized.includes("valid egyptian phone") || normalized.includes("valid phone")) {
+    return "رقم الهاتف غير صحيح، يجب أن يتكون من 11 رقمًا ويبدأ بـ 010 أو 011 أو 012 أو 015.";
+  }
+
+  if (normalized.includes("invalid credentials")) {
+    return "رقم الهاتف أو كلمة المرور غير صحيحة.";
+  }
+
+  return rawMessage;
+}
+
+async function readAuthErrorDetail(response: Response, fallbackMessage: string): Promise<string> {
+  try {
+    const payload = await response.json();
+    return translateAuthErrorMessage(findFirstErrorMessage(payload), fallbackMessage);
+  } catch {
+    return fallbackMessage;
+  }
+}
+
 // Login user via Django API using Phone Number as unique ID
 export async function loginUser(credentials: { phone: string; password?: string }): Promise<{ user: User; token?: string }> {
   const response = await fetch(`${BASE_URL}/auth/login/`, {
@@ -1163,7 +1233,7 @@ export async function loginUser(credentials: { phone: string; password?: string 
     body: JSON.stringify(credentials),
   });
   if (!response.ok) {
-    throw new Error("رقم الهاتف أو كلمة المرور غير صحيحة");
+    throw new Error(await readAuthErrorDetail(response, "رقم الهاتف أو كلمة المرور غير صحيحة"));
   }
   const data = (await response.json()) as ApiAuthResponse;
   const parsed = parseAuthPayload(data);
@@ -1196,7 +1266,7 @@ export async function registerUser(userData: { first_name: string; last_name: st
     body: JSON.stringify(djangoPayload),
   });
   if (!response.ok) {
-    throw new Error("فشل تسجيل الحساب، رقم الهاتف قد يكون مسجلاً بالفعل");
+    throw new Error(await readAuthErrorDetail(response, "تعذر إنشاء الحساب، تحقق من البيانات ثم حاول مرة أخرى"));
   }
 
   return loginUser({
@@ -1227,7 +1297,7 @@ export async function createUserByAdmin(userData: {
   }, true);
 
   if (!response.ok) {
-    throw new Error("فشل إنشاء المستخدم الجديد، تحقق من البيانات ثم حاول مرة أخرى");
+    throw new Error(await readAuthErrorDetail(response, "فشل إنشاء المستخدم الجديد، تحقق من البيانات ثم حاول مرة أخرى"));
   }
 
   const data = (await response.json()) as { user?: ApiUser } | ApiUser;
@@ -1336,7 +1406,7 @@ export async function createUserAddress(address: {
   }, true);
 
   if (!response.ok) {
-    throw new Error("تعذر إضافة العنوان الجديد");
+    throw new Error(await readAddressErrorDetail(response, "تعذر إضافة العنوان الجديد"));
   }
 
   const payload = (await response.json()) as ApiEnvelope<ApiAddress> | ApiAddress;
@@ -1358,7 +1428,7 @@ export async function updateUserAddress(
   }, true);
 
   if (!response.ok) {
-    throw new Error("تعذر تحديث العنوان");
+    throw new Error(await readAddressErrorDetail(response, "تعذر تحديث العنوان"));
   }
 
   const payload = (await response.json()) as ApiEnvelope<ApiAddress> | ApiAddress;

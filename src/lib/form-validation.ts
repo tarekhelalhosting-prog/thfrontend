@@ -1,7 +1,9 @@
 type ValidationErrors<T extends string> = Partial<Record<T, string>>;
 
 const namePattern = /^[A-Za-z\u0600-\u06FF][A-Za-z\u0600-\u06FF\s'-]{1,29}$/;
-const phonePattern = /^01\d{9}$/;
+// Matches the backend's Egyptian mobile number rule (^01[0125][0-9]{8}$):
+// valid prefixes are 010, 011, 012, 015 only.
+const phonePattern = /^01[0125]\d{8}$/;
 
 function hasValue(value: string) {
   return value.trim().length > 0;
@@ -47,19 +49,23 @@ export function validatePhone(value: string) {
   }
 
   if (!phonePattern.test(normalized)) {
-    return "رقم الهاتف يجب أن يكون 11 رقمًا ويبدأ بـ 01.";
+    return "رقم الهاتف غير صحيح، يجب أن يتكون من 11 رقمًا ويبدأ بـ 010 أو 011 أو 012 أو 015.";
   }
 
   return "";
 }
 
+// Kept in sync with the backend's registration rule (password minimum
+// length: 8) - see API_INTEGRATION_GUIDE.md. Mismatches here previously let
+// users submit a form the backend would always reject, which then surfaced
+// as a confusing/unrelated error message from the server response.
 export function validatePassword(value: string) {
   if (!value) {
     return "كلمة المرور مطلوبة.";
   }
 
-  if (value.length < 6) {
-    return "كلمة المرور يجب ألا تقل عن 6 رموز.";
+  if (value.length < 8) {
+    return "كلمة المرور يجب ألا تقل عن 8 أحرف.";
   }
 
   return "";

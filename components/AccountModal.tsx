@@ -354,7 +354,7 @@ export default function AccountModal({
                     required
                     dir="ltr"
                     inputMode="numeric"
-                    pattern="01[0-9]{9}"
+                    pattern="01[0125][0-9]{8}"
                     maxLength={11}
                     placeholder="مثال: 01001234567"
                     value={loginData.phone}
@@ -373,7 +373,7 @@ export default function AccountModal({
                     <input
                       type={showPassword ? "text" : "password"}
                       required
-                      minLength={6}
+                      minLength={8}
                       placeholder="كلمة المرور الخاصة بحسابك"
                       value={loginData.password}
                       onChange={(e) => {
@@ -458,7 +458,7 @@ export default function AccountModal({
                     required
                     dir="ltr"
                     inputMode="numeric"
-                    pattern="01[0-9]{9}"
+                    pattern="01[0125][0-9]{8}"
                     maxLength={11}
                     placeholder="01012345678"
                     value={registerData.phone}
@@ -514,8 +514,8 @@ export default function AccountModal({
                     <input
                       type="password"
                       required
-                      minLength={6}
-                      placeholder="حد أدنى 6 رموز"
+                      minLength={8}
+                      placeholder="حد أدنى 8 أحرف"
                       value={registerData.password}
                       onChange={(e) => {
                         setRegisterData((prev) => ({ ...prev, password: e.target.value }));
@@ -530,7 +530,7 @@ export default function AccountModal({
                     <input
                       type="password"
                       required
-                      minLength={6}
+                      minLength={8}
                       placeholder="أعد إدخال الرمز"
                       value={registerData.confirmPassword}
                       onChange={(e) => {
