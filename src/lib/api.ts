@@ -1,4 +1,4 @@
-import { Product, Category, Order, OrderItem, Payment, ProductImage, ProductVariant, ProductVariantAttribute, User, Address, CartItem, Offer, OfferProduct } from "../types";
+import { Product, Category, Order, OrderItem, Payment, ProductImage, ProductVariant, ProductVariantAttribute, User, Address, CartItem, Offer, OfferProduct, Setting } from "../types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 const CLOUDINARY_UPLOAD_ENDPOINT = "/api/cloudinary/upload";
@@ -133,6 +133,36 @@ export type OfferPayload = {
   is_active: boolean;
   offer_products: OfferProductPayload[];
 };
+
+// SettingSerializer exposes (id, site_name, logo, public_id, phone, currency,
+// facebook, instagram, privacy_policy, terms, created_at, updated_at) - it's
+// a singleton (always pk=1), only GET (list) and PATCH (partial_update) exist.
+type ApiSetting = {
+  id?: string | number;
+  site_name?: string;
+  logo?: string | null;
+  public_id?: string | null;
+  phone?: string;
+  currency?: string;
+  facebook?: string | null;
+  instagram?: string | null;
+  privacy_policy?: string;
+  terms?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type SettingPayload = Partial<{
+  site_name: string;
+  logo: string;
+  public_id: string;
+  phone: string;
+  currency: string;
+  facebook: string;
+  instagram: string;
+  privacy_policy: string;
+  terms: string;
+}>;
 
 type ApiAuthResponse = {
   token?: string;
@@ -825,6 +855,41 @@ export function mapDjangoOffer(djangoOffer: ApiOffer): Offer {
     offer_products: Array.isArray(djangoOffer.offer_products) ? djangoOffer.offer_products.map(mapDjangoOfferProduct) : [],
     created_at: djangoOffer.created_at,
     updated_at: djangoOffer.updated_at,
+  };
+}
+
+// SettingSerializer fields: id, site_name, logo, public_id, phone, currency,
+// facebook, instagram, privacy_policy, terms, created_at, updated_at -
+// confirmed against the real backend serializer/model. Singleton row (pk=1).
+export function mapDjangoSetting(djangoSetting: ApiSetting): Setting {
+  if (!djangoSetting) {
+    return {
+      id: "1",
+      site_name: "",
+      logo: "",
+      public_id: undefined,
+      phone: "",
+      currency: "",
+      facebook: "",
+      instagram: "",
+      privacy_policy: "",
+      terms: "",
+    };
+  }
+
+  return {
+    id: readStringValue(djangoSetting.id) || "1",
+    site_name: djangoSetting.site_name || "",
+    logo: djangoSetting.logo || "",
+    public_id: djangoSetting.public_id || undefined,
+    phone: djangoSetting.phone || "",
+    currency: djangoSetting.currency || "",
+    facebook: djangoSetting.facebook || "",
+    instagram: djangoSetting.instagram || "",
+    privacy_policy: djangoSetting.privacy_policy || "",
+    terms: djangoSetting.terms || "",
+    created_at: djangoSetting.created_at,
+    updated_at: djangoSetting.updated_at,
   };
 }
 
@@ -1661,6 +1726,37 @@ export async function toggleOfferActive(offerId: string): Promise<Offer> {
   }
 
   return fetchOfferById(offerId);
+}
+
+// Settings (SettingViewSet - singleton, pk=1 always, created on first GET if
+// missing server-side). GET /settings/ -> list action, PATCH /settings/ ->
+// partial_update action (Admin/Moderator only per IsAdminOrModeratorOrReadOnly).
+export async function fetchSettings(): Promise<Setting> {
+  const response = await fetchWithAutoRefresh("/settings/", {
+    headers: buildAuthHeaders(false),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("حدث خطأ أثناء جلب إعدادات المتجر");
+  }
+
+  const data = await response.json();
+  return mapDjangoSetting(data);
+}
+
+export async function updateSettings(payload: SettingPayload): Promise<Setting> {
+  const response = await fetchWithAutoRefresh("/settings/", {
+    method: "PATCH",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify(payload),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error(await readOfferErrorDetail(response, "فشل حفظ إعدادات المتجر"));
+  }
+
+  const data = await response.json();
+  return mapDjangoSetting(data);
 }
 
 // Cart (Authenticated users only - CartViewSet uses IsAuthenticated).

@@ -12,7 +12,7 @@ import {
   Menu,
   Package,
   PlusCircle,
-  Settings,
+  // Settings,
   ShoppingCart,
   ShieldUser,
   SquarePen,
@@ -37,7 +37,7 @@ const navItems: NavItem[] = [
   { href: "/admin/customers", label: "العملاء", icon: Users, hint: "الحسابات والعناوين" },
   { href: "/admin/payments", label: "المدفوعات", icon: CreditCard, hint: "Paymob & الحالات" },
   { href: "/admin/users", label: "المستخدمون", icon: ShieldUser, hint: "Admin & Moderator" },
-  { href: "/admin/settings", label: "الإعدادات", icon: Settings, hint: "بيانات المتجر" },
+  //{ href: "/admin/settings", label: "الإعدادات", icon: Settings, hint: "بيانات المتجر" },
 ];
 
 function isActivePath(pathname: string, href: string) {

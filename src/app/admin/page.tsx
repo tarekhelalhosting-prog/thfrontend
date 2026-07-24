@@ -6,8 +6,8 @@ import { CalendarRange, ReceiptText, Sparkles, Users } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
 import { ChartBars, EmptyState, MetricCard, Panel, SectionHeader, StatusPill } from "@/components/admin/admin-kit";
 import { useAuthSession } from "@/hooks/useAuthSession";
-import { fetchOrders, fetchProducts } from "@/lib/api";
-import { Order, Product, User } from "@/types";
+import { fetchOffers, fetchOrders, fetchProducts } from "@/lib/api";
+import { Offer, Order, Product, User } from "@/types";
 
 type DailyPoint = { label: string; value: number };
 
@@ -86,11 +86,39 @@ function getCustomersFromOrders(orders: Order[]): User[] {
   return Array.from(customers.values());
 }
 
+// An offer counts as "active" for this metric only if it's both flagged
+// `is_active` AND the current date actually falls inside its start/end
+// window - matches the same active-window check used for the storefront
+// discount badges (`src/lib/product-offers.ts`).
+function countActiveOffers(offers: Offer[]): number {
+  const now = new Date();
+
+  return offers.filter((offer) => {
+    if (!offer.is_active) {
+      return false;
+    }
+
+    const startsAt = offer.starts_at ? new Date(offer.starts_at) : null;
+    const endsAt = offer.ends_at ? new Date(offer.ends_at) : null;
+
+    if (startsAt && !Number.isNaN(startsAt.getTime()) && now < startsAt) {
+      return false;
+    }
+
+    if (endsAt && !Number.isNaN(endsAt.getTime()) && now > endsAt) {
+      return false;
+    }
+
+    return true;
+  }).length;
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const { currentUser, isHydrated } = useAuthSession();
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [offers, setOffers] = useState<Offer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -109,14 +137,16 @@ export default function AdminPage() {
     void (async () => {
       try {
         setIsLoading(true);
-        const [productsResult, ordersResult] = await Promise.all([
+        const [productsResult, ordersResult, offersResult] = await Promise.all([
           fetchProducts(),
           fetchOrders(),
+          fetchOffers(),
         ]);
 
         if (!isCancelled) {
           setProducts(productsResult);
           setOrders(ordersResult);
+          setOffers(offersResult);
         }
       } finally {
         if (!isCancelled) {
@@ -131,7 +161,7 @@ export default function AdminPage() {
   }, [currentUser, isHydrated]);
 
   const customers = useMemo(() => getCustomersFromOrders(orders), [orders]);
-  const activeOffers = 4;
+  const activeOffers = countActiveOffers(offers);
   const pendingOrders = orders.filter((order) => order.status === "Pending").length;
   const totalSales = orders.filter((order) => order.payment?.status === "Paid").reduce((sum, order) => sum + Number(order.total || 0), 0);
 

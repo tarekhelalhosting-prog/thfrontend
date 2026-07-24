@@ -127,6 +127,22 @@ export interface OfferProduct {
   quantity: number;
 }
 
+// Singleton site settings (always pk=1 server-side, GET/PATCH only, no create/delete).
+export interface Setting {
+  id: string; // BigAutoField (PK), always 1
+  site_name: string;
+  logo?: string | null; // logo image URL (Cloudinary)
+  public_id?: string | null; // Cloudinary public_id for the logo image
+  phone: string;
+  currency: string;
+  facebook?: string | null;
+  instagram?: string | null;
+  privacy_policy: string;
+  terms: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Order {
   id: string; // UUID (PK)
   user_id?: string | null; // FK to User
