@@ -18,6 +18,7 @@ type VariantDraft = {
   id: string;
   price: string;
   existingImage?: string;
+  existingPublicId?: string;
   attributes: ProductVariantAttributeDraft[];
 };
 
@@ -71,6 +72,7 @@ function mapVariants(product: Product): VariantDraft[] {
       id: variant.id || makeId("variant"),
       price: String(variant.price ?? ""),
       existingImage: variant.media_url || undefined,
+      existingPublicId: variant.public_id || undefined,
       attributes: attributeSource.length > 0
         ? attributeSource.map((attribute) => ({
             id: makeId("attribute"),
@@ -92,6 +94,7 @@ function mapVariantToPayload(variant: VariantDraft) {
   return {
     price: Number(variant.price),
     ...(variant.existingImage ? { image: variant.existingImage } : {}),
+    ...(variant.existingPublicId ? { public_id: variant.existingPublicId } : {}),
     attributes: variant.attributes
       .filter((attribute) => attribute.attribute_type.trim() || attribute.value.trim())
       .map((attribute) => ({

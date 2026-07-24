@@ -42,7 +42,14 @@ export default function ProductCard({
       className="group relative bg-dark-card border border-dark-border hover:border-gold-400 rounded-2xl overflow-hidden p-3 sm:p-4 transition-all duration-300 flex flex-col justify-between hover:shadow-2xl hover:shadow-gold-500/5 cursor-pointer select-none"
     >
       {/* Top actions */}
-      <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 z-10 flex items-center justify-end">
+      <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 z-10 flex items-center justify-between">
+        {/* Discount / Offer Badge */}
+        {product.discountBadge ? (
+          <span className="rounded-lg bg-red-500 px-2 py-1 text-[10px] font-extrabold text-white shadow-md">
+            {product.discountBadge}
+          </span>
+        ) : <span />}
+
         {/* Favorite Icon */}
         <button
           onClick={(e) => {
@@ -93,6 +100,11 @@ export default function ProductCard({
             <span className="text-sm sm:text-base font-black text-gold-400">
               {formatPrice(product.price)}
             </span>
+            {product.originalPrice ? (
+              <span className="text-[11px] sm:text-xs text-gray-500 line-through font-bold">
+                {formatPrice(product.originalPrice)}
+              </span>
+            ) : null}
           </div>
 
           {/* Action Buttons */}

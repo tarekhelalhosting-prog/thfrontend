@@ -25,6 +25,7 @@ export interface Category {
   id: string; // UUID (PK)
   name: string;
   media_url: string; // Category image URL
+  public_id?: string; // Cloudinary public_id for the category image
   description?: string; // category description
   created_at?: string;
   updated_at?: string;
@@ -80,6 +81,7 @@ export interface ProductImage {
   id: string; // UUID (PK)
   product_id: string; // FK to Product
   media_url: string; // Cloudinary URL
+  public_id?: string; // Cloudinary public_id for the image
   is_primary: boolean;
   sort_order: number;
 }
@@ -89,6 +91,7 @@ export interface ProductVariant {
   product_id: string; // FK to Product
   price: number; // final price for this variant
   media_url?: string | null; // optional specific variant image
+  public_id?: string | null; // Cloudinary public_id for the variant image
   created_at?: string;
   updated_at?: string;
   attributes?: ProductVariantAttribute[]; // fetched variant attributes
@@ -102,23 +105,26 @@ export interface ProductVariantAttribute {
 }
 
 export interface Offer {
-  id: string; // UUID (PK)
+  id: string; // BigAutoField (PK)
   name: string;
-  type: 'Percentage' | 'Fixed' | 'Bundle' | 'BuyXGetY';
-  value: number;
-  starts_at: string;
-  ends_at: string;
+  offer_type: 'PERCENTAGE' | 'FIXED' | 'BUY_X_GET_Y';
+  value: number | null; // percentage or fixed amount; optional for Buy X Get Y
+  starts_at: string; // ISO datetime
+  ends_at: string; // ISO datetime
   is_active: boolean;
+  offer_products: OfferProduct[];
   created_at?: string;
   updated_at?: string;
-  products?: OfferProduct[];
 }
 
 export interface OfferProduct {
-  id: string; // UUID (PK)
-  offer_id: string; // FK to Offer
-  product_id: string; // FK to Product
-  item_type: 'Required' | 'Gift';
+  id?: string; // BigAutoField (PK), absent for not-yet-saved rows in a form
+  product: string; // FK to Product
+  product_name?: string; // read-only, from OfferProductSerializer
+  variant?: string | null; // FK to ProductVariant, null = applies to whole product
+  variant_description?: string | null; // read-only, from OfferProductSerializer
+  item_type: 'REQUIRED' | 'GIFT';
+  quantity: number;
 }
 
 export interface Order {

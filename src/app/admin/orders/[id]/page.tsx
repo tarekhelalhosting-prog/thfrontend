@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Clock3, CreditCard } from "lucide-react";
+import { useParams } from "next/navigation";
+import { ArrowLeft, CheckCircle2, CreditCard } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
 import { EmptyState, Panel, SectionHeader, StatusPill, Timeline } from "@/components/admin/admin-kit";
 import { cancelOrder, fetchOrders, updateOrderStatus } from "@/lib/api";
@@ -26,7 +27,9 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("ar-EG", { dateStyle: "full", timeStyle: "short" }).format(new Date(value));
 }
 
-export default function OrderDetailPage({ params }: { params: { id: string } }) {
+export default function OrderDetailPage() {
+  const params = useParams<{ id: string }>();
+  const orderId = params.id;
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<Order["status"] | "">("");
@@ -57,7 +60,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
     };
   }, []);
 
-  const order = useMemo(() => orders.find((item) => item.id === params.id), [orders, params.id]);
+  const order = useMemo(() => orders.find((item) => item.id === orderId), [orders, orderId]);
   const effectiveSelectedStatus = selectedStatus || order?.status || "";
 
   const isOrderCancellable = order ? order.status === "Pending" || order.status === "Confirmed" : false;
@@ -133,7 +136,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
   return (
     <AdminShell
       title={`الطلب ${order.orderNumber || order.id.slice(0, 8).toUpperCase()}`}
-      subtitle="صفحة التفاصيل تعرض العميل، العنوان، العناصر، الفاريانت، الدفع، وخط الزمن الكامل."
+      subtitle="صفحة التفاصيل تعرض العميل، العناصر، الفاريانت، الدفع، وخط الزمن الكامل."
       actions={
         <Link href="/admin/orders" className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
           <ArrowLeft className="h-4 w-4" />
@@ -144,7 +147,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
           <Panel>
-            <SectionHeader eyebrow="Customer" title="بيانات العميل" subtitle="كل ما يتعلق بالعميل والعنوان في بطاقة واحدة." />
+            <SectionHeader eyebrow="Customer" title="بيانات العميل" subtitle="اسم العميل ورقم الهاتف." />
             <div className="grid gap-4 px-5 py-5 sm:grid-cols-2">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs text-slate-500">الاسم</p>
@@ -153,10 +156,6 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs text-slate-500">الهاتف</p>
                 <p className="mt-1 font-bold text-slate-950">{order.customerPhone || "—"}</p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
-                <p className="text-xs text-slate-500">العنوان</p>
-                <p className="mt-1 font-bold text-slate-950">{order.address || "العنوان التفصيلي غير متوفر"}</p>
               </div>
             </div>
           </Panel>
@@ -236,7 +235,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                     type="button"
                     onClick={handleSaveStatus}
                     disabled={isSavingStatus || effectiveSelectedStatus === order.status}
-                    className="whitespace-nowrap rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                    className="whitespace-nowrap rounded-xl bg-green-300 px-4 py-2 text-sm font-bold text-white hover:bg-green-400 disabled:opacity-50"
                   >
                     {isSavingStatus ? "جاري الحفظ..." : "حفظ"}
                   </button>
@@ -269,13 +268,6 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                 <div>
                   <p className="text-xs text-slate-500">الحالة</p>
                   <p className="font-bold text-slate-950">{order.payment?.status || "Pending"}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <Clock3 className="h-4 w-4 text-slate-500" />
-                <div>
-                  <p className="text-xs text-slate-500">وقت الدفع</p>
-                  <p className="font-bold text-slate-950">{order.payment?.paid_at || "غير متاح"}</p>
                 </div>
               </div>
             </div>

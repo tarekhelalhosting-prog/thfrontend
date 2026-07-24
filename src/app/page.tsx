@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Header from "../../components/Header";
 import HeroCarousel from "../../components/HeroCarousel";
@@ -10,8 +10,9 @@ import CartDrawer from "../../components/CartDrawer";
 import AccountModal from "../../components/AccountModal";
 import CheckoutModal from "../../components/CheckoutModal";
 import ProductCard from "../../components/ProductCard";
-import { Product, ProductVariant, Order, Category } from "../types";
-import { fetchCategories, fetchOrders, fetchProducts } from "../lib/api";
+import { Product, ProductVariant, Order, Category, Offer } from "../types";
+import { fetchCategories, fetchOffers, fetchOrders, fetchProducts } from "../lib/api";
+import { getProductDiscount } from "../lib/product-offers";
 import { STORAGE_KEYS } from "../lib/browser-storage";
 import { usePersistentLocalState } from "../hooks/usePersistentLocalState";
 import { useAuthSession } from "../hooks/useAuthSession";
@@ -29,6 +30,7 @@ function StoreFrontContent() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [catalogCategories, setCatalogCategories] = useState<Category[]>([]);
+  const [activeOffers, setActiveOffers] = useState<Offer[]>([]);
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [myOrders, setMyOrders] = useState<Order[]>([]);
@@ -41,9 +43,10 @@ function StoreFrontContent() {
 
     void (async () => {
       try {
-        const [productsResult, categoriesResult] = await Promise.allSettled([
+        const [productsResult, categoriesResult, offersResult] = await Promise.allSettled([
           fetchProducts(),
           fetchCategories(),
+          fetchOffers(),
         ]);
 
         if (cancelled) {
@@ -56,6 +59,12 @@ function StoreFrontContent() {
 
         if (categoriesResult.status === "fulfilled") {
           setCatalogCategories(categoriesResult.value);
+        }
+
+        // Offers are best-effort here: a failed/empty fetch just means no
+        // discount badges show up, it should never block the product grid.
+        if (offersResult.status === "fulfilled") {
+          setActiveOffers(offersResult.value);
         }
 
         if (productsResult.status === "rejected" || categoriesResult.status === "rejected") {
@@ -167,7 +176,34 @@ function StoreFrontContent() {
     }
   };
 
-  const filteredProducts = catalogProducts.filter((product) => {
+  // Discount badge/price is computed purely client-side from the one bulk
+  // `fetchOffers()` call above - no extra per-product backend requests.
+  // `product.price` is overridden here for display only; the original
+  // `product`/`variant` objects (and their real prices) are still what get
+  // passed to `handleAddToCart`, so cart/order pricing (computed server-side)
+  // is completely unaffected by this.
+  const discountedCatalogProducts = useMemo(
+    () =>
+      catalogProducts.map((product) => {
+        const discount = getProductDiscount(product, activeOffers);
+        if (!discount) {
+          return product;
+        }
+
+        const hasPriceDrop = discount.discountedPrice < discount.originalPrice;
+
+        return {
+          ...product,
+          price: discount.discountedPrice,
+          originalPrice: hasPriceDrop ? discount.originalPrice : undefined,
+          discountBadge: discount.badgeText,
+          isOnOffer: true,
+        };
+      }),
+    [catalogProducts, activeOffers]
+  );
+
+  const filteredProducts = discountedCatalogProducts.filter((product) => {
     const matchesCategory =
       selectedCategory === "all" ||
       selectedCategory === "salon-bundles" ||

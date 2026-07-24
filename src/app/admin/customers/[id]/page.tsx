@@ -2,19 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { ArrowLeft, MapPin, Phone, ReceiptText, Wallet } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
 import { EmptyState, Panel, SectionHeader, StatusPill } from "@/components/admin/admin-kit";
-import { fetchOrders } from "@/lib/api";
-import { Order, User } from "@/types";
+import { fetchOrders, fetchUserAddressById } from "@/lib/api";
+import { Address, Order, User } from "@/types";
 
 function formatPrice(value: number) {
   return `${value.toLocaleString("ar-EG")} جنيه`;
 }
 
-export default function CustomerDetailPage({ params }: { params: { id: string } }) {
+export default function CustomerDetailPage() {
+  const params = useParams<{ id: string }>();
+  const customerId = params.id;
   const [orders, setOrders] = useState<Order[]>([]);
   const [storedUsers, setStoredUsers] = useState<User[]>([]);
+  const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -42,39 +46,59 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
   }, []);
 
   const customer = useMemo(() => {
-    const localUser = storedUsers.find((user) => user.phone === params.id || user.id === params.id);
+    const localUser = storedUsers.find((user) => user.phone === customerId || user.id === customerId);
     if (localUser) {
       return localUser;
     }
 
-    const matchingOrder = orders.find((order) => order.customerPhone === params.id);
+    const matchingOrder = orders.find((order) => order.customerPhone === customerId);
     if (!matchingOrder) {
       return null;
     }
 
     const [first_name = "عميل", ...rest] = (matchingOrder.customerName || "").split(" ");
     return {
-      id: params.id,
+      id: customerId,
       first_name,
       last_name: rest.join(" ") || "",
-      phone: params.id,
+      phone: customerId,
       role: "Customer" as const,
       created_at: matchingOrder.created_at,
       updated_at: matchingOrder.updated_at,
       deleted_at: null,
     };
-  }, [orders, params.id, storedUsers]);
+  }, [orders, customerId, storedUsers]);
 
-  const customerOrders = useMemo(() => orders.filter((order) => order.customerPhone === params.id || order.user_id === customer?.id), [customer?.id, orders, params.id]);
-  const addresses = useMemo(() => {
-    const unique = new Map<string, string>();
-    customerOrders.forEach((order) => {
-      if (order.address) {
-        unique.set(order.address, order.city || "");
+  const customerOrders = useMemo(() => orders.filter((order) => order.customerPhone === customerId || order.user_id === customer?.id), [customer?.id, orders, customerId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const addressIds = Array.from(new Set(customerOrders.map((order) => order.address_id).filter((id): id is string => Boolean(id))));
+
+    if (addressIds.length === 0) {
+      setAddresses([]);
+      return;
+    }
+
+    void (async () => {
+      const results = await Promise.all(
+        addressIds.map(async (addressId) => {
+          try {
+            return await fetchUserAddressById(addressId);
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      if (!cancelled) {
+        setAddresses(results.filter((address): address is Address => Boolean(address)));
       }
-    });
+    })();
 
-    return Array.from(unique.entries()).map(([address, city]) => ({ address, city }));
+    return () => {
+      cancelled = true;
+    };
   }, [customerOrders]);
 
   const totalSpent = customerOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
@@ -120,12 +144,12 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
           <SectionHeader eyebrow="Addresses" title="العناوين" subtitle="العناوين المستخلصة من الطلبات السابقة." />
           <div className="space-y-3 px-5 py-5">
             {addresses.length > 0 ? addresses.map((address) => (
-              <div key={address.address} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div key={address.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-start gap-3">
                   <MapPin className="mt-0.5 h-4 w-4 text-amber-600" />
                   <div>
-                    <p className="font-bold text-slate-950">{address.address}</p>
-                    <p className="mt-1 text-xs text-slate-500">{address.city || ""}</p>
+                    <p className="font-bold text-slate-950">{address.street}</p>
+                    <p className="mt-1 text-xs text-slate-500">{[address.city, address.country].filter(Boolean).join("، ")}</p>
                   </div>
                 </div>
               </div>

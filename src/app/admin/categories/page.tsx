@@ -67,7 +67,7 @@ export default function CategoriesPage() {
     setEditingId(category.id);
     setName(category.name);
     const existingUrl = category.image || category.media_url || "";
-    setImage(existingUrl ? [{ url: existingUrl }] : []);
+    setImage(existingUrl ? [{ url: existingUrl, public_id: category.public_id }] : []);
     setModalOpen(true);
   };
 

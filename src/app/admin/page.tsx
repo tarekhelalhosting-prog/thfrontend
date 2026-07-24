@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, CalendarRange, ReceiptText, Sparkles, Users } from "lucide-react";
+import { CalendarRange, ReceiptText, Sparkles, Users } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
 import { ChartBars, EmptyState, MetricCard, Panel, SectionHeader, StatusPill } from "@/components/admin/admin-kit";
 import { useAuthSession } from "@/hooks/useAuthSession";
@@ -274,17 +274,8 @@ export default function AdminPage() {
           </Panel>
 
           <Panel>
-            <SectionHeader eyebrow="Health" title="ملخص تشغيلي سريع" subtitle="مؤشرات تساعد الفريق على تحديد الأولويات اليومية." />
+            <SectionHeader eyebrow="Health" title="ملخص تشغيلي سريع" />
             <div className="space-y-4 px-5 py-5">
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-2xl bg-white p-3 text-amber-500 shadow-sm"><ArrowUpRight className="h-5 w-5" /></div>
-                  <div>
-                    <p className="text-xs text-slate-500">العائد اليومي المتوقع</p>
-                    <p className="mt-1 text-xl font-black text-slate-950">{formatEGP(totalSales / Math.max(orders.length || 1, 1))}</p>
-                  </div>
-                </div>
-              </div>
               <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center gap-3">
                   <div className="rounded-2xl bg-white p-3 text-slate-700 shadow-sm"><CalendarRange className="h-5 w-5" /></div>

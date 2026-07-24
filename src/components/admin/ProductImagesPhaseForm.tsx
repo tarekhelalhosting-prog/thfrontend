@@ -29,7 +29,7 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
   );
   const [productImages, setProductImages] = useState<CloudinaryImageValue[]>(() =>
     initialImages.length > 0
-      ? initialImages.map((image) => ({ url: image.media_url }))
+      ? initialImages.map((image) => ({ url: image.media_url, public_id: image.public_id }))
       : product.image
         ? [{ url: product.image }]
         : []
@@ -45,6 +45,7 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
       initialState[String(variant.id)] = {
         id: String(variant.id),
         image: variant.media_url || "",
+        public_id: variant.public_id || undefined,
       };
     }
 

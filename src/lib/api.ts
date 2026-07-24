@@ -1,4 +1,4 @@
-import { Product, Category, Order, OrderItem, Payment, ProductImage, ProductVariant, ProductVariantAttribute, User, Address, CartItem } from "../types";
+import { Product, Category, Order, OrderItem, Payment, ProductImage, ProductVariant, ProductVariantAttribute, User, Address, CartItem, Offer, OfferProduct } from "../types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 const CLOUDINARY_UPLOAD_ENDPOINT = "/api/cloudinary/upload";
@@ -11,6 +11,7 @@ const PRODUCT_IMAGE_PLACEHOLDER = "https://images.unsplash.com/photo-15039519148
 type ApiProductImage = {
   id?: string | number;
   image?: string;
+  public_id?: string | null;
   is_primary?: boolean;
 };
 
@@ -24,6 +25,7 @@ type ApiProductVariant = {
   id?: string | number;
   price?: string | number;
   image?: string;
+  public_id?: string | null;
   attributes?: ApiProductVariantAttribute[];
 };
 
@@ -55,11 +57,20 @@ type ApiOrderItem = {
   subtotal?: string | number;
 };
 
-// OrderSerializer exposes bare FK ids (`user`, `address`) - never nested
-// objects - and has no `payment` field at all.
+// OrderSerializer now nests the customer via OrderUserSerializer
+// (id, first_name, last_name, phone) - confirmed against the real backend
+// serializer - but `address` stays a bare FK id (no nested AddressSerializer
+// exists for Order), and there is still no nested `payment` field at all.
+type ApiOrderUser = {
+  id?: string | number;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+};
+
 type ApiOrder = {
   id?: string | number;
-  user?: string | number;
+  user?: ApiOrderUser | string | number | null;
   address?: string | number;
   status?: string;
   subtotal?: string | number;
@@ -79,6 +90,48 @@ type ApiPayment = {
   status?: string;
   amount?: string | number;
   paid_at?: string | null;
+};
+
+// OfferProductSerializer only exposes (id, product, product_name, variant,
+// variant_description, item_type, quantity) - no offer FK back-ref.
+type ApiOfferProduct = {
+  id?: string | number;
+  product?: string | number;
+  product_name?: string;
+  variant?: string | number | null;
+  variant_description?: string | null;
+  item_type?: string;
+  quantity?: number;
+};
+
+type ApiOffer = {
+  id?: string | number;
+  name?: string;
+  offer_type?: string;
+  value?: string | number | null;
+  starts_at?: string;
+  ends_at?: string;
+  is_active?: boolean;
+  offer_products?: ApiOfferProduct[];
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type OfferProductPayload = {
+  product: string | number;
+  variant?: string | number | null;
+  item_type: "REQUIRED" | "GIFT";
+  quantity: number;
+};
+
+export type OfferPayload = {
+  name: string;
+  offer_type: "PERCENTAGE" | "FIXED" | "BUY_X_GET_Y";
+  value: string | number | null;
+  starts_at: string;
+  ends_at: string;
+  is_active: boolean;
+  offer_products: OfferProductPayload[];
 };
 
 type ApiAuthResponse = {
@@ -340,6 +393,7 @@ export async function createProductImage(payload: {
     id: readStringValue(data.id) || `img-${Math.random().toString(36).slice(2, 9)}`,
     product_id: readStringValue(data.product_id) || payload.product_id,
     media_url: readStringValue(data.image) || readStringValue(data.media_url) || payload.image,
+    public_id: data.public_id || payload.public_id || undefined,
     is_primary: Boolean(data.is_primary ?? payload.is_primary),
     sort_order: Number(data.sort_order ?? 1),
   };
@@ -347,7 +401,7 @@ export async function createProductImage(payload: {
 
 export async function updateProductImage(
   imageId: string,
-  updates: { is_primary?: boolean; image?: string }
+  updates: { is_primary?: boolean; image?: string; public_id?: string }
 ): Promise<ProductImage> {
   const response = await fetchWithAutoRefresh(`/product-images/${imageId}/`, {
     method: "PATCH",
@@ -365,6 +419,7 @@ export async function updateProductImage(
     id: readStringValue(data.id) || imageId,
     product_id: readStringValue(data.product_id),
     media_url: readStringValue(data.image) || readStringValue(data.media_url) || updates.image || "",
+    public_id: data.public_id || updates.public_id || undefined,
     is_primary: Boolean(data.is_primary ?? updates.is_primary),
     sort_order: Number(data.sort_order ?? 0),
   };
@@ -511,13 +566,14 @@ function mapDjangoOrderItem(item: ApiOrderItem): OrderItem {
 
 // --- MAPPING UTILITIES ---
 
-// ProductImageSerializer returns { id, image, is_primary } with no FK or
-// ordering field, so `product_id` and `sort_order` are reattached here.
+// ProductImageSerializer returns { id, image, public_id, is_primary } with no
+// FK or ordering field, so `product_id` and `sort_order` are reattached here.
 function mapDjangoProductImage(rawImage: ApiProductImage, productId: string, index: number): ProductImage {
   return {
     id: readStringValue(rawImage?.id) || `img-${productId}-${index}`,
     product_id: productId,
     media_url: readStringValue(rawImage?.image),
+    public_id: rawImage?.public_id || undefined,
     is_primary: Boolean(rawImage?.is_primary),
     sort_order: index,
   };
@@ -534,9 +590,9 @@ function mapDjangoVariantAttribute(rawAttribute: ApiProductVariantAttribute, var
   };
 }
 
-// ProductVariantSerializer returns { id, price, image, attributes } with no
-// FK back to the product, so `product_id` is reattached here, and `image` is
-// remapped to the UI-facing `media_url` field.
+// ProductVariantSerializer returns { id, price, image, public_id, attributes }
+// with no FK back to the product, so `product_id` is reattached here, and
+// `image` is remapped to the UI-facing `media_url` field.
 function mapDjangoProductVariant(rawVariant: ApiProductVariant, productId: string): ProductVariant {
   const variantId = readStringValue(rawVariant?.id) || `variant-${productId}-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -545,6 +601,7 @@ function mapDjangoProductVariant(rawVariant: ApiProductVariant, productId: strin
     product_id: productId,
     price: Number(rawVariant?.price ?? 0),
     media_url: readStringValue(rawVariant?.image) || null,
+    public_id: rawVariant?.public_id || null,
     attributes: Array.isArray(rawVariant?.attributes)
       ? rawVariant.attributes.map((attribute) => mapDjangoVariantAttribute(attribute, variantId))
       : [],
@@ -617,8 +674,9 @@ export function mapDjangoCategory(djangoCat: Partial<Category>): Category {
     ...djangoCat,
     id: String(djangoCat.id || ""),
     name: djangoCat.name || "",
-    media_url: djangoCat.media_url || "",
-    image: djangoCat.media_url || djangoCat.image || "https://images.unsplash.com/photo-1621605815971-fbc98d665033?q=80&w=400"
+    media_url: djangoCat.image || djangoCat.media_url || "",
+    public_id: djangoCat.public_id || undefined,
+    image: djangoCat.image || djangoCat.media_url || "https://images.unsplash.com/photo-1621605815971-fbc98d665033?q=80&w=400"
   };
 }
 
@@ -657,12 +715,12 @@ export function mapDjangoUser(djangoUser: ApiUser): User {
   };
 }
 
-// `OrderSerializer` only ever returns bare FK ids for `user`/`address` and
-// never a nested payment - so `customerName`/`customerPhone`/`address` stay
-// generic placeholders here; callers that already know the real customer
-// (e.g. the profile page showing the logged-in user's own orders, or the
-// checkout flow that already has the selected Address in hand) should
-// override those UI-compatibility fields with the real data they have.
+// `OrderSerializer` now nests the real customer via `user` (id, first_name,
+// last_name, phone) - confirmed against the real backend serializer - so
+// `customerName`/`customerPhone` are populated from it here. `address` is
+// still only a bare FK id (no nested AddressSerializer on Order), so that
+// UI field stays a generic placeholder; callers that already know the real
+// Address (e.g. checkout) should override it themselves.
 export function mapDjangoOrder(djangoOrder: ApiOrder): Order {
   if (!djangoOrder) {
     const now = new Date().toISOString();
@@ -680,10 +738,14 @@ export function mapDjangoOrder(djangoOrder: ApiOrder): Order {
   }
 
   const orderId = readStringValue(djangoOrder.id);
+  const rawUser = djangoOrder.user;
+  const user = rawUser && typeof rawUser === "object" ? rawUser : null;
+  const userId = user ? readStringValue(user.id) : readStringValue(rawUser);
+  const customerName = user ? `${user.first_name || ""} ${user.last_name || ""}`.trim() : "";
 
   return {
     id: orderId,
-    user_id: readStringValue(djangoOrder.user) || null,
+    user_id: userId || null,
     address_id: readStringValue(djangoOrder.address) || null,
     status: normalizeOrderStatus(djangoOrder.status),
     subtotal: Number(djangoOrder.subtotal || 0),
@@ -694,10 +756,8 @@ export function mapDjangoOrder(djangoOrder: ApiOrder): Order {
 
     // UI compatibility fields
     orderNumber: orderId ? `TH-${orderId.padStart(6, "0")}` : "",
-    customerName: "عميل صالون",
-    customerPhone: "",
-    city: "القاهرة",
-    address: "العنوان بالتفصيل",
+    customerName: customerName || "عميل صالون",
+    customerPhone: user?.phone || "",
     payment: mapDjangoPayment(undefined, { ...djangoOrder, id: orderId }),
     items: Array.isArray(djangoOrder.items) ? djangoOrder.items.map(mapDjangoOrderItem) : [],
   };
@@ -717,6 +777,54 @@ export function mapDjangoAddress(djangoAddress: ApiAddress): Address {
     is_default: Boolean(source.is_default),
     created_at: readStringValue(source.created_at) || now,
     updated_at: readStringValue(source.updated_at) || now,
+  };
+}
+
+function mapDjangoOfferProduct(item: ApiOfferProduct): OfferProduct {
+  const rawVariant = item?.variant;
+
+  return {
+    id: readStringValue(item?.id) || undefined,
+    product: readStringValue(item?.product),
+    product_name: item?.product_name || "",
+    variant: rawVariant !== undefined && rawVariant !== null ? readStringValue(rawVariant) : null,
+    variant_description: item?.variant_description ?? null,
+    item_type: item?.item_type === "GIFT" ? "GIFT" : "REQUIRED",
+    quantity: Number(item?.quantity ?? 1),
+  };
+}
+
+// OfferSerializer fields: id, name, offer_type, value, starts_at, ends_at,
+// is_active, offer_products, created_at, updated_at - confirmed against the
+// real backend serializer. `value` is nullable (Buy X Get Y offers may omit
+// it entirely).
+export function mapDjangoOffer(djangoOffer: ApiOffer): Offer {
+  if (!djangoOffer) {
+    return {
+      id: "",
+      name: "",
+      offer_type: "PERCENTAGE",
+      value: null,
+      starts_at: "",
+      ends_at: "",
+      is_active: false,
+      offer_products: [],
+    };
+  }
+
+  const rawValue = djangoOffer.value;
+
+  return {
+    id: readStringValue(djangoOffer.id),
+    name: djangoOffer.name || "",
+    offer_type: (djangoOffer.offer_type as Offer["offer_type"]) || "PERCENTAGE",
+    value: rawValue !== undefined && rawValue !== null && rawValue !== "" ? Number(rawValue) : null,
+    starts_at: djangoOffer.starts_at || "",
+    ends_at: djangoOffer.ends_at || "",
+    is_active: Boolean(djangoOffer.is_active),
+    offer_products: Array.isArray(djangoOffer.offer_products) ? djangoOffer.offer_products.map(mapDjangoOfferProduct) : [],
+    created_at: djangoOffer.created_at,
+    updated_at: djangoOffer.updated_at,
   };
 }
 
@@ -773,6 +881,53 @@ export async function fetchCategories(): Promise<Category[]> {
   }
   const data = await response.json();
   return Array.isArray(data) ? data.map(mapDjangoCategory) : [];
+}
+
+// Fetch all offers from Django API (OfferViewSet, DefaultPagination), following
+// pagination until every page is collected.
+export async function fetchOffers(): Promise<Offer[]> {
+  const collected: ApiOffer[] = [];
+  let nextPath: string | null = "/offers/?page_size=100";
+
+  while (nextPath) {
+    const response = await fetchWithAutoRefresh(nextPath, {
+      headers: buildAuthHeaders(false),
+    }, true);
+
+    if (!response.ok) {
+      throw new Error("حدث خطأ أثناء جلب العروض من الخادم");
+    }
+
+    const data = await response.json();
+
+    if (Array.isArray(data)) {
+      collected.push(...data);
+      break;
+    }
+
+    if (data && Array.isArray(data.results)) {
+      collected.push(...data.results);
+      const nextUrl = typeof data.next === "string" ? data.next : null;
+      nextPath = nextUrl ? nextUrl.slice(nextUrl.indexOf("/offers/")) : null;
+    } else {
+      break;
+    }
+  }
+
+  return collected.map(mapDjangoOffer);
+}
+
+export async function fetchOfferById(offerId: string): Promise<Offer> {
+  const response = await fetchWithAutoRefresh(`/offers/${offerId}/`, {
+    headers: buildAuthHeaders(false),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر جلب بيانات العرض");
+  }
+
+  const data = await response.json();
+  return mapDjangoOffer(data);
 }
 
 // Fetch all orders visible to the current user (their own orders, or every
@@ -1297,6 +1452,7 @@ export async function createProductVariant(payload: {
   product_id: string;
   price: string | number;
   image?: string;
+  public_id?: string;
   attributes: ProductVariantAttributePayload[];
 }): Promise<ProductVariant> {
   const response = await fetchWithAutoRefresh("/product-variants/", {
@@ -1306,6 +1462,7 @@ export async function createProductVariant(payload: {
       product_id: payload.product_id,
       price: payload.price,
       ...(payload.image ? { image: payload.image } : {}),
+      ...(payload.public_id ? { public_id: payload.public_id } : {}),
       attributes: payload.attributes,
     }),
   }, true);
@@ -1375,6 +1532,135 @@ export async function deleteCategory(categoryId: string): Promise<void> {
   if (!response.ok) {
     throw new Error("فشل حذف القسم");
   }
+}
+
+// Recursively walks a DRF error payload (which can nest strings, arrays, and
+// dicts arbitrarily - e.g. {"value": "text"}, {"value": ["text"]}, or
+// {"offer_products": [{"variant": ["text"]}, {}]} for per-row nested
+// serializer errors) and returns the first human-readable message found.
+function findFirstErrorMessage(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const found = findFirstErrorMessage(entry);
+      if (found) {
+        return found;
+      }
+    }
+    return undefined;
+  }
+
+  if (value && typeof value === "object") {
+    for (const nested of Object.values(value as Record<string, unknown>)) {
+      const found = findFirstErrorMessage(nested);
+      if (found) {
+        return found;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+async function readOfferErrorDetail(response: Response, fallbackMessage: string): Promise<string> {
+  try {
+    const payload = await response.json();
+    const record = (payload ?? {}) as Record<string, unknown>;
+
+    if (typeof record.detail === "string") {
+      return record.detail;
+    }
+
+    const message = findFirstErrorMessage(record);
+    if (message) {
+      return message;
+    }
+  } catch {
+    // fall through to default message below
+  }
+
+  return fallbackMessage;
+}
+
+function buildOfferRequestBody(payload: OfferPayload) {
+  return {
+    name: payload.name,
+    offer_type: payload.offer_type,
+    value: payload.value === "" ? null : payload.value,
+    starts_at: payload.starts_at,
+    ends_at: payload.ends_at,
+    is_active: payload.is_active,
+    offer_products: payload.offer_products.map((item) => ({
+      product: item.product,
+      variant: item.variant ?? null,
+      item_type: item.item_type,
+      quantity: item.quantity,
+    })),
+  };
+}
+
+export async function createOffer(payload: OfferPayload): Promise<Offer> {
+  const response = await fetchWithAutoRefresh("/offers/", {
+    method: "POST",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify(buildOfferRequestBody(payload)),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error(await readOfferErrorDetail(response, "فشل إنشاء العرض"));
+  }
+
+  const data = await response.json();
+  return mapDjangoOffer(data);
+}
+
+// Note: on the real backend, updating an offer fully replaces its
+// `offer_products` (delete-and-recreate) - not a partial/diffed update - so
+// this always sends the complete current list of rows.
+export async function updateOffer(offerId: string, payload: OfferPayload): Promise<Offer> {
+  const response = await fetchWithAutoRefresh(`/offers/${offerId}/`, {
+    method: "PUT",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify(buildOfferRequestBody(payload)),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error(await readOfferErrorDetail(response, "فشل تعديل العرض"));
+  }
+
+  const data = await response.json();
+  return mapDjangoOffer(data);
+}
+
+export async function deleteOffer(offerId: string): Promise<void> {
+  const response = await fetchWithAutoRefresh(`/offers/${offerId}/`, {
+    method: "DELETE",
+    headers: buildAuthHeaders(false),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error(await readOfferErrorDetail(response, "فشل حذف العرض"));
+  }
+}
+
+// OfferViewSet's custom `is_active` action (PATCH /offers/{id}/is_active/)
+// toggles the current is_active value server-side (and validates the
+// current date is within starts_at/ends_at when activating) - it does not
+// take a body.
+export async function toggleOfferActive(offerId: string): Promise<Offer> {
+  const response = await fetchWithAutoRefresh(`/offers/${offerId}/is_active/`, {
+    method: "PATCH",
+    headers: buildAuthHeaders(false),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error(await readOfferErrorDetail(response, "فشل تغيير حالة العرض"));
+  }
+
+  return fetchOfferById(offerId);
 }
 
 // Cart (Authenticated users only - CartViewSet uses IsAuthenticated).
