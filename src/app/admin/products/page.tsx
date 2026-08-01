@@ -141,7 +141,7 @@ export default function ProductsPage() {
   return (
     <AdminShell
       title="المنتجات"
-      subtitle="The list is route-driven. Create and edit live on dedicated pages that follow the two-phase model."
+      subtitle="التحكم في المنتجات الموجودة في المتجر، إضافة منتجات جديدة، تعديل المنتجات الحالية، أو حذف المنتجات."
       actions={
         <Link href="/admin/products/new" className="inline-flex items-center gap-2 rounded-2xl bg-green-300 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-green-400">
           <Plus className="h-4 w-4" />
@@ -171,7 +171,7 @@ export default function ProductsPage() {
           <SectionHeader
             eyebrow="Products"
             title={viewMode === "deleted" ? "المنتجات المحذوفة" : "جدول المنتجات"}
-            subtitle={viewMode === "deleted" ? "يمكنك استرجاع المنتج أو حذفه نهائياً بشكل غير قابل للتراجع." : "يعرض الصور والاسم والتصنيف وعدد الفاريانت مع رابط تعديل مباشر لكل منتج."}
+            subtitle={viewMode === "deleted" ? "يمكنك استرجاع المنتج أو حذفه نهائياً بشكل غير قابل للتراجع." : "يعرض الصور والاسم والتصنيف وعدد النسخ مع رابط تعديل مباشر لكل منتج."}
             action={
               <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500">
                 <Search className="h-4 w-4" />
@@ -223,7 +223,7 @@ export default function ProductsPage() {
                         <p className="mt-1 max-w-xl truncate text-xs text-slate-500">{product.description}</p>
                       </td>
                       <td className="py-4 pl-4 text-slate-600">{categories.find((category) => category.id === product.category_id || category.id === product.category)?.name || "—"}</td>
-                      <td className="py-4 pl-4 text-slate-600">{product.variants?.length || 0} variant</td>
+                      <td className="py-4 pl-4 text-slate-600">{product.variants?.length || 0} نسخ</td>
                       <td className="py-4 pl-4 text-slate-500">{formatDate(product.created_at)}</td>
                       <td className="py-4 pl-4">
                         <div className="flex flex-wrap items-center gap-2">

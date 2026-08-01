@@ -320,7 +320,7 @@ export default function OffersPage() {
   return (
     <AdminShell
       title="العروض"
-      subtitle="جدول العروض الحقيقي المتصل بالباك إند: نسبة مئوية، خصم ثابت، اشترِ واحصل على هدية."
+      subtitle="جدول العروض والانواع: نسبة مئوية، خصم ثابت، اشترِ واحصل على هدية."
       actions={
         <button type="button" onClick={openCreateModal} className="inline-flex items-center gap-2 rounded-2xl bg-green-300 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-400">
           <Plus className="h-4 w-4" />

@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, MapPin, Phone, ReceiptText, Wallet } from "lucide-react";
+import { ArrowLeft, Phone, ReceiptText, Wallet } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
 import { EmptyState, Panel, SectionHeader, StatusPill } from "@/components/admin/admin-kit";
-import { fetchOrders, fetchUserAddressById } from "@/lib/api";
-import { Address, Order, User } from "@/types";
+import InlineBanner from "@/components/ui/InlineBanner";
+import { useAuthSession } from "@/hooks/useAuthSession";
+import { fetchDashboardUserById, fetchOrders, updateDashboardUser } from "@/lib/api";
+import { Order, User } from "@/types";
 
 function formatPrice(value: number) {
   return `${value.toLocaleString("ar-EG")} جنيه`;
@@ -16,10 +18,13 @@ function formatPrice(value: number) {
 export default function CustomerDetailPage() {
   const params = useParams<{ id: string }>();
   const customerId = params.id;
+  const { currentUser } = useAuthSession();
+  const [customer, setCustomer] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [storedUsers, setStoredUsers] = useState<User[]>([]);
-  const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
+  const [statusError, setStatusError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -27,11 +32,19 @@ export default function CustomerDetailPage() {
     void (async () => {
       try {
         setIsLoading(true);
-        const ordersResult = await fetchOrders();
-        const localUsers = typeof window === "undefined" ? [] : JSON.parse(window.localStorage.getItem("th_users") || "[]");
+        setLoadError("");
+        const [customerResult, ordersResult] = await Promise.all([
+          fetchDashboardUserById(customerId),
+          fetchOrders(),
+        ]);
+
         if (!cancelled) {
+          setCustomer(customerResult);
           setOrders(ordersResult);
-          setStoredUsers(Array.isArray(localUsers) ? localUsers : []);
+        }
+      } catch {
+        if (!cancelled) {
+          setLoadError("تعذر جلب بيانات العميل.");
         }
       } finally {
         if (!cancelled) {
@@ -43,65 +56,31 @@ export default function CustomerDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [customerId]);
 
-  const customer = useMemo(() => {
-    const localUser = storedUsers.find((user) => user.phone === customerId || user.id === customerId);
-    if (localUser) {
-      return localUser;
-    }
+  const customerOrders = useMemo(() => orders.filter((order) => order.user_id === customer?.id || order.customerPhone === customer?.phone), [customer?.id, customer?.phone, orders]);
 
-    const matchingOrder = orders.find((order) => order.customerPhone === customerId);
-    if (!matchingOrder) {
-      return null;
-    }
+  const totalSpent = customerOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const isSelf = Boolean(customer) && currentUser?.id === customer?.id;
 
-    const [first_name = "عميل", ...rest] = (matchingOrder.customerName || "").split(" ");
-    return {
-      id: customerId,
-      first_name,
-      last_name: rest.join(" ") || "",
-      phone: customerId,
-      role: "Customer" as const,
-      created_at: matchingOrder.created_at,
-      updated_at: matchingOrder.updated_at,
-      deleted_at: null,
-    };
-  }, [orders, customerId, storedUsers]);
-
-  const customerOrders = useMemo(() => orders.filter((order) => order.customerPhone === customerId || order.user_id === customer?.id), [customer?.id, orders, customerId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const addressIds = Array.from(new Set(customerOrders.map((order) => order.address_id).filter((id): id is string => Boolean(id))));
-
-    if (addressIds.length === 0) {
-      setAddresses([]);
+  const handleToggleActive = () => {
+    if (!customer) {
       return;
     }
 
     void (async () => {
-      const results = await Promise.all(
-        addressIds.map(async (addressId) => {
-          try {
-            return await fetchUserAddressById(addressId);
-          } catch {
-            return null;
-          }
-        })
-      );
-
-      if (!cancelled) {
-        setAddresses(results.filter((address): address is Address => Boolean(address)));
+      try {
+        setIsSavingStatus(true);
+        setStatusError("");
+        const updated = await updateDashboardUser(customer.id, { is_active: !customer.is_active });
+        setCustomer(updated);
+      } catch (error) {
+        setStatusError(error instanceof Error ? error.message : "تعذر تحديث حالة الحساب");
+      } finally {
+        setIsSavingStatus(false);
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [customerOrders]);
-
-  const totalSpent = customerOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+  };
 
   if (isLoading) {
     return (
@@ -114,7 +93,7 @@ export default function CustomerDetailPage() {
   if (!customer) {
     return (
       <AdminShell title="تفاصيل العميل" subtitle="العميل غير موجود">
-        <EmptyState title="تعذر العثور على العميل" description="تحقق من الرابط أو ارجع إلى جدول العملاء." />
+        <EmptyState title="تعذر العثور على العميل" description={loadError || "تحقق من الرابط أو ارجع إلى جدول العملاء."} />
       </AdminShell>
     );
   }
@@ -141,28 +120,25 @@ export default function CustomerDetailPage() {
         </Panel>
 
         <Panel>
-          <SectionHeader eyebrow="Addresses" title="العناوين" subtitle="العناوين المستخلصة من الطلبات السابقة." />
-          <div className="space-y-3 px-5 py-5">
-            {addresses.length > 0 ? addresses.map((address) => (
-              <div key={address.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-start gap-3">
-                  <MapPin className="mt-0.5 h-4 w-4 text-amber-600" />
-                  <div>
-                    <p className="font-bold text-slate-950">{address.street}</p>
-                    <p className="mt-1 text-xs text-slate-500">{[address.city, address.country].filter(Boolean).join("، ")}</p>
-                  </div>
-                </div>
-              </div>
-            )) : <EmptyState title="لا توجد عناوين" description="سيظهر هنا أي عنوان تم استخدامه في الطلبات السابقة." />}
-          </div>
-        </Panel>
-
-        <Panel>
-          <SectionHeader eyebrow="Summary" title="ملخص سريع" subtitle="إجمالي الإنفاق مع عدد الطلبات وحالة الحساب." />
+          <SectionHeader eyebrow="Account status" title="حالة الحساب" subtitle="تفعيل أو إيقاف الحساب مباشرة." />
           <div className="space-y-4 px-5 py-5">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><p className="text-xs text-slate-500">الحساب</p><p className="mt-1 font-bold text-slate-950">{customer.role}</p></div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><p className="text-xs text-slate-500">عدد الطلبات السابقة</p><p className="mt-1 font-bold text-slate-950">{customerOrders.length}</p></div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><p className="text-xs text-slate-500">إجمالي المشتريات</p><p className="mt-1 font-bold text-slate-950">{formatPrice(totalSpent)}</p></div>
+            {statusError ? <InlineBanner tone="error" message={statusError} /> : null}
+            {isSelf ? <InlineBanner tone="warning" message="هذا حسابك الحالي — لا يسمح الخادم بتعديل حالته من هنا." /> : null}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><p className="text-xs text-slate-500">الدور</p><p className="mt-1 font-bold text-slate-950">{customer.role}</p></div>
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div>
+                <p className="text-xs text-slate-500">الحالة</p>
+                <p className={`mt-1 font-bold ${customer.is_active ? "text-emerald-700" : "text-rose-700"}`}>{customer.is_active ? "نشط" : "موقوف"}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleActive}
+                disabled={isSelf || isSavingStatus}
+                className="rounded-2xl border border-slate-200 bg-red-500 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-red-800 disabled:cursor-not-allowed  disabled:opacity-50"
+              >
+                {customer.is_active ? "إيقاف الحساب" : "تفعيل الحساب"}
+              </button>
+            </div>
           </div>
         </Panel>
       </div>

@@ -29,7 +29,7 @@ export default function ProductDetailModal({
 
   const handleWhatsAppInquiry = () => {
     const text = encodeURIComponent("مرحبا استاذ طارق انا مهتم اعرف اكتر عن باقات التجهيز هل مناسب نتكلم");
-    window.open(`https://wa.me/201501593962?text=${text}`, "_blank");
+    window.open(`https://wa.me/201021750655?text=${text}`, "_blank");
   };
 
   return (

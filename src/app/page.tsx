@@ -10,6 +10,8 @@ import CartDrawer from "../../components/CartDrawer";
 import AccountModal from "../../components/AccountModal";
 import CheckoutModal from "../../components/CheckoutModal";
 import ProductCard from "../../components/ProductCard";
+import PageState from "../components/ui/PageState";
+import InlineBanner from "../components/ui/InlineBanner";
 import { Product, ProductVariant, Order, Category, Offer } from "../types";
 import { fetchCategories, fetchOffers, fetchOrders, fetchProducts } from "../lib/api";
 import { getProductDiscount } from "../lib/product-offers";
@@ -137,7 +139,12 @@ function StoreFrontContent() {
 
   const handleWhatsAppClick = () => {
     const text = encodeURIComponent("مرحبا استاذ طارق انا مهتم اعرف اكتر عن باقات التجهيز هل مناسب نتكلم");
-    window.open(`https://wa.me/201501593962?text=${text}`, "_blank");
+    const url = `https://wa.me/201021750655?text=${text}`;
+    const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
+
+    if (!openedWindow) {
+      window.location.href = url;
+    }
   };
 
   const updateStoreUrl = (nextCategory: string, nextSearch: string) => {
@@ -256,12 +263,8 @@ function StoreFrontContent() {
           <CategoriesList categories={catalogCategories} selectedCategory={selectedCategory} onCategorySelect={handleCategorySelect} />
         </div>
         <section id="catalog-section" className="py-12 bg-dark-bg border-b border-dark-border scroll-mt-28">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            {catalogError && (
-              <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
-                {catalogError}
-              </div>
-            )}
+          <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-10">
+            {catalogError && <InlineBanner tone="error" message={catalogError} className="mb-6" />}
             <div className="flex items-center justify-between gap-4 mb-8 pb-4 border-b border-dark-border/40">
               <div className="text-right">
                 <span className="text-gold-400 font-bold text-xs uppercase tracking-widest block mb-1">طارق هلال</span>
@@ -279,9 +282,7 @@ function StoreFrontContent() {
             </div>
 
             {isCatalogLoading ? (
-              <div className="rounded-2xl border border-dark-border bg-dark-card p-8 text-center text-gray-400">
-                جاري تحميل المنتجات والأقسام...
-              </div>
+              <PageState variant="loading" title="جاري تحميل المنتجات والأقسام..." />
             ) : filteredProducts.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6">
                 {filteredProducts.map((product) => (
@@ -355,7 +356,7 @@ function StoreFrontContent() {
 
 export default function StoreFrontPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-dark-bg" />}>
+    <Suspense fallback={<PageState variant="loading" title="جاري تحميل المتجر..." fullPage />}>
       <StoreFrontContent />
     </Suspense>
   );

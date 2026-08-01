@@ -19,3 +19,20 @@ export function getCartItemImage(item: CartItem): string {
 export function describeCartItemVariant(item: CartItem): string {
   return item.variant_description;
 }
+
+// Guest carts persist in localStorage across app versions, so an older/corrupt
+// entry (e.g. missing unit_price from a previous schema) must not crash the UI.
+export function isValidCartItem(item: unknown): item is CartItem {
+  if (typeof item !== "object" || item === null) {
+    return false;
+  }
+
+  const candidate = item as Partial<CartItem>;
+  return (
+    typeof candidate.product_variant_id === "string" &&
+    typeof candidate.unit_price === "number" &&
+    Number.isFinite(candidate.unit_price) &&
+    typeof candidate.quantity === "number" &&
+    Number.isFinite(candidate.quantity)
+  );
+}

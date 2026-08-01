@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePersistentLocalState } from "./usePersistentLocalState";
 import { STORAGE_KEYS } from "../lib/browser-storage";
 import { addCartItem, clearCart as clearCartApi, fetchCart, removeCartItem, updateCartItem } from "../lib/api";
+import { isValidCartItem } from "../lib/cart";
 import { CartItem, Product, ProductVariant, User } from "../types";
 
 interface UseCartResult {
@@ -54,6 +55,18 @@ export function useCart(currentUser: User | null): UseCartResult {
     localCartRef.current = localCart;
   }, [localCart]);
 
+  // Guest cart lines can go stale across schema changes (e.g. an older item
+  // shape left in localStorage); prune them once so they don't keep crashing.
+  useEffect(() => {
+    if (!isLocalCartHydrated) {
+      return;
+    }
+
+    if (localCart.some((item) => !isValidCartItem(item))) {
+      setLocalCart((current) => current.filter(isValidCartItem));
+    }
+  }, [isLocalCartHydrated, localCart, setLocalCart]);
+
   const loggedInUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -100,7 +113,11 @@ export function useCart(currentUser: User | null): UseCartResult {
     };
   }, [currentUser?.id, setLocalCart]);
 
-  const cartItems = isAuthenticated ? (serverCart ?? []) : isLocalCartHydrated ? localCart : [];
+  const cartItems = isAuthenticated
+    ? serverCart ?? []
+    : isLocalCartHydrated
+      ? localCart.filter(isValidCartItem)
+      : [];
   const isHydrated = isAuthenticated ? serverCart !== null && !isServerCartLoading : isLocalCartHydrated;
 
   const addItem = useCallback((product: Product, variant: ProductVariant | null, quantity = 1) => {

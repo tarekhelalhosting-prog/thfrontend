@@ -302,14 +302,14 @@ export default function ProductManagementForm({ mode, categories, initialProduct
       </Panel>
 
       <Panel>
-        <SectionHeader eyebrow="Product Variants" title="الفاريانت" subtitle="كل Variant يدعم Price و Attributes غير محدودة. الصور تُدار من صفحة الصور بعد الحفظ." />
+        <SectionHeader eyebrow="Product Variants" title="النوع" subtitle="كل نوع يدعم سعر و اختلافات غير محدودة. الصور تُدار من صفحة الصور بعد الحفظ." />
         <div className="overflow-x-auto px-5 py-5">
           <table className="min-w-full text-right text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
-                <th className="py-3 pl-4">Price</th>
-                <th className="py-3 pl-4">Attributes</th>
-                <th className="py-3 pl-4">Delete</th>
+                <th className="py-3 pl-4">السعر</th>
+                <th className="py-3 pl-4">الصفة</th>
+                <th className="py-3 pl-4">حذف</th>
               </tr>
             </thead>
             <tbody>
@@ -337,7 +337,7 @@ export default function ProductManagementForm({ mode, categories, initialProduct
                               }));
                             }}
                             className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-amber-400"
-                            placeholder="Attribute Type"
+                            placeholder="وصف جديد (لون او حجم)"
                           />
                           <input
                             value={attribute.value}
@@ -348,7 +348,7 @@ export default function ProductManagementForm({ mode, categories, initialProduct
                               }));
                             }}
                             className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-amber-400"
-                            placeholder="Value"
+                            placeholder="القيمه (أحمر، كبير)"
                           />
                           <div className="flex items-center justify-end gap-2">
                             <button
@@ -369,7 +369,7 @@ export default function ProductManagementForm({ mode, categories, initialProduct
                               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 lg:col-span-3"
                             >
                               <Plus className="h-4 w-4" />
-                              <span>إضافة Attribute</span>
+                              <span>إضافة صفه جديده</span>
                             </button>
                           ) : null}
                         </div>
@@ -392,7 +392,7 @@ export default function ProductManagementForm({ mode, categories, initialProduct
         <div className="flex items-center justify-between gap-3 px-5 pb-5">
           <button type="button" onClick={addVariant} className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
             <Plus className="h-4 w-4" />
-            <span>Add Variant</span>
+            <span>إضافة نوع جديد</span>
           </button>
         </div>
       </Panel>

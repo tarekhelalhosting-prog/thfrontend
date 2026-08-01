@@ -67,7 +67,7 @@ export default function PaymentsPage() {
       actions={<Filter className="h-4 w-4 text-slate-500" />}
     >
       <Panel>
-        <SectionHeader eyebrow="Payments" title="فلاتر المدفوعات" subtitle="Paid, Pending, Failed, Cancelled" />
+        <SectionHeader eyebrow="Payments" title="فلاتر المدفوعات" />
         <div className="flex flex-wrap gap-2 px-5 py-5">
           {filters.map((item) => (
             <button key={item} type="button" onClick={() => setFilter(item)} className={`rounded-full border px-4 py-2 text-xs font-bold ${filter === item ? "border-slate-950 bg-green-300 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
@@ -81,7 +81,7 @@ export default function PaymentsPage() {
               <tr className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
                 <th className="py-3 pl-4">رقم العملية</th>
                 <th className="py-3 pl-4">رقم الطلب</th>
-                <th className="py-3 pl-4">Transaction ID</th>
+                <th className="py-3 pl-4">رقم المعامله</th>
                 <th className="py-3 pl-4">المبلغ</th>
                 <th className="py-3 pl-4">الحالة</th>
                 <th className="py-3 pl-4">وقت الدفع</th>

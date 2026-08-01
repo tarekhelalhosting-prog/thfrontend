@@ -110,7 +110,7 @@ export default function CategoriesPage() {
   return (
     <AdminShell
       title="التصنيفات"
-      subtitle="كل تصنيف يمتلك صفحة إدارة مستقلة. هنا فقط الصورة، الاسم، وعدد المنتجات التابعة له."
+      subtitle="هنا يمكنك إدارة التصنيفات: إضافة تصنيف جديد، تعديل اسم أو صورة التصنيف، وحذف التصنيفات غير المرغوبة."
       actions={
         <button type="button" onClick={openCreateModal} className="inline-flex items-center gap-2 rounded-2xl bg-green-300 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-green-400">
           <Plus className="h-4 w-4" />

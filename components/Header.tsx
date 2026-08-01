@@ -39,41 +39,44 @@ export default function Header({
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const logoSrc = "/logo.png";
   const isAdminUser = currentUser?.role === "Admin";
+  const whatsappText = encodeURIComponent("مرحبا استاذ طارق انا مهتم اعرف اكتر عن باقات التجهيز هل مناسب نتكلم");
+  const whatsappUrl = `https://wa.me/201021750655?text=${whatsappText}`;
+  const whatsappDisplay = "01021750655";
 
   return (
     <>
       <header className="sticky top-0 z-40 w-full border-b border-dark-border bg-dark-bg/95 backdrop-blur-md">
         {/* Main Header Container */}
-        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-2.5 sm:py-4">
-          <div className="flex items-center justify-between gap-1 sm:gap-4">
+        <div className="max-w-7xl 2xl:max-w-[2000px] mx-auto px-3 sm:px-6 lg:px-8 2xl:px-10 py-2.5 sm:py-4">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
             
             {/* Logo with Crown */}
             <div 
               onClick={() => onCategorySelect("all")} 
-              className="flex items-center gap-1 sm:gap-3 cursor-pointer select-none group"
+              className="flex items-center gap-2 sm:gap-3 cursor-pointer select-none group"
             >
-              <div className="relative w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl overflow-hidden border border-gold-400/30 shadow-lg shadow-gold-500/10 shrink-0 bg-dark-card">
+              <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-xl overflow-hidden border border-gold-400/30 shadow-lg shadow-gold-500/10 shrink-0 bg-dark-card">
                 <Image
                   src={logoSrc}
                   alt="شعار طارق هلال"
                   fill
-                  sizes="(max-width: 640px) 32px, 44px"
+                  sizes="(max-width: 640px) 40px, 44px"
                   className="object-cover"
                   priority
                 />
               </div>
-              <div className="flex flex-col">
-                <h1 className="text-xs xs:text-sm sm:text-lg md:text-xl font-black text-white tracking-tight leading-none group-hover:text-gold-400 transition-colors">
+              <div className="flex flex-col items-start">
+                <h1 className="text-sm xs:text-base sm:text-lg md:text-xl font-black text-[rgb(26,25,20)] tracking-tight leading-none group-hover:text-gold-500 transition-colors">
                   طارق هلال
                 </h1>
-                <p className="text-[6.5px] xs:text-[7.5px] sm:text-[9px] text-gold-400 font-medium tracking-tight mt-0.5 sm:mt-1 max-w-[110px] xs:max-w-[145px] sm:max-w-none leading-tight whitespace-normal sm:whitespace-nowrap">
+                <p className="hidden sm:block text-[9px] text-gold-500 font-semibold tracking-tight mt-1 max-w-none leading-tight whitespace-nowrap">
                   لمستلزمات الكوافير وتجهيز الصالونات
                 </p>
               </div>
             </div>
 
           {/* Search Bar */}
-          <div className="hidden md:flex flex-1 max-w-lg relative">
+          <div className="hidden md:flex flex-1 max-w-lg xl:max-w-xl 2xl:max-w-2xl relative">
             <input
               type="text"
               placeholder="ابحث عن منتج، كرسى، كوافير، صالون..."
@@ -93,7 +96,7 @@ export default function Header({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-1 sm:gap-2.5">
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
             {/* Admin Panel Access */}
             {isAdminUser && (
               <button
@@ -111,7 +114,7 @@ export default function Header({
               <div className="flex items-center gap-1 sm:gap-2">
                 <div 
                   onClick={onAccountClick}
-                  className="flex items-center gap-1 p-1.5 sm:px-3 sm:py-2 rounded-xl bg-dark-card hover:bg-gold-50 cursor-pointer transition-colors border border-dark-border"
+                  className="flex items-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-xl bg-dark-card hover:bg-gold-50 cursor-pointer transition-colors border border-dark-border"
                 >
                   <User className="text-gold-500 w-3.5 h-3.5 sm:w-5 sm:h-5 shrink-0" />
                   <div className="text-right max-w-[80px] sm:max-w-none overflow-hidden hidden sm:block">
@@ -121,7 +124,7 @@ export default function Header({
                 </div>
                 <button 
                   onClick={onLogout}
-                  className="p-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20"
+                  className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20"
                   title="تسجيل الخروج"
                 >
                   <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -130,7 +133,7 @@ export default function Header({
             ) : (
               <button
                 onClick={onAccountClick}
-                className="flex items-center gap-1 p-1.5 sm:px-3 sm:py-2 rounded-xl bg-dark-card hover:bg-dark-border/40 text-gray-200 border border-dark-border text-xs font-bold transition-colors"
+                className="flex items-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-xl bg-dark-card hover:bg-dark-border/40 text-gray-200 border border-dark-border text-xs font-bold transition-colors"
               >
                 <User className="text-gold-500 w-3.5 h-3.5 sm:w-5 sm:h-5 shrink-0" />
                 <span className="hidden sm:inline">دخول / تسجيل</span>
@@ -140,7 +143,7 @@ export default function Header({
             {/* Cart Icon */}
             <button
               onClick={onCartClick}
-              className="relative p-1.5 sm:p-2.5 rounded-xl bg-gold-400 text-white hover:bg-gold-500 transition-all font-bold flex items-center gap-1 sm:gap-1.5 shadow-sm"
+              className="relative p-2 sm:p-2.5 rounded-xl bg-gold-400 text-white hover:bg-gold-500 transition-all font-bold flex items-center gap-1 sm:gap-1.5 shadow-sm"
               id="cart-button"
             >
               <ShoppingCart className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
@@ -153,7 +156,7 @@ export default function Header({
             {/* Mobile menu trigger */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-1.5 rounded-xl bg-dark-card border border-dark-border text-gray-300 hover:text-gold-500 md:hidden"
+              className="p-2 rounded-xl bg-dark-card border border-dark-border text-gray-500 hover:text-gold-500 md:hidden"
             >
               <Menu className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
             </button>
@@ -161,13 +164,13 @@ export default function Header({
         </div>
 
         {/* Mobile Search - Visible only on Mobile */}
-        <div className="mt-2.5 md:hidden relative">
+        <div className="pt-2.5 md:hidden relative">
           <input
             type="text"
             placeholder="ابحث عن منتج، كرسى، كوافير..."
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full bg-dark-card border border-dark-border focus:border-gold-400 rounded-xl py-2 pr-10 pl-4 text-xs text-gray-200 placeholder-gray-500 focus:outline-none"
+            className="w-full bg-dark-card border border-dark-border focus:border-gold-400 rounded-xl py-2.5 pr-10 pl-4 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gold-400/40"
           />
           <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
           {searchTerm && (
@@ -183,7 +186,7 @@ export default function Header({
 
       {/* Navigation Categories Row (Desktop) */}
       <div className="hidden md:block bg-dark-card border-t border-dark-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl 2xl:max-w-[2500px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-10">
           <div className="flex items-center justify-between">
             
             {/* Categories Selector */}
@@ -233,30 +236,15 @@ export default function Header({
               >
                 الرئيسية
               </button>
-              <button
-                onClick={() => onCategorySelect("salon-bundles")}
-                className={`px-4 py-3.5 text-sm font-medium transition-colors border-b-2 hover:text-gold-500 ${selectedCategory === "salon-bundles" ? "border-gold-400 text-gold-500 font-semibold" : "border-transparent text-gray-600"}`}
-              >
-                العروض والباقات
-              </button>
-              <button
-                onClick={() => onCategorySelect("barber-chairs")}
-                className={`px-4 py-3.5 text-sm font-medium transition-colors border-b-2 hover:text-gold-500 ${selectedCategory === "barber-chairs" ? "border-gold-400 text-gold-500 font-semibold" : "border-transparent text-gray-600"}`}
-              >
-                كراسي حلاقة
-              </button>
-              <button
-                onClick={() => onCategorySelect("women-chairs")}
-                className={`px-4 py-3.5 text-sm font-medium transition-colors border-b-2 hover:text-gold-500 ${selectedCategory === "women-chairs" ? "border-gold-400 text-gold-500 font-semibold" : "border-transparent text-gray-600"}`}
-              >
-                كراسي حريمي
-              </button>
-              <button
-                onClick={() => onCategorySelect("shampoo-units")}
-                className={`px-4 py-3.5 text-sm font-medium transition-colors border-b-2 hover:text-gold-500 ${selectedCategory === "shampoo-units" ? "border-gold-400 text-gold-500 font-semibold" : "border-transparent text-gray-600"}`}
-              >
-                مغاسل وشامبو
-              </button>
+              {categories.slice(0, 3).map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => onCategorySelect(cat.id)}
+                  className={`px-4 py-3.5 text-sm font-medium transition-colors border-b-2 hover:text-gold-500 ${selectedCategory === cat.id ? "border-gold-400 text-gold-500 font-semibold" : "border-transparent text-gray-600"}`}
+                >
+                  {cat.name}
+                </button>
+              ))}
               <button
                 onClick={onContactClick}
                 className="px-4 py-3.5 text-sm font-medium transition-colors border-b-2 border-transparent text-gray-600 hover:text-gold-500"
@@ -268,14 +256,8 @@ export default function Header({
             {/* Quick Contact Info */}
             <div className="flex items-center gap-2 text-gold-500">
               <Phone size={16} />
-              <a 
-                href="https://wa.me/201501593962?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%20%D8%A7%D8%B3%D8%AA%D8%A7%D8%B0%20%D8%B7%D8%A7%D8%B1%D9%82%20%D8%A7%D9%86%D8%A7%20%D9%85%D9%87%D8%AA%D9%85%20%D8%A7%D8%B9%D8%B1%D9%81%20%D8%A7%D9%83%D8%AA%D8%B1%20%D8%B9%D9%86%20%D8%A8%D8%A7%D9%82%D8%A7%D8%AA%20%D8%A7%D9%84%D8%AA%D8%AC%D9%87%D9%8A%D8%B2%20%D9%87%D9%84%20%D9%85%D9%86%D8%A7%D8%B3%D8%A8%20%D9%86%D8%AA%D9%83%D9%84%D9%85" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="text-xs font-bold font-mono hover:text-gold-400 transition-colors"
-                dir="ltr"
-              >
-                +20 150 159 3962
+              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-bold font-mono hover:text-gold-400 transition-colors" dir="ltr">
+                {whatsappDisplay}
               </a>
             </div>
           </div>
@@ -401,14 +383,8 @@ export default function Header({
               <div className="mt-6 p-4 rounded-xl bg-dark-card border border-dark-border flex flex-col gap-2.5">
                 <div className="flex items-center gap-3 text-gray-300 text-xs">
                   <Phone size={14} className="text-gold-500 shrink-0" />
-                  <a href="https://wa.me/201501593962?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%20%D8%A7%D8%B3%D8%AA%D8%A7%D8%B0%20%D8%B7%D8%A7%D8%B1%D9%82%20%D8%A7%D9%86%D8%A7%20%D9%85%D9%87%D8%AA%D9%85%20%D8%A7%D8%B9%D8%B1%D9%81%20%D8%A7%D9%83%D8%AA%D8%B1%20%D8%B9%D9%86%20%D8%A8%D8%A7%D9%82%D8%A7%D8%AA%20%D8%A7%D9%84%D8%AA%D8%AC%D9%87%D9%8A%D8%B2%20%D9%87%D9%84%20%D9%85%D9%86%D8%A7%D8%B3%D8%A8%20%D9%86%D8%AA%D9%83%D9%84%D9%85" target="_blank" rel="noopener noreferrer" className="hover:text-gold-400 transition-colors font-mono" dir="ltr">
-                    +20 150 159 3962
-                  </a>
-                </div>
-                <div className="flex items-center gap-3 text-gray-300 text-xs">
-                  <Phone size={14} className="text-gold-500 shrink-0" />
-                  <a href="https://wa.me/201061420833?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%20%D8%A7%D8%B3%D8%AA%D8%A7%D8%B0%20%D8%B7%D8%A7%D8%B1%D9%82%20%D8%A7%D9%86%D8%A7%20%D9%85%D9%87%D8%AA%D9%85%20%D8%A7%D8%B9%D8%B1%D9%81%20%D8%A7%D9%83%D8%AA%D8%B1%20%D8%B9%D9%86%20%D8%A8%D8%A7%D9%82%D8%A7%D8%AA%20%D8%A7%D9%84%D8%AA%D8%AC%D9%87%D9%8A%D8%B2%20%D9%87%D9%84%20%D9%85%D9%86%D8%A7%D8%B3%D8%A8%20%D9%86%D8%AA%D9%83%D9%84%D9%85" target="_blank" rel="noopener noreferrer" className="hover:text-gold-400 transition-colors font-mono" dir="ltr">
-                    +20 106 142 0833
+                  <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="hover:text-gold-400 transition-colors font-mono" dir="ltr">
+                    {whatsappDisplay}
                   </a>
                 </div>
                 <div className="flex items-start gap-3 text-gray-300 text-xs">

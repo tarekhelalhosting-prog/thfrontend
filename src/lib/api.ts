@@ -1,4 +1,4 @@
-import { Product, Category, Order, OrderItem, Payment, ProductImage, ProductVariant, ProductVariantAttribute, User, Address, CartItem, Offer, OfferProduct, Setting } from "../types";
+import { Product, Category, Order, OrderItem, Payment, ProductImage, ProductVariant, ProductVariantAttribute, User, Address, CartItem, Offer, OfferProduct } from "../types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 const CLOUDINARY_UPLOAD_ENDPOINT = "/api/cloudinary/upload";
@@ -133,36 +133,6 @@ export type OfferPayload = {
   is_active: boolean;
   offer_products: OfferProductPayload[];
 };
-
-// SettingSerializer exposes (id, site_name, logo, public_id, phone, currency,
-// facebook, instagram, privacy_policy, terms, created_at, updated_at) - it's
-// a singleton (always pk=1), only GET (list) and PATCH (partial_update) exist.
-type ApiSetting = {
-  id?: string | number;
-  site_name?: string;
-  logo?: string | null;
-  public_id?: string | null;
-  phone?: string;
-  currency?: string;
-  facebook?: string | null;
-  instagram?: string | null;
-  privacy_policy?: string;
-  terms?: string;
-  created_at?: string;
-  updated_at?: string;
-};
-
-export type SettingPayload = Partial<{
-  site_name: string;
-  logo: string;
-  public_id: string;
-  phone: string;
-  currency: string;
-  facebook: string;
-  instagram: string;
-  privacy_policy: string;
-  terms: string;
-}>;
 
 type ApiAuthResponse = {
   token?: string;
@@ -303,6 +273,12 @@ function normalizeUserRole(rawRole: unknown): User["role"] {
   }
 
   return "Customer";
+}
+
+// Sends the UI's Title Case role back as the UPPERCASE code the backend's
+// `UserRole.choices` validates against (e.g. "Moderator" -> "MODERATOR").
+function denormalizeUserRole(role: User["role"]): string {
+  return role.trim().toUpperCase();
 }
 
 // The Django `OrderStatus`/`PaymentStatus` TextChoices store their UPPERCASE
@@ -719,6 +695,7 @@ export function mapDjangoUser(djangoUser: ApiUser): User {
       last_name: "",
       phone: "",
       role: "Customer",
+      is_active: true,
       created_at: now,
       updated_at: now,
       deleted_at: null,
@@ -739,6 +716,7 @@ export function mapDjangoUser(djangoUser: ApiUser): User {
     last_name: lastName,
     phone,
     role: normalizeUserRole(source.role),
+    is_active: source.is_active !== undefined ? Boolean(source.is_active) : true,
     created_at: createdAt || new Date().toISOString(),
     updated_at: updatedAt || new Date().toISOString(),
     deleted_at: typeof deletedAt === "string" ? deletedAt : null,
@@ -855,41 +833,6 @@ export function mapDjangoOffer(djangoOffer: ApiOffer): Offer {
     offer_products: Array.isArray(djangoOffer.offer_products) ? djangoOffer.offer_products.map(mapDjangoOfferProduct) : [],
     created_at: djangoOffer.created_at,
     updated_at: djangoOffer.updated_at,
-  };
-}
-
-// SettingSerializer fields: id, site_name, logo, public_id, phone, currency,
-// facebook, instagram, privacy_policy, terms, created_at, updated_at -
-// confirmed against the real backend serializer/model. Singleton row (pk=1).
-export function mapDjangoSetting(djangoSetting: ApiSetting): Setting {
-  if (!djangoSetting) {
-    return {
-      id: "1",
-      site_name: "",
-      logo: "",
-      public_id: undefined,
-      phone: "",
-      currency: "",
-      facebook: "",
-      instagram: "",
-      privacy_policy: "",
-      terms: "",
-    };
-  }
-
-  return {
-    id: readStringValue(djangoSetting.id) || "1",
-    site_name: djangoSetting.site_name || "",
-    logo: djangoSetting.logo || "",
-    public_id: djangoSetting.public_id || undefined,
-    phone: djangoSetting.phone || "",
-    currency: djangoSetting.currency || "",
-    facebook: djangoSetting.facebook || "",
-    instagram: djangoSetting.instagram || "",
-    privacy_policy: djangoSetting.privacy_policy || "",
-    terms: djangoSetting.terms || "",
-    created_at: djangoSetting.created_at,
-    updated_at: djangoSetting.updated_at,
   };
 }
 
@@ -1360,6 +1303,128 @@ export async function deleteUserProfile(): Promise<void> {
   }
 }
 
+// DASHBOARD USERS - admin-only user management (`DashboardUserViewSet`,
+// confirmed against the real pasted `views.py`/`urls.py`/`serializers.py`):
+// mounted at `/dashboard/users/`, `IsAdmin`-only, only supports
+// get/put/patch/delete (no `post` - accounts can only be created via
+// `/auth/register/`, never by an admin). Fields: id, first_name, last_name,
+// phone, password (write-only, optional, min 8 chars), role, is_active,
+// created_at, updated_at.
+export type DashboardUserQuery = {
+  role?: User["role"];
+  is_active?: boolean;
+  search?: string;
+  ordering?: string;
+};
+
+function buildDashboardUserQueryString(query?: DashboardUserQuery): string {
+  const params = new URLSearchParams({ page_size: "100" });
+
+  if (query?.role) {
+    params.set("role", denormalizeUserRole(query.role));
+  }
+
+  if (query?.is_active !== undefined) {
+    params.set("is_active", String(query.is_active));
+  }
+
+  if (query?.search) {
+    params.set("search", query.search);
+  }
+
+  if (query?.ordering) {
+    params.set("ordering", query.ordering);
+  }
+
+  return params.toString();
+}
+
+export async function fetchDashboardUsers(query?: DashboardUserQuery): Promise<User[]> {
+  const collected: ApiUser[] = [];
+  let nextPath: string | null = `/dashboard/users/?${buildDashboardUserQueryString(query)}`;
+
+  while (nextPath) {
+    const response = await fetchWithAutoRefresh(nextPath, {
+      headers: buildAuthHeaders(false),
+    }, true);
+
+    if (!response.ok) {
+      throw new Error("تعذر جلب قائمة المستخدمين");
+    }
+
+    const data = await response.json();
+
+    if (Array.isArray(data)) {
+      collected.push(...data);
+      break;
+    }
+
+    if (data && Array.isArray(data.results)) {
+      collected.push(...data.results);
+      const nextUrl = typeof data.next === "string" ? data.next : null;
+      nextPath = nextUrl ? nextUrl.slice(nextUrl.indexOf("/dashboard/users/")) : null;
+    } else {
+      break;
+    }
+  }
+
+  return collected.map(mapDjangoUser);
+}
+
+export async function fetchDashboardUserById(userId: string): Promise<User> {
+  const response = await fetchWithAutoRefresh(`/dashboard/users/${userId}/`, {
+    headers: buildAuthHeaders(false),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error("تعذر جلب بيانات المستخدم");
+  }
+
+  const data = await response.json();
+  return mapDjangoUser(data);
+}
+
+export async function updateDashboardUser(
+  userId: string,
+  updates: Partial<{
+    first_name: string;
+    last_name: string;
+    phone: string;
+    password: string;
+    role: User["role"];
+    is_active: boolean;
+  }>
+): Promise<User> {
+  const body: Record<string, unknown> = { ...updates };
+  if (updates.role) {
+    body.role = denormalizeUserRole(updates.role);
+  }
+
+  const response = await fetchWithAutoRefresh(`/dashboard/users/${userId}/`, {
+    method: "PATCH",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify(body),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error(await readErrorDetail(response, "تعذر تحديث بيانات المستخدم"));
+  }
+
+  const data = await response.json();
+  return mapDjangoUser(data);
+}
+
+export async function deleteDashboardUser(userId: string): Promise<void> {
+  const response = await fetchWithAutoRefresh(`/dashboard/users/${userId}/`, {
+    method: "DELETE",
+    headers: buildAuthHeaders(false),
+  }, true);
+
+  if (!response.ok) {
+    throw new Error(await readErrorDetail(response, "تعذر حذف المستخدم"));
+  }
+}
+
 export async function fetchUserAddresses(): Promise<Address[]> {
   const response = await fetchWithAutoRefresh("/users/get_addresses/", {
     method: "GET",
@@ -1796,37 +1861,6 @@ export async function toggleOfferActive(offerId: string): Promise<Offer> {
   }
 
   return fetchOfferById(offerId);
-}
-
-// Settings (SettingViewSet - singleton, pk=1 always, created on first GET if
-// missing server-side). GET /settings/ -> list action, PATCH /settings/ ->
-// partial_update action (Admin/Moderator only per IsAdminOrModeratorOrReadOnly).
-export async function fetchSettings(): Promise<Setting> {
-  const response = await fetchWithAutoRefresh("/settings/", {
-    headers: buildAuthHeaders(false),
-  }, true);
-
-  if (!response.ok) {
-    throw new Error("حدث خطأ أثناء جلب إعدادات المتجر");
-  }
-
-  const data = await response.json();
-  return mapDjangoSetting(data);
-}
-
-export async function updateSettings(payload: SettingPayload): Promise<Setting> {
-  const response = await fetchWithAutoRefresh("/settings/", {
-    method: "PATCH",
-    headers: buildAuthHeaders(),
-    body: JSON.stringify(payload),
-  }, true);
-
-  if (!response.ok) {
-    throw new Error(await readOfferErrorDetail(response, "فشل حفظ إعدادات المتجر"));
-  }
-
-  const data = await response.json();
-  return mapDjangoSetting(data);
 }
 
 // Cart (Authenticated users only - CartViewSet uses IsAuthenticated).

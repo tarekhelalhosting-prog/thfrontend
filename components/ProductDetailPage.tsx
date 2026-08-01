@@ -48,7 +48,7 @@ export default function ProductDetailPage({
 
   return (
     <div className="bg-dark-bg text-gray-100 py-6 sm:py-10 px-3 sm:px-6 lg:px-8 font-sans text-right">
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto space-y-8">
         
         {/* Back navigation bar */}
         <div className="flex items-center justify-between pb-4 border-b border-dark-border/60">

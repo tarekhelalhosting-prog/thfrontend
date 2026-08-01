@@ -5,49 +5,19 @@ import Link from "next/link";
 import { Search, UserRound } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
 import { EmptyState, Panel, SectionHeader } from "@/components/admin/admin-kit";
-import { fetchOrders } from "@/lib/api";
+import { fetchDashboardUsers, fetchOrders } from "@/lib/api";
 import { Order, User } from "@/types";
-
-function collectCustomers(orders: Order[], storedUsers: User[]) {
-  const merged = new Map<string, User>();
-
-  storedUsers.forEach((user) => {
-    if (user.phone) {
-      merged.set(user.phone, user);
-    }
-  });
-
-  orders.forEach((order) => {
-    const phone = order.customerPhone?.trim();
-    if (!phone || merged.has(phone)) {
-      return;
-    }
-
-    const [first_name = "عميل", ...rest] = (order.customerName || "").split(" ");
-    merged.set(phone, {
-      id: phone,
-      first_name,
-      last_name: rest.join(" ") || "",
-      phone,
-      role: "Customer",
-      created_at: order.created_at,
-      updated_at: order.updated_at,
-      deleted_at: null,
-    });
-  });
-
-  return Array.from(merged.values());
-}
 
 function formatPrice(value: number) {
   return `${value.toLocaleString("ar-EG")} جنيه`;
 }
 
 export default function CustomersPage() {
+  const [customers, setCustomers] = useState<User[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [storedUsers, setStoredUsers] = useState<User[]>([]);
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -55,12 +25,19 @@ export default function CustomersPage() {
     void (async () => {
       try {
         setIsLoading(true);
-        const ordersResult = await fetchOrders();
-        const localUsers = typeof window === "undefined" ? [] : JSON.parse(window.localStorage.getItem("th_users") || "[]");
+        setLoadError("");
+        const [customersResult, ordersResult] = await Promise.all([
+          fetchDashboardUsers({ role: "Customer" }),
+          fetchOrders(),
+        ]);
 
         if (!cancelled) {
+          setCustomers(customersResult);
           setOrders(ordersResult);
-          setStoredUsers(Array.isArray(localUsers) ? localUsers : []);
+        }
+      } catch {
+        if (!cancelled) {
+          setLoadError("تعذر جلب قائمة العملاء من الخادم.");
         }
       } finally {
         if (!cancelled) {
@@ -74,7 +51,6 @@ export default function CustomersPage() {
     };
   }, []);
 
-  const customers = useMemo(() => collectCustomers(orders, storedUsers), [orders, storedUsers]);
   const filteredCustomers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return customers.filter((customer) => {
@@ -91,7 +67,7 @@ export default function CustomersPage() {
 
   const customerStats = useMemo(() => {
     return filteredCustomers.map((customer) => {
-      const customerOrders = orders.filter((order) => order.customerPhone === customer.phone || order.user_id === customer.id);
+      const customerOrders = orders.filter((order) => order.user_id === customer.id || order.customerPhone === customer.phone);
       const spent = customerOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
 
       return {
@@ -105,7 +81,7 @@ export default function CustomersPage() {
   return (
     <AdminShell
       title="العملاء"
-      subtitle="جدول مستقل لعملاء المتجر مع إحصاء الطلبات وإجمالي الإنفاق، وتفاصيل الحساب في صفحة منفصلة."
+      subtitle="كل الحسابات المسجّلة بدور عميل، مع عدد الطلبات وإجمالي الإنفاق المحسوبين من الطلبات الحقيقية."
       actions={
         <label className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500">
           <Search className="h-4 w-4" />
@@ -115,6 +91,7 @@ export default function CustomersPage() {
     >
       <Panel>
         <SectionHeader eyebrow="Customers" title="جدول العملاء" subtitle="الاسم، الهاتف، عدد الطلبات، وإجمالي الإنفاق فقط." />
+        {loadError ? <p className="px-5 pt-4 text-sm font-bold text-rose-600">{loadError}</p> : null}
         <div className="overflow-x-auto px-5 py-5">
           <table className="min-w-full text-right text-sm">
             <thead>
@@ -130,9 +107,9 @@ export default function CustomersPage() {
                 <tr><td colSpan={4} className="py-10 text-center text-slate-500">جاري تحميل العملاء...</td></tr>
               ) : customerStats.length > 0 ? (
                 customerStats.map((customer) => (
-                  <tr key={customer.phone} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70">
+                  <tr key={customer.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70">
                     <td className="py-4 pl-4">
-                      <Link href={`/admin/customers/${encodeURIComponent(customer.phone)}`} className="inline-flex items-center gap-2 font-bold text-slate-950 hover:text-amber-700">
+                      <Link href={`/admin/customers/${customer.id}`} className="inline-flex items-center gap-2 font-bold text-slate-950 hover:text-amber-700">
                         <UserRound className="h-4 w-4 text-slate-400" />
                         <span>{customer.first_name} {customer.last_name}</span>
                       </Link>
@@ -143,7 +120,7 @@ export default function CustomersPage() {
                   </tr>
                 ))
               ) : (
-                <tr><td colSpan={4} className="py-10"><EmptyState title="لا توجد بيانات عملاء" description="ستظهر الحسابات هنا بعد استقبال الطلبات أو تسجيل الحسابات داخل النظام." /></td></tr>
+                <tr><td colSpan={4} className="py-10"><EmptyState title="لا توجد بيانات عملاء" description="سيظهر أي عميل هنا بمجرد تسجيله في المتجر." /></td></tr>
               )}
             </tbody>
           </table>

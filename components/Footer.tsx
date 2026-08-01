@@ -12,14 +12,21 @@ interface FooterProps {
 
 export default function Footer({ categories, onCategorySelect, onContactClick }: FooterProps) {
   const logoSrc = "/file.png";
+  const whatsappText = encodeURIComponent("مرحبا استاذ طارق انا مهتم اعرف اكتر عن باقات التجهيز هل مناسب نتكلم");
+  const whatsappUrl = `https://wa.me/201021750655?text=${whatsappText}`;
+  const whatsappDisplay = "+20 102 175 0655";
+  const legacyWhatsappUrlOne = `https://wa.me/201501593962?text=${whatsappText}`;
+  const legacyWhatsappDisplayOne = "+20 150 159 3962";
+  const legacyWhatsappUrlTwo = `https://wa.me/201061420833?text=${whatsappText}`;
+  const legacyWhatsappDisplayTwo = "+20 106 142 0833";
+  const landlineDisplay = "2050 220 8095";
   
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleWhatsAppFloat = () => {
-    const text = encodeURIComponent("مرحبا استاذ طارق انا مهتم اعرف اكتر عن باقات التجهيز هل مناسب نتكلم");
-    window.open(`https://wa.me/201501593962?text=${text}`, "_blank");
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -37,7 +44,7 @@ export default function Footer({ categories, onCategorySelect, onContactClick }:
       </div>
 
       {/* Main Footer Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 mb-12 pb-12 border-b border-dark-border/40">
           
           {/* Logo & About Column (4 columns) */}
@@ -93,24 +100,6 @@ export default function Footer({ categories, onCategorySelect, onContactClick }:
             </div>
           </div>
 
-          {/* Quick Links Column (2 columns) */}
-          <div className="lg:col-span-2 text-right">
-            <h4 className="text-sm font-bold text-white mb-4 relative pb-2 inline-block">
-              روابط سريعة
-              <span className="absolute bottom-0 right-0 w-8 h-0.5 bg-gold-400 rounded" />
-            </h4>
-            <ul className="flex flex-col gap-3">
-              <li>
-                <button onClick={() => onCategorySelect("salon-bundles")} className="hover:text-gold-400 transition-colors">عروض التجهيز</button>
-              </li>
-              <li>
-                <span className="hover:text-gold-400 transition-colors cursor-pointer">سياسة الضمان</span>
-              </li>
-              <li>
-                <span className="hover:text-gold-400 transition-colors cursor-pointer">سياسة الاستبدال والاسترجاع</span>
-              </li>
-            </ul>
-          </div>
 
           {/* Categories Column (2 columns) */}
           <div className="lg:col-span-2 text-right">
@@ -139,28 +128,50 @@ export default function Footer({ categories, onCategorySelect, onContactClick }:
               <span className="absolute bottom-0 right-0 w-8 h-0.5 bg-gold-400 rounded" />
             </h4>
             <ul className="flex flex-col gap-3 text-xs">
-              <li className="flex items-center gap-2 justify-start font-mono">
+              <li className="flex items-center gap-2 justify-start">
                 <Phone size={14} className="text-gold-400 shrink-0" />
                 <a 
-                  href="https://wa.me/201501593962?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%20%D8%A7%D8%B3%D8%AA%D8%A7%D8%B0%20%D8%B7%D8%A7%D8%B1%D9%82%20%D8%A7%D9%86%D8%A7%20%D9%85%D9%87%D8%AA%D9%85%20%D8%A7%D8%B9%D8%B1%D9%81%20%D8%A7%D9%83%D8%AA%D8%B1%20%D8%B9%D9%86%20%D8%A8%D8%A7%D9%82%D8%A7%D8%AA%20%D8%A7%D9%84%D8%AA%D8%AC%D9%87%D9%8A%D8%B2%20%D9%87%D9%84%20%D9%85%D9%86%D8%A7%D8%B3%D8%A8%20%D9%86%D8%AA%D9%83%D9%84%D9%85" 
+                  href={whatsappUrl}
                   target="_blank" 
                   rel="noopener noreferrer" 
-                  className="hover:text-gold-400 transition-colors"
+                  className="hover:text-gold-400 transition-colors font-mono tracking-[0.02em]"
                   dir="ltr"
                 >
-                  +20 150 159 3962
+                  {whatsappDisplay}
                 </a>
               </li>
-              <li className="flex items-center gap-2 justify-start font-mono">
+              <li className="flex items-center gap-2 justify-start">
                 <Phone size={14} className="text-gold-400 shrink-0" />
-                <a 
-                  href="https://wa.me/201061420833?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%20%D8%A7%D8%B3%D8%AA%D8%A7%D8%B0%20%D8%B7%D8%A7%D8%B1%D9%82%20%D8%A7%D9%86%D8%A7%20%D9%85%D9%87%D8%AA%D9%85%20%D8%A7%D8%B9%D8%B1%D9%81%20%D8%A7%D9%83%D8%AA%D8%B1%20%D8%B9%D9%86%20%D8%A8%D8%A7%D9%82%D8%A7%D8%AA%20%D8%A7%D9%84%D8%AA%D8%AC%D9%87%D9%8A%D8%B2%20%D9%87%D9%84%20%D9%85%D9%86%D8%A7%D8%B3%D8%A8%20%D9%86%D8%AA%D9%83%D9%84%D9%85" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="hover:text-gold-400 transition-colors"
+                <a
+                  href={legacyWhatsappUrlOne}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-gold-400 transition-colors font-mono tracking-[0.02em]"
                   dir="ltr"
                 >
-                  +20 106 142 0833
+                  {legacyWhatsappDisplayOne}
+                </a>
+              </li>
+              <li className="flex items-center gap-2 justify-start">
+                <Phone size={14} className="text-gold-400 shrink-0" />
+                <a
+                  href={legacyWhatsappUrlTwo}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-gold-400 transition-colors font-mono tracking-[0.02em]"
+                  dir="ltr"
+                >
+                  {legacyWhatsappDisplayTwo}
+                </a>
+              </li>
+              <li className="flex items-center gap-2 justify-start">
+                <Phone size={14} className="text-gold-400 shrink-0" />
+                <a
+                  href={`tel:${landlineDisplay}`}
+                  className="hover:text-gold-400 transition-colors font-mono"
+                  dir="ltr"
+                >
+                  {landlineDisplay}
                 </a>
               </li>
             </ul>
@@ -175,7 +186,15 @@ export default function Footer({ categories, onCategorySelect, onContactClick }:
             <ul className="flex flex-col gap-2.5 text-xs">
               <li className="flex items-start gap-1.5 justify-start">
                 <MapPin size={14} className="text-gold-400 shrink-0 mt-0.5" />
-                <span>المنصورة - شارع الجمهورية برج السوسن</span>
+                <a 
+                  href="https://maps.app.goo.gl/LSVR1B5nbQ69ZoiC8?g_st=a" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="hover:text-gold-400 transition-colors text-right"
+                >
+                 المنصورة - شارع الجمهورية برج السوسن
+                </a>
+                
               </li>
               <li className="flex items-start gap-1.5 justify-start">
                 <MapPin size={14} className="text-gold-400 shrink-0 mt-0.5" />

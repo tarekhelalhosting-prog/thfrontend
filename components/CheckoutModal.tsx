@@ -4,6 +4,8 @@ import { X, CheckCircle2, Calendar, ArrowRight, ClipboardCheck, CreditCard, Coin
 import { Address, CartItem, SalonBundle, Order, User } from "../src/types";
 import { getCartLineKey, getCartItemUnitPrice, describeCartItemVariant } from "../src/lib/cart";
 import { createOrder, createPaymentIntention, createUserAddress, fetchUserAddresses } from "../src/lib/api";
+import PageState from "../src/components/ui/PageState";
+import InlineBanner from "../src/components/ui/InlineBanner";
 import {
   hasValidationErrors,
   validateAddressTitle,
@@ -334,9 +336,9 @@ export default function CheckoutModal({
                   </div>
 
                   {isLoadingAddresses ? (
-                    <p className="text-xs text-gray-500">جاري تحميل العناوين المحفوظة...</p>
+                    <PageState variant="loading" title="جاري تحميل العناوين المحفوظة..." className="p-4" />
                   ) : addressesError ? (
-                    <p className="text-xs text-red-500 font-bold">{addressesError}</p>
+                    <InlineBanner tone="error" message={addressesError} />
                   ) : (
                     <div className="space-y-2">
                       {addresses.map((address) => (
@@ -454,9 +456,7 @@ export default function CheckoutModal({
                   </p>
                 )}
 
-                {errorMessage && (
-                  <p className="text-red-500 text-xs font-bold text-center">{errorMessage}</p>
-                )}
+                {errorMessage && <InlineBanner tone="error" message={errorMessage} />}
 
                 <div className="pt-2">
                   <button

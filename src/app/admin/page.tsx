@@ -7,7 +7,8 @@ import AdminShell from "@/components/admin/AdminShell";
 import { ChartBars, EmptyState, MetricCard, Panel, SectionHeader, StatusPill } from "@/components/admin/admin-kit";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { fetchOffers, fetchOrders, fetchProducts } from "@/lib/api";
-import { Offer, Order, Product, User } from "@/types";
+import { extractUsersFromOrders } from "@/lib/customers";
+import { Offer, Order, Product } from "@/types";
 
 type DailyPoint = { label: string; value: number };
 
@@ -58,33 +59,9 @@ function buildTopProducts(products: Product[], orders: Order[]) {
     }))
     .sort((left, right) => right.value - left.value || right.fallback - left.fallback)
     .slice(0, 5)
-    .map((item) => ({ label: item.label, value: item.value || 1 }));
+    .map((item) => ({ label: item.label, value: item.value }));
 }
 
-function getCustomersFromOrders(orders: Order[]): User[] {
-  const customers = new Map<string, User>();
-
-  orders.forEach((order) => {
-    const phone = order.customerPhone?.trim();
-    if (!phone || customers.has(phone)) {
-      return;
-    }
-
-    const [first_name = "عميل", ...rest] = (order.customerName || "").split(" ");
-    customers.set(phone, {
-      id: phone,
-      first_name,
-      last_name: rest.join(" ") || "",
-      phone,
-      role: "Customer",
-      created_at: order.created_at,
-      updated_at: order.updated_at,
-      deleted_at: null,
-    });
-  });
-
-  return Array.from(customers.values());
-}
 
 // An offer counts as "active" for this metric only if it's both flagged
 // `is_active` AND the current date actually falls inside its start/end
@@ -160,7 +137,7 @@ export default function AdminPage() {
     };
   }, [currentUser, isHydrated]);
 
-  const customers = useMemo(() => getCustomersFromOrders(orders), [orders]);
+  const customers = useMemo(() => extractUsersFromOrders(orders), [orders]);
   const activeOffers = countActiveOffers(offers);
   const pendingOrders = orders.filter((order) => order.status === "Pending").length;
   const totalSales = orders.filter((order) => order.payment?.status === "Paid").reduce((sum, order) => sum + Number(order.total || 0), 0);
@@ -201,14 +178,14 @@ export default function AdminPage() {
   const recentCustomers = [...customers].sort((left, right) => right.created_at.localeCompare(left.created_at)).slice(0, 6);
 
   return (
-    <AdminShell title="Dashboard" subtitle="مؤشرات الأداء، نظرة سريعة على المبيعات، والمهام العاجلة في مكان واحد." actions={dashboardActions}>
+    <AdminShell title="Dashboard" subtitle="مؤشرات الأداء، نظرة سريعة على المبيعات، والمهام العاجلة   ." actions={dashboardActions}>
       <div className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           <MetricCard label="إجمالي المبيعات" value={formatEGP(totalSales)} hint="الطلبات المدفوعة فقط" tone="accent" />
           <MetricCard label="عدد الطلبات" value={`${orders.length}`} hint="جميع الحالات" />
           <MetricCard label="عدد العملاء" value={`${customers.length}`} hint="حسابات وطلبات منفذة" />
           <MetricCard label="عدد المنتجات" value={`${products.length}`} hint="الكتالوج الحالي" />
-          <MetricCard label="العروض النشطة" value={`${activeOffers}`} hint="Percentage / Bundle / Fixed" tone="success" />
+          <MetricCard label="العروض النشطة" value={`${activeOffers}`} hint="خصومات وعروض موجوده " tone="success" />
           <MetricCard label="الطلبات المعلقة" value={`${pendingOrders}`} hint="تحتاج متابعة" tone="danger" />
         </div>
 
@@ -275,33 +252,6 @@ export default function AdminPage() {
         </div>
 
         <div className="grid gap-6 xl:grid-cols-2">
-          <Panel>
-            <SectionHeader eyebrow="Customers" title="آخر العملاء" subtitle="العملاء الذين ظهروا من الطلبات أو الحسابات المسجلة حديثاً." />
-            <div className="overflow-x-auto px-5 py-5">
-              <table className="min-w-full text-right text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
-                    <th className="py-3 pl-4">الاسم</th>
-                    <th className="py-3 pl-4">الهاتف</th>
-                    <th className="py-3 pl-4">تاريخ الإنشاء</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentCustomers.length > 0 ? (
-                    recentCustomers.map((customer) => (
-                      <tr key={customer.phone} className="border-b border-slate-100 last:border-0">
-                        <td className="py-4 pl-4 font-bold text-slate-950">{customer.first_name} {customer.last_name}</td>
-                        <td className="py-4 pl-4 text-slate-600">{customer.phone}</td>
-                        <td className="py-4 pl-4 text-slate-500">{new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium" }).format(new Date(customer.created_at))}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr><td colSpan={3} className="py-8"><EmptyState title="لا توجد بيانات عملاء" description="العملاء سيظهرون هنا بعد تسجيل الحسابات أو تنفيذ الطلبات." /></td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Panel>
 
           <Panel>
             <SectionHeader eyebrow="Health" title="ملخص تشغيلي سريع" />

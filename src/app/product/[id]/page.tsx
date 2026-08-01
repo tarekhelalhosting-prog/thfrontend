@@ -8,6 +8,7 @@ import Footer from "../../../../components/Footer";
 import CartDrawer from "../../../../components/CartDrawer";
 import AccountModal from "../../../../components/AccountModal";
 import CheckoutModal from "../../../../components/CheckoutModal";
+import PageState from "../../../components/ui/PageState";
 import { Category, Order, Product, ProductVariant } from "../../../types";
 import { useAuthSession } from "../../../hooks/useAuthSession";
 import { useCart } from "../../../hooks/useCart";
@@ -62,7 +63,7 @@ function ProductDetailsContent({
 
   return (
     <div className="bg-dark-bg text-gray-100 py-5 sm:py-10 px-3 sm:px-6 lg:px-8 font-sans text-right">
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-dark-border/60">
           <button
             onClick={() => router.push("/")}
@@ -347,7 +348,7 @@ export default function ProductDetailPage() {
 
   const handleWhatsAppClick = () => {
     const text = encodeURIComponent("مرحبا استاذ طارق انا مهتم اعرف اكتر عن باقات التجهيز هل مناسب نتكلم");
-    window.open(`https://wa.me/201501593962?text=${text}`, "_blank");
+    window.open(`https://wa.me/201021750655?text=${text}`, "_blank");
   };
 
   const navigateToStore = (categoryId = "all", search = "") => {
@@ -367,23 +368,32 @@ export default function ProductDetailPage() {
 
   if (isCatalogLoading) {
     return (
-      <div className="min-h-screen bg-dark-bg text-gray-100 flex items-center justify-center px-4">
-        <div className="text-center space-y-4">
-          <h1 className="text-2xl font-black text-white">جاري تحميل المنتج</h1>
-          <p className="text-sm text-gray-400">نحاول جلب بيانات المنتج من الخادم الآن.</p>
-        </div>
-      </div>
+      <PageState
+        variant="loading"
+        title="جاري تحميل المنتج"
+        message="نحاول جلب بيانات المنتج من الخادم الآن."
+        fullPage
+      />
     );
   }
 
   if (!activeProduct) {
     return (
-      <div className="min-h-screen bg-dark-bg text-gray-100 flex items-center justify-center px-4">
-        <div className="text-center space-y-4">
-          <h1 className="text-2xl font-black text-white">المنتج غير موجود</h1>
-          <p className="text-sm text-gray-400">قد يكون الرابط غير صحيح أو تم حذف المنتج من القائمة الحالية.</p>
-        </div>
-      </div>
+      <PageState
+        variant="error"
+        title="المنتج غير موجود"
+        message="قد يكون الرابط غير صحيح أو تم حذف المنتج من القائمة الحالية."
+        fullPage
+        action={
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            className="rounded-xl bg-gold-400 px-6 py-2.5 text-xs font-extrabold text-dark-bg transition-colors hover:bg-gold-500"
+          >
+            العودة للمتجر الرئيسي
+          </button>
+        }
+      />
     );
   }
 

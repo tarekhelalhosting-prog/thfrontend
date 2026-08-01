@@ -7,6 +7,8 @@ import Header from "../../../components/Header";
 import Footer from "../../../components/Footer";
 import CartDrawer from "../../../components/CartDrawer";
 import AccountModal from "../../../components/AccountModal";
+import PageState from "../../components/ui/PageState";
+import InlineBanner from "../../components/ui/InlineBanner";
 import { useAuthSession } from "../../hooks/useAuthSession";
 import { useCart } from "../../hooks/useCart";
 import {
@@ -437,7 +439,7 @@ export default function ProfilePage() {
         selectedCategory={selectedCategory}
         onCategorySelect={handleCategorySelect}
         categories={categories}
-        onContactClick={() => window.open("https://wa.me/201501593962", "_blank")}
+        onContactClick={() => window.open("https://wa.me/201021750655", "_blank")}
         currentUser={currentUser}
         onAccountClick={() => {}}
         onAdminClick={() => router.push("/admin")}
@@ -470,22 +472,18 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {errorMessage ? (
-          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600">{errorMessage}</div>
-        ) : null}
+        {errorMessage ? <InlineBanner tone="error" message={errorMessage} className="mb-4" /> : null}
 
-        {message ? (
-          <div className="mb-4 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-700">{message}</div>
-        ) : null}
+        {message ? <InlineBanner tone="success" message={message} className="mb-4" /> : null}
 
         <div className="grid gap-6 lg:grid-cols-3">
           <section className="rounded-2xl border border-dark-border bg-dark-card p-5 lg:col-span-1">
             <h2 className="mb-4 text-lg font-black text-white">بيانات الحساب</h2>
 
             {shouldShowAccountLoader ? (
-              <p className="text-sm text-gray-500">جاري تحميل بيانات الحساب...</p>
+              <PageState variant="loading" title="جاري تحميل بيانات الحساب..." />
             ) : (
-              <form className="space-y-3" onSubmit={handleProfileSubmit}>
+              <form className="space-y-3" noValidate onSubmit={handleProfileSubmit}>
                 <div>
                   <label className="mb-1 block text-xs font-bold text-gray-500">الاسم الأول</label>
                   <input
@@ -547,7 +545,7 @@ export default function ProfilePage() {
           <section className="rounded-2xl border border-dark-border bg-dark-card p-5 lg:col-span-2">
             <h2 className="mb-4 text-lg font-black text-white">العناوين</h2>
 
-            <form className="grid gap-3 rounded-2xl border border-dark-border bg-dark-bg p-4 sm:grid-cols-2" onSubmit={handleAddressSubmit}>
+            <form className="grid gap-3 rounded-2xl border border-dark-border bg-dark-bg p-4 sm:grid-cols-2" noValidate onSubmit={handleAddressSubmit}>
               <div>
                 <label className="mb-1 block text-xs font-bold text-gray-500">عنوان مختصر</label>
                 <input
@@ -645,7 +643,7 @@ export default function ProfilePage() {
 
             <div className="mt-4 space-y-3">
               {isLoading ? (
-                <p className="text-sm text-gray-500">جاري تحميل العناوين...</p>
+                <PageState variant="loading" title="جاري تحميل العناوين..." />
               ) : sortedAddresses.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-dark-border bg-dark-bg px-4 py-8 text-center text-sm text-gray-500">
                   لا يوجد أي عنوان مضاف حتى الآن.
@@ -708,7 +706,7 @@ export default function ProfilePage() {
             <h2 className="mb-4 text-lg font-black text-white">طلباتي</h2>
 
             {isLoading ? (
-              <p className="text-sm text-gray-500">جاري تحميل الطلبات...</p>
+              <PageState variant="loading" title="جاري تحميل الطلبات..." />
             ) : sortedOrders.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-dark-border bg-dark-bg px-4 py-8 text-center text-sm text-gray-500">
                 لا يوجد أي طلبات سابقة حتى الآن.
@@ -752,7 +750,7 @@ export default function ProfilePage() {
       <Footer
         categories={categories}
         onCategorySelect={(categoryId) => navigateToStore(categoryId)}
-        onContactClick={() => window.open("https://wa.me/201501593962", "_blank")}
+        onContactClick={() => window.open("https://wa.me/201021750655", "_blank")}
       />
 
       <CartDrawer

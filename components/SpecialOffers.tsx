@@ -30,7 +30,7 @@ export default function SpecialOffers({
 
   return (
     <section className="py-12 bg-dark-card border-b border-dark-border">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-10">
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
@@ -222,7 +222,7 @@ export default function SpecialOffers({
                 <button
                   onClick={() => {
                     const text = encodeURIComponent("مرحبا استاذ طارق انا مهتم اعرف اكتر عن باقات التجهيز هل مناسب نتكلم");
-                    window.open(`https://wa.me/201501593962?text=${text}`, "_blank");
+                    window.open(`https://wa.me/201021750655?text=${text}`, "_blank");
                   }}
                   className="flex items-center gap-2 bg-gold-400 hover:bg-gold-500 text-dark-bg font-extrabold text-xs px-5 py-2.5 rounded-xl transition-all"
                 >

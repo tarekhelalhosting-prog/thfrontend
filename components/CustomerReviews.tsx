@@ -46,7 +46,7 @@ export default function CustomerReviews({ reviews }: CustomerReviewsProps) {
 
   return (
     <section className="py-12 bg-dark-bg border-b border-dark-border">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-10">
         
         {/* Section Header */}
         <div className="text-center mb-10">

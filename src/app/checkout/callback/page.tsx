@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import PageState from "../../../components/ui/PageState";
 import { fetchPaymentStatus } from "../../../lib/api";
 import { Order } from "../../../types";
 
@@ -94,65 +94,65 @@ function PaymentCallbackContent() {
     };
   }, [orderId]);
 
+  const statusConfig: Record<CallbackStatus, { variant: "loading" | "success" | "error"; title: string; message: string }> = {
+    loading: {
+      variant: "loading",
+      title: "جاري التحقق من حالة الدفع...",
+      message: "الرجاء الانتظار قليلاً، لا تغلق هذه الصفحة.",
+    },
+    paid: {
+      variant: "success",
+      title: "تم الدفع بنجاح!",
+      message: "تم تأكيد طلبك وسيتم التواصل معك لتأكيد الشحن.",
+    },
+    pending: {
+      variant: "loading",
+      title: "جاري تأكيد الدفع",
+      message: "لم نتلق تأكيداً نهائياً بعد، سيتم تحديث حالة الطلب تلقائياً خلال لحظات. يمكنك متابعة الحالة من صفحة الملف الشخصي.",
+    },
+    failed: {
+      variant: "error",
+      title: "لم تكتمل عملية الدفع",
+      message: errorMessage || "لم يتم تأكيد الدفع، يمكنك المحاولة مرة أخرى من صفحة الملف الشخصي.",
+    },
+    error: {
+      variant: "error",
+      title: "لم تكتمل عملية الدفع",
+      message: errorMessage || "لم يتم تأكيد الدفع، يمكنك المحاولة مرة أخرى من صفحة الملف الشخصي.",
+    },
+  };
+
+  const { variant, title, message } = statusConfig[status];
+
   return (
-    <div className="min-h-screen bg-dark-bg text-gray-100 flex items-center justify-center px-4">
-      <div className="max-w-md w-full text-center bg-dark-card border border-dark-border rounded-2xl p-8 space-y-4">
-        {status === "loading" && (
-          <>
-            <Loader2 className="mx-auto animate-spin text-gold-400" size={40} />
-            <h1 className="text-lg font-black text-white">جاري التحقق من حالة الدفع...</h1>
-            <p className="text-xs text-gray-400">الرجاء الانتظار قليلاً، لا تغلق هذه الصفحة.</p>
-          </>
-        )}
-
-        {status === "paid" && (
-          <>
-            <CheckCircle2 className="mx-auto text-green-400" size={40} />
-            <h1 className="text-lg font-black text-white">تم الدفع بنجاح!</h1>
-            <p className="text-xs text-gray-400">تم تأكيد طلبك وسيتم التواصل معك لتأكيد الشحن.</p>
-          </>
-        )}
-
-        {status === "pending" && (
-          <>
-            <Loader2 className="mx-auto text-gold-400" size={40} />
-            <h1 className="text-lg font-black text-white">جاري تأكيد الدفع</h1>
-            <p className="text-xs text-gray-400">
-              لم نتلق تأكيداً نهائياً بعد، سيتم تحديث حالة الطلب تلقائياً خلال لحظات. يمكنك متابعة الحالة من صفحة الملف الشخصي.
+    <PageState
+      variant={variant}
+      title={title}
+      message={message}
+      fullPage
+      action={
+        <div className="space-y-4">
+          {orderStatus && (
+            <p className="text-[10px] text-gray-500">
+              حالة الطلب الحالية: <span className="text-gray-300 font-bold">{orderStatus}</span>
             </p>
-          </>
-        )}
+          )}
 
-        {(status === "failed" || status === "error") && (
-          <>
-            <XCircle className="mx-auto text-red-400" size={40} />
-            <h1 className="text-lg font-black text-white">لم تكتمل عملية الدفع</h1>
-            <p className="text-xs text-gray-400">
-              {errorMessage || "لم يتم تأكيد الدفع، يمكنك المحاولة مرة أخرى من صفحة الملف الشخصي."}
-            </p>
-          </>
-        )}
-
-        {orderStatus && (
-          <p className="text-[10px] text-gray-500">
-            حالة الطلب الحالية: <span className="text-gray-300 font-bold">{orderStatus}</span>
-          </p>
-        )}
-
-        <Link
-          href="/profile"
-          className="inline-flex items-center gap-2 bg-gold-400 hover:bg-gold-500 text-dark-bg font-extrabold text-xs px-6 py-2.5 rounded-xl transition-colors"
-        >
-          الذهاب لصفحة طلباتي
-        </Link>
-      </div>
-    </div>
+          <Link
+            href="/profile"
+            className="inline-flex items-center gap-2 bg-gold-400 hover:bg-gold-500 text-dark-bg font-extrabold text-xs px-6 py-2.5 rounded-xl transition-colors"
+          >
+            الذهاب لصفحة طلباتي
+          </Link>
+        </div>
+      }
+    />
   );
 }
 
 export default function PaymentCallbackPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-dark-bg" />}>
+    <Suspense fallback={<PageState variant="loading" title="جاري التحميل..." fullPage />}>
       <PaymentCallbackContent />
     </Suspense>
   );

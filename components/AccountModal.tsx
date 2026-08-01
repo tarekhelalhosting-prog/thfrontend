@@ -2,7 +2,6 @@
 
 import React, { useMemo, useState } from "react";
 import {
-  CheckCircle2,
   Clipboard,
   Eye,
   EyeOff,
@@ -13,6 +12,7 @@ import {
 } from "lucide-react";
 import { User as UserType, Order } from "../src/types";
 import { loginUser, registerUser } from "../src/lib/api";
+import InlineBanner from "../src/components/ui/InlineBanner";
 import {
   hasValidationErrors,
   validateCity,
@@ -332,21 +332,12 @@ export default function AccountModal({
               </button>
             </div>
 
-            {successMessage && (
-              <div className="mb-4 flex items-center justify-center gap-1.5 rounded-xl border border-green-500 bg-green-500/10 p-3 text-center text-xs font-bold text-green-400">
-                <CheckCircle2 size={16} />
-                <span>{successMessage}</span>
-              </div>
-            )}
+            {successMessage && <InlineBanner tone="success" message={successMessage} className="mb-4" />}
 
-            {errorMessage && (
-              <div className="mb-4 rounded-xl border border-red-500 bg-red-500/10 p-3 text-center text-xs font-bold text-red-400">
-                {errorMessage}
-              </div>
-            )}
+            {errorMessage && <InlineBanner tone="error" message={errorMessage} className="mb-4" />}
 
             {activeTab === "login" ? (
-              <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <form onSubmit={handleLoginSubmit} noValidate className="space-y-4">
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-gray-400">رقم الهاتف الفعال لصالونك *</label>
                   <input
@@ -403,17 +394,9 @@ export default function AccountModal({
                     {isSubmitting ? "جاري التحقق..." : "تسجيل الدخول الآمن"}
                   </button>
                 </div>
-
-                <div className="mt-4 rounded-xl border border-dark-border/40 bg-dark-card/50 p-3 text-right text-[10px] leading-relaxed text-gray-500">
-                  <div className="mb-1 flex items-center gap-1.5 font-bold text-gold-500">
-                    <ShieldAlert size={12} />
-                    <span>الاتصال الآن يتم عبر واجهات API الخاصة بالخادم.</span>
-                  </div>
-                  <p>لو لم يتم إعداد Django بعد، ستظهر رسالة تعذر الاتصال بالخادم بدلا من حفظ حسابات محلية داخل المتصفح.</p>
-                </div>
               </form>
             ) : (
-              <form onSubmit={handleRegisterSubmit} className="space-y-3">
+              <form onSubmit={handleRegisterSubmit} noValidate className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="block text-xs font-bold text-gray-400">الاسم الأول *</label>

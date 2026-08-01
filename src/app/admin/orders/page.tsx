@@ -74,7 +74,7 @@ export default function OrdersPage() {
     >
       <div className="space-y-6">
         <Panel>
-          <SectionHeader eyebrow="Orders" title="فلاتر الطلبات" subtitle="Pending, Confirmed, Processing, Ready, Completed, Cancelled, Refunded" action={<Filter className="h-4 w-4 text-slate-500" />} />
+          <SectionHeader eyebrow="Orders" title="فلاتر الطلبات" action={<Filter className="h-4 w-4 text-slate-500" />} />
           <div className="flex flex-wrap gap-2 px-5 py-5">
             {statusFilters.map((status) => (
               <button key={status} type="button" onClick={() => setFilter(status)} className={`rounded-full border px-4 py-2 text-xs font-bold ${filter === status ? "border-slate-950 bg-green-300 text-white" : "border-slate-200 bg-white text-slate-600"}`}>

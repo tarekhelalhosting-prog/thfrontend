@@ -33,10 +33,10 @@ const navItems: NavItem[] = [
   { href: "/admin/products", label: "المنتجات", icon: Package, hint: "كل المنتجات + إضافة" },
   { href: "/admin/categories", label: "التصنيفات", icon: FolderTree, hint: "إدارة الأقسام" },
   { href: "/admin/orders", label: "الطلبات", icon: ShoppingCart, hint: "التتبع والحالات" },
-  { href: "/admin/offers", label: "العروض", icon: BadgePercent, hint: "Percentage / Bundle" },
+  { href: "/admin/offers", label: "العروض", icon: BadgePercent, hint: "الخصومات والعروض" },
   { href: "/admin/customers", label: "العملاء", icon: Users, hint: "الحسابات والعناوين" },
   { href: "/admin/payments", label: "المدفوعات", icon: CreditCard, hint: "Paymob & الحالات" },
-  { href: "/admin/users", label: "المستخدمون", icon: ShieldUser, hint: "Admin & Moderator" },
+  { href: "/admin/users", label: "المستخدمون", icon: ShieldUser, hint: "تفاصيل المستخدمين" },
   //{ href: "/admin/settings", label: "الإعدادات", icon: Settings, hint: "بيانات المتجر" },
 ];
 
@@ -65,7 +65,7 @@ export default function AdminShell({ title, subtitle, actions, children }: Admin
   );
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(197,161,83,0.12),_transparent_32%),linear-gradient(180deg,#f8f5ef_0%,#f3efe6_100%)] text-slate-900">
+    <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_right,_rgba(197,161,83,0.12),_transparent_32%),linear-gradient(180deg,#f8f5ef_0%,#f3efe6_100%)] text-slate-900">
       <div className="flex min-h-screen">
         <aside
           className={clsx(
@@ -76,8 +76,7 @@ export default function AdminShell({ title, subtitle, actions, children }: Admin
           <div className="flex h-full flex-col">
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-5">
               <div>
-                <p className="text-[11px] font-semibold tracking-[0.32em] text-amber-300/90">ADMIN</p>
-                <h1 className="mt-1 text-lg font-black">متجر طارق هلال</h1>
+                <p className="text-[18px] font-semibold tracking-[0.32em] text-amber-300/90">لوحه التحكم</p>
               </div>
               <button
                 type="button"
@@ -86,20 +85,6 @@ export default function AdminShell({ title, subtitle, actions, children }: Admin
               >
                 <X className="h-5 w-5" />
               </button>
-            </div>
-
-            <div className="px-5 py-5">
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20">
-                    <SquarePen className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-300">لوحة إدارة احترافية</p>
-                    <p className="text-sm font-bold text-white">Shopify-style Admin</p>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-5 scrollbar-thin">
@@ -138,10 +123,13 @@ export default function AdminShell({ title, subtitle, actions, children }: Admin
                 </span>
                 <span className="flex-1 text-right">
                   <span className="block text-sm font-bold">إضافة منتج</span>
-                  <span className="block text-[11px] text-amber-100/70">فتح نموذج الفاريانت</span>
+                  <span className="block text-[11px] text-amber-100/70">فتح نموذج المنتج الجديد</span>
                 </span>
               </Link>
+            </nav>
 
+            <div className="border-t border-white/10 p-2">
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
               <Link
                 href="/"
                 onClick={() => setMobileOpen(false)}
@@ -155,38 +143,29 @@ export default function AdminShell({ title, subtitle, actions, children }: Admin
                   <span className="block text-[11px] text-slate-800/80">عودة سريعة للمتجر</span>
                 </span>
               </Link>
-            </nav>
-
-            <div className="border-t border-white/10 p-5">
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-                <p className="text-xs text-slate-400">القسم النشط</p>
-                <p className="mt-1 text-base font-bold text-white">{activeSection.label}</p>
-                <p className="mt-2 text-[11px] leading-5 text-slate-400">
-                  تصميم RTL ثابت مع صفحات مستقلة لكل entity وتفاصيل قابلة للتوسع مستقبلاً.
-                </p>
               </div>
             </div>
           </div>
         </aside>
 
-        <div className="flex min-h-screen flex-1 flex-col lg:mr-[290px]">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:mr-[290px]">
           <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl">
-            <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 lg:px-8">
+              <div className="flex min-w-0 items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setMobileOpen(true)}
-                  className="rounded-2xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm transition-colors hover:bg-slate-50 lg:hidden"
+                  className="shrink-0 rounded-2xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm transition-colors hover:bg-slate-50 lg:hidden"
                 >
                   <Menu className="h-5 w-5" />
                 </button>
-                <div>
+                <div className="min-w-0">
                   <p className="text-[11px] font-semibold tracking-[0.28em] text-amber-700/80">ADMIN AREA</p>
-                  <h2 className="text-xl font-black text-slate-950 sm:text-2xl">{title}</h2>
+                  <h2 className="truncate text-xl font-black text-slate-950 sm:text-2xl">{title}</h2>
                   <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">{actions}</div>
+              {actions ? <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">{actions}</div> : null}
             </div>
           </header>
 
@@ -199,7 +178,7 @@ export default function AdminShell({ title, subtitle, actions, children }: Admin
           type="button"
           aria-label="إغلاق القائمة"
           onClick={() => setMobileOpen(false)}
-          className="fixed inset-0 z-40 bg-slate-950/45 lg:hidden"
+          className="fixed inset-0 z-[45] bg-slate-950/45 lg:hidden"
         />
       ) : null}
     </div>
