@@ -140,11 +140,7 @@ function StoreFrontContent() {
   const handleWhatsAppClick = () => {
     const text = encodeURIComponent("مرحبا استاذ طارق انا مهتم اعرف اكتر عن باقات التجهيز هل مناسب نتكلم");
     const url = `https://wa.me/201021750655?text=${text}`;
-    const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
-
-    if (!openedWindow) {
-      window.location.href = url;
-    }
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const updateStoreUrl = (nextCategory: string, nextSearch: string) => {
