@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { type ReactNode, useMemo, useState } from "react";
 import {
   BadgePercent,
-  CreditCard,
   FolderTree,
   House,
   LayoutDashboard,
@@ -35,7 +34,6 @@ const navItems: NavItem[] = [
   { href: "/admin/orders", label: "الطلبات", icon: ShoppingCart, hint: "التتبع والحالات" },
   { href: "/admin/offers", label: "العروض", icon: BadgePercent, hint: "الخصومات والعروض" },
   { href: "/admin/customers", label: "العملاء", icon: Users, hint: "الحسابات والعناوين" },
-  { href: "/admin/payments", label: "المدفوعات", icon: CreditCard, hint: "Paymob & الحالات" },
   { href: "/admin/users", label: "المستخدمون", icon: ShieldUser, hint: "تفاصيل المستخدمين" },
   //{ href: "/admin/settings", label: "الإعدادات", icon: Settings, hint: "بيانات المتجر" },
 ];
