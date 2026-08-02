@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import clsx from "clsx";
+import { translateStatusLabel } from "@/lib/status-labels";
 
 export function Panel({ children, className }: { children: ReactNode; className?: string }) {
   return <section className={clsx("rounded-3xl border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.05)]", className)}>{children}</section>;
@@ -52,7 +53,7 @@ export function StatusPill({ status }: { status: string }) {
       ? "bg-rose-50 text-rose-700 border-rose-200"
       : "bg-slate-100 text-slate-700 border-slate-200";
 
-  return <span className={clsx("inline-flex rounded-full border px-3 py-1 text-[11px] font-bold", className)}>{status}</span>;
+  return <span className={clsx("inline-flex rounded-full border px-3 py-1 text-[11px] font-bold", className)}>{translateStatusLabel(status)}</span>;
 }
 
 export function Modal({ open, title, subtitle, onClose, children, footer }: { open: boolean; title: string; subtitle?: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {

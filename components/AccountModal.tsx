@@ -22,6 +22,7 @@ import {
   validatePasswordConfirmation,
   validatePhone,
 } from "../src/lib/form-validation";
+import { translateStatusLabel } from "../src/lib/status-labels";
 
 interface AccountModalProps {
   isOpen: boolean;
@@ -283,19 +284,7 @@ export default function AccountModal({
                               order.status === "Completed" ? "text-green-400" : "text-gold-400"
                             }`}
                           >
-                            {order.status === "Pending"
-                              ? "قيد التأكيد"
-                              : order.status === "Confirmed"
-                                ? "تم التأكيد"
-                                : order.status === "Processing"
-                                  ? "جاري التجهيز"
-                                  : order.status === "Ready"
-                                    ? "جاهز للاستلام"
-                                    : order.status === "Completed"
-                                      ? "تم التسليم"
-                                      : order.status === "Refunded"
-                                        ? "تم الاسترداد"
-                                        : "تم الإلغاء"}
+                            {translateStatusLabel(order.status)}
                           </span>
                         </div>
                       </div>

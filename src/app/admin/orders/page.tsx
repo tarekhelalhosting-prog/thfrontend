@@ -6,6 +6,7 @@ import { Filter, Search } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
 import { EmptyState, Panel, SectionHeader, StatusPill } from "@/components/admin/admin-kit";
 import { fetchOrders } from "@/lib/api";
+import { translateStatusLabel } from "@/lib/status-labels";
 import { Order } from "@/types";
 
 const statusFilters: Array<"All" | Order["status"]> = ["All", "Pending", "Confirmed", "Processing", "Ready", "Completed", "Cancelled", "Refunded"];
@@ -78,7 +79,7 @@ export default function OrdersPage() {
           <div className="flex flex-wrap gap-2 px-5 py-5">
             {statusFilters.map((status) => (
               <button key={status} type="button" onClick={() => setFilter(status)} className={`rounded-full border px-4 py-2 text-xs font-bold ${filter === status ? "border-slate-950 bg-green-300 text-white" : "border-slate-200 bg-white text-slate-600"}`}>
-                {status}
+                {translateStatusLabel(status)}
               </button>
             ))}
           </div>

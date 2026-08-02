@@ -8,6 +8,7 @@ import { ChartBars, EmptyState, MetricCard, Panel, SectionHeader, StatusPill } f
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { derivePaymentStatus, fetchOffers, fetchOrders, fetchProducts } from "@/lib/api";
 import { extractUsersFromOrders } from "@/lib/customers";
+import { translateStatusLabel } from "@/lib/status-labels";
 import { Offer, Order, Product } from "@/types";
 
 type DailyPoint = { label: string; value: number };
@@ -39,7 +40,7 @@ function buildLast30DaysSeries(orders: Order[]): DailyPoint[] {
 
 function buildStatusSeries(orders: Order[]) {
   const statuses: Order["status"][] = ["Pending", "Confirmed", "Processing", "Ready", "Completed", "Cancelled", "Refunded"];
-  return statuses.map((status) => ({ label: status, value: orders.filter((order) => order.status === status).length }));
+  return statuses.map((status) => ({ label: translateStatusLabel(status), value: orders.filter((order) => order.status === status).length }));
 }
 
 function buildTopProducts(products: Product[], orders: Order[]) {

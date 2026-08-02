@@ -7,6 +7,7 @@ import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
 import { EmptyState, Panel, SectionHeader, StatusPill, Timeline } from "@/components/admin/admin-kit";
 import { cancelOrder, derivePaymentStatus, fetchOrders, updateOrderStatus } from "@/lib/api";
+import { translateStatusLabel } from "@/lib/status-labels";
 import { Order } from "@/types";
 
 const ORDER_STATUS_OPTIONS: Order["status"][] = [
@@ -228,7 +229,7 @@ export default function OrderDetailPage() {
                   >
                     {ORDER_STATUS_OPTIONS.map((option) => (
                       <option key={option} value={option}>
-                        {option}
+                        {translateStatusLabel(option)}
                       </option>
                     ))}
                   </select>

@@ -34,6 +34,7 @@ import {
   validateName,
   validateStreet,
 } from "../../lib/form-validation";
+import { translateStatusLabel } from "../../lib/status-labels";
 import { Address, Category, Order } from "../../types";
 
 type AddressFormState = {
@@ -739,7 +740,7 @@ export default function ProfilePage() {
                         طلب رقم <span className="font-mono text-gold-400">{order.orderNumber || order.id}</span>
                       </div>
                       <span className="rounded-full border border-gold-400/30 bg-gold-50 px-2.5 py-0.5 text-[11px] font-bold text-gold-700">
-                        {order.status}
+                        {translateStatusLabel(order.status)}
                       </span>
                     </div>
 
