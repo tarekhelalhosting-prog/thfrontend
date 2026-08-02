@@ -41,7 +41,7 @@ export default function OffersShowcase({ offers, onViewOffer, onAddToCart }: Off
         </div>
 
         <div className="absolute inset-0 flex flex-col justify-end p-3 sm:p-7">
-          <span className="mb-2 sm:mb-3 inline-flex w-fit items-center gap-1.5 rounded-full border border-gold-400/40 bg-gold-400/15 backdrop-blur-sm px-2.5 sm:px-3 py-1 text-[9px] sm:text-xs font-bold text-gold-300">
+          <span className="mb-2 sm:mb-3 inline-flex w-fit items-start gap-1.5 rounded-full border border-gold-400/40 bg-gold-400/15 backdrop-blur-sm px-2.5 sm:px-3 py-1 text-[9px] sm:text-xs font-bold text-gold-300">
             <Sparkles size={11} />
             <span>عرض خاص وحصري</span>
           </span>
@@ -50,19 +50,6 @@ export default function OffersShowcase({ offers, onViewOffer, onAddToCart }: Off
           <p className="text-sm sm:text-2xl font-black text-[rgb(255,255,255)] mb-1.5 sm:mb-2 leading-snug drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] line-clamp-2">
             {offer.name}
           </p>
-
-          {components.length > 0 && (
-            <div className="mb-2 sm:mb-3 flex flex-wrap gap-1 sm:gap-1.5">
-              {components.slice(0, isMobile ? 2 : 4).map((item, index) => (
-                <span
-                  key={`${offer.id}-${index}`}
-                  className="rounded-full bg-white/10 border border-white/20 px-2 py-0.5 sm:px-2.5 sm:py-1 text-[9px] sm:text-[11px] font-bold text-stone-100 backdrop-blur-sm"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-          )}
 
           <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
             <div className="flex items-baseline gap-1.5 sm:gap-2">
