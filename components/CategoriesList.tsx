@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Category } from "../src/types";
 
 interface CategoriesListProps {
@@ -8,6 +8,35 @@ interface CategoriesListProps {
 }
 
 export default function CategoriesList({ categories, selectedCategory, onCategorySelect }: CategoriesListProps) {
+  const firstItemRef = useRef<HTMLButtonElement>(null);
+  const lastItemRef = useRef<HTMLButtonElement>(null);
+  const [firstVisible, setFirstVisible] = useState(true);
+  const [lastVisible, setLastVisible] = useState(false);
+
+  // Edge fades should only hint at scrollable content that's actually still
+  // hidden - track the first/last card's visibility so each fade disappears
+  // once the user has scrolled to that edge, instead of staying on always.
+  useEffect(() => {
+    if (categories.length <= 3) return;
+    const firstEl = firstItemRef.current;
+    const lastEl = lastItemRef.current;
+    if (!firstEl || !lastEl) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.target === firstEl) setFirstVisible(entry.isIntersecting);
+          if (entry.target === lastEl) setLastVisible(entry.isIntersecting);
+        });
+      },
+      { root: firstEl.closest("[data-scroller]"), threshold: 0.95 }
+    );
+
+    observer.observe(firstEl);
+    observer.observe(lastEl);
+    return () => observer.disconnect();
+  }, [categories.length]);
+
   return (
     <section className="py-12 bg-dark-bg border-b border-dark-border">
       <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-10">
@@ -30,16 +59,18 @@ export default function CategoriesList({ categories, selectedCategory, onCategor
           )}
 
           <div
+            data-scroller
             className="relative -mx-4 px-4 overflow-x-auto pb-2 touch-pan-x snap-x snap-mandatory scroll-px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             style={{ WebkitOverflowScrolling: "touch" }}
           >
             <div className="grid grid-flow-col auto-cols-[calc((100%-1.5rem)/3)] gap-3">
-            {categories.map((cat) => {
+            {categories.map((cat, index) => {
               const isSelected = selectedCategory === cat.id;
               return (
                 <button
                   type="button"
                   key={cat.id}
+                  ref={index === 0 ? firstItemRef : index === categories.length - 1 ? lastItemRef : undefined}
                   onClick={() => onCategorySelect(cat.id)}
                   className={`snap-start cursor-pointer rounded-2xl p-3 bg-dark-card border transition-all duration-300 text-center flex flex-col items-center justify-between group select-none min-h-[118px] ${isSelected ? 'border-gold-400 shadow-lg shadow-gold-500/10' : 'border-dark-border hover:border-gold-400/30'}`}
                 >
@@ -62,11 +93,11 @@ export default function CategoriesList({ categories, selectedCategory, onCategor
             })}
             </div>
 
-            {categories.length > 3 && (
-              <>
-                <div className="pointer-events-none absolute inset-y-0 right-4 w-7 bg-gradient-to-l from-dark-bg to-transparent" />
-                <div className="pointer-events-none absolute inset-y-0 left-4 w-7 bg-gradient-to-r from-dark-bg to-transparent" />
-              </>
+            {categories.length > 3 && !firstVisible && (
+              <div className="pointer-events-none absolute inset-y-0 right-4 w-7 bg-gradient-to-l from-dark-bg to-transparent" />
+            )}
+            {categories.length > 3 && !lastVisible && (
+              <div className="pointer-events-none absolute inset-y-0 left-4 w-7 bg-gradient-to-r from-dark-bg to-transparent" />
             )}
           </div>
         </div>
