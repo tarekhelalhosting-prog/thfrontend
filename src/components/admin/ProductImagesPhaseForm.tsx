@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, Pencil, Plus, X } from "lucide-react";
 import CloudinaryImagePicker, { CloudinaryImageValue } from "@/components/admin/CloudinaryImagePicker";
 import { createProductImage, deleteProductImage, fetchCategories, updateProduct, updateProductImage } from "@/lib/api";
+import { isOfferCategory } from "@/lib/offer-category";
 import { Category, Product, ProductImage } from "@/types";
 import { Panel, SectionHeader, Timeline } from "@/components/admin/admin-kit";
 
@@ -73,6 +74,11 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
   const categoryName = useMemo(() => {
     const categoryId = product.category_id || product.category;
     return categories.find((category) => category.id === categoryId)?.name || "—";
+  }, [categories, product.category, product.category_id]);
+
+  const isOfferMode = useMemo(() => {
+    const categoryId = product.category_id || product.category;
+    return isOfferCategory(categories.find((category) => category.id === categoryId));
   }, [categories, product.category, product.category_id]);
 
   const currentSteps = useMemo(() => {
@@ -195,8 +201,8 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
         <Panel>
           <SectionHeader
             eyebrow="Completed"
-            title="تم إنشاء المنتج بنجاح"
-            subtitle="تقدر تراجع بيانات المنتج تحت، وتقرر تعدّل عليه أو تقفل أو تضيف منتج جديد."
+            title={isOfferMode ? "تم إنشاء العرض بنجاح" : "تم إنشاء المنتج بنجاح"}
+            subtitle={isOfferMode ? "تقدر تراجع بيانات العرض تحت، وتقرر تعدّل عليه أو تقفل أو تضيف عرض جديد." : "تقدر تراجع بيانات المنتج تحت، وتقرر تعدّل عليه أو تقفل أو تضيف منتج جديد."}
             action={
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -216,7 +222,7 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
               <p className="text-sm leading-6 text-slate-500">{product.description}</p>
               <div className="mt-2 flex flex-wrap gap-2 text-xs font-bold text-slate-600">
                 <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">التصنيف: {categoryName}</span>
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">{(product.variants || []).length} Variant</span>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">{(product.variants || []).length} {isOfferMode ? "باقة" : "Variant"}</span>
                 <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">{productImages.length} صورة</span>
               </div>
             </div>
@@ -230,7 +236,7 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
             className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
           >
             <Pencil className="h-4 w-4" />
-            <span>تعديل المنتج</span>
+            <span>{isOfferMode ? "تعديل العرض" : "تعديل المنتج"}</span>
           </button>
           <button
             type="button"
@@ -246,7 +252,7 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
             className="inline-flex items-center gap-2 rounded-2xl bg-green-300 px-5 py-2.5 text-sm font-bold text-white hover:bg-green-400"
           >
             <Plus className="h-4 w-4" />
-            <span>تم، إضافة منتج آخر</span>
+            <span>{isOfferMode ? "تم، إضافة عرض آخر" : "تم، إضافة منتج آخر"}</span>
           </button>
         </div>
       </div>
@@ -258,8 +264,8 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
       <Panel>
         <SectionHeader
           eyebrow="Phase 2"
-          title="رفع الصور"
-          subtitle="Upload product images first, then persist the Cloudinary URLs and optional variant images."
+          title={isOfferMode ? "رفع صورة العرض" : "رفع الصور"}
+          subtitle={isOfferMode ? "ارفع صورة العرض أولاً، ثم نحفظ رابط Cloudinary وصور المكونات الاختيارية." : "Upload product images first, then persist the Cloudinary URLs and optional variant images."}
           action={<span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-600">{phase === "idle" ? "جاهز للرفع" : phase}</span>}
         />
         <div className="px-5 py-5">
@@ -268,11 +274,15 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
       </Panel>
 
       <Panel>
-        <SectionHeader eyebrow="Product Images" title="صور المنتج" subtitle="Multiple images, primary image, and reordering happen here after the product exists." />
+        <SectionHeader
+          eyebrow={isOfferMode ? "Offer Banner" : "Product Images"}
+          title={isOfferMode ? "صورة العرض (البانر الرئيسي)" : "صور المنتج"}
+          subtitle={isOfferMode ? "هذه الصورة الأساسية ستظهر كبانر العرض في القسم المميز أعلى الصفحة الرئيسية، فاختر صورة عريضة واضحة تعبر عن العرض بالكامل." : "Multiple images, primary image, and reordering happen here after the product exists."}
+        />
         <div className="space-y-4 px-5 py-5">
           <CloudinaryImagePicker
-            title="صور المنتج"
-            description="ارفع صور المنتج الآن. كل صورة تُرفع مباشرة إلى Cloudinary، ثم نحفظ URL فقط في الباك إند."
+            title={isOfferMode ? "صورة العرض" : "صور المنتج"}
+            description={isOfferMode ? "ارفع صورة بانر مميزة للعرض (يفضل مقاس أفقي عريض)، هتظهر في قسم العروض بالواجهة الرئيسية." : "ارفع صور المنتج الآن. كل صورة تُرفع مباشرة إلى Cloudinary، ثم نحفظ URL فقط في الباك إند."}
             value={productImages}
             onChange={setProductImages}
             primaryIndex={primaryImageIndex}
@@ -283,22 +293,25 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
       </Panel>
 
       <Panel>
-        <SectionHeader eyebrow="Variant Images" title="صور الـ Variants" subtitle="كل Variant يقدر يأخذ صورة واحدة اختيارية."
+        <SectionHeader
+          eyebrow={isOfferMode ? "Offer Components" : "Variant Images"}
+          title={isOfferMode ? "صور مكونات العرض" : "صور الـ Variants"}
+          subtitle={isOfferMode ? "يمكن رفع صورة توضح كل مكون ضمن العرض (اختياري)." : "كل Variant يقدر يأخذ صورة واحدة اختيارية."}
         />
         <div className="space-y-4 px-5 py-5">
           {(product.variants || []).map((variant) => (
             <div key={variant.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
               <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-bold text-slate-950">Variant #{variant.id}</p>
+                  <p className="text-sm font-bold text-slate-950">{isOfferMode ? "باقة العرض" : `Variant #${variant.id}`}</p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Price: {variant.price} | {variant.attributes?.map((attribute) => `${attribute.attribute_type}=${attribute.value}`).join(", ")}
+                    {isOfferMode ? "سعر الباقة" : "Price"}: {variant.price} | {isOfferMode ? "المكونات" : ""} {variant.attributes?.map((attribute) => (isOfferMode ? attribute.value : `${attribute.attribute_type}=${attribute.value}`)).join(", ")}
                   </p>
                 </div>
               </div>
               <CloudinaryImagePicker
-                title="Variant Image"
-                description="يمكن رفع صورة واحدة للـ variant ثم حفظ رابطها داخل الـ update النهائي للمنتج."
+                title={isOfferMode ? "صورة المكون" : "Variant Image"}
+                description={isOfferMode ? "يمكن رفع صورة لهذا المكون ثم حفظها داخل الـ update النهائي للعرض." : "يمكن رفع صورة واحدة للـ variant ثم حفظ رابطها داخل الـ update النهائي للمنتج."}
                 value={
                   variantImages[String(variant.id)]?.image
                     ? [{ url: variantImages[String(variant.id)].image, public_id: variantImages[String(variant.id)].public_id }]

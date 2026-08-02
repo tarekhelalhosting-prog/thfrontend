@@ -13,6 +13,7 @@ import { Category, Order, Product, ProductVariant } from "../../../types";
 import { useAuthSession } from "../../../hooks/useAuthSession";
 import { useCart } from "../../../hooks/useCart";
 import { fetchCategories, fetchOrders, fetchProductById, fetchProducts } from "../../../lib/api";
+import { getOfferComponents, isOfferCategory } from "../../../lib/offer-category";
 
 function ProductDetailsContent({
   product,
@@ -43,6 +44,8 @@ function ProductDetailsContent({
         .map((image) => image.media_url)
     : [product.image];
   const categoryName = categories.find((category) => category.id === product.category)?.name || "غير محدد";
+  const isOfferMode = isOfferCategory(categories.find((category) => category.id === product.category));
+  const offerComponents = isOfferMode ? getOfferComponents(product) : [];
   const variants = product.variants || [];
   const selectedVariant = variants.find((variant) => variant.id === selectedVariantId) || variants[0] || null;
   const displayPrice = selectedVariant?.price ?? product.price;
@@ -104,6 +107,11 @@ function ProductDetailsContent({
 
           <div className="lg:col-span-7 space-y-5 sm:space-y-6">
             <div className="space-y-2">
+              {isOfferMode ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-gold-400/40 bg-gold-400/10 px-3 py-1 text-[10px] font-bold text-gold-300">
+                  🎁 عرض حصري
+                </span>
+              ) : null}
               <span className="text-[11px] text-gold-400 font-bold tracking-wider uppercase block">
                 {categoryName}
               </span>
@@ -119,9 +127,22 @@ function ProductDetailsContent({
                 </span>
               </div>
 
+              {offerComponents.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {offerComponents.map((item, index) => (
+                    <span
+                      key={`${product.id}-component-${index}`}
+                      className="rounded-full bg-gold-400/10 border border-gold-400/20 px-2.5 py-1 text-[10px] font-bold text-gold-300"
+                    >
+                      🎁 {item}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-gray-400 pt-2">
                 <div className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2">
-                  <span className="block text-[10px] text-gray-500 mb-1">كود المنتج</span>
+                  <span className="block text-[10px] text-gray-500 mb-1">{isOfferMode ? "كود العرض" : "كود المنتج"}</span>
                   <span className="font-mono text-gray-200">{product.id}</span>
                 </div>
                 <div className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2">
@@ -129,14 +150,14 @@ function ProductDetailsContent({
                   <span className="font-mono text-gray-200">{imagesCount}</span>
                 </div>
                 <div className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2">
-                  <span className="block text-[10px] text-gray-500 mb-1">عدد النسخ</span>
+                  <span className="block text-[10px] text-gray-500 mb-1">{isOfferMode ? "عدد المكونات" : "عدد النسخ"}</span>
                   <span className="font-mono text-gray-200">{variantsCount}</span>
                 </div>
               </div>
             </div>
 
             <div className="space-y-3">
-              <h3 className="text-xs sm:text-sm font-bold text-gray-300">وصف المنتج:</h3>
+              <h3 className="text-xs sm:text-sm font-bold text-gray-300">{isOfferMode ? "تفاصيل وما يشمله العرض:" : "وصف المنتج:"}</h3>
               <p className="text-xs sm:text-sm text-gray-400 leading-relaxed">
                 {product.description}
               </p>
@@ -144,7 +165,7 @@ function ProductDetailsContent({
 
             {variants.length > 0 && (
               <div className="space-y-3">
-                <h3 className="text-xs sm:text-sm font-bold text-gray-300">اختر النسخة المطلوبة:</h3>
+                <h3 className="text-xs sm:text-sm font-bold text-gray-300">{isOfferMode ? "باقات وخيارات العرض المتاحة:" : "اختر النسخة المطلوبة:"}</h3>
                 <div className="flex flex-wrap gap-2">
                   {variants.map((variant) => {
                     const isActive = selectedVariant?.id === variant.id;

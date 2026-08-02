@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Image as ImageIcon, Loader2, Plus, Trash2 } from "lucide-react";
 import { createProduct, createProductVariant, deleteProductVariant, updateProduct } from "@/lib/api";
+import { isOfferCategory } from "@/lib/offer-category";
 import { Category, Product } from "@/types";
 import { Panel, SectionHeader } from "@/components/admin/admin-kit";
 
@@ -84,7 +85,11 @@ function mapVariants(product: Product): VariantDraft[] {
   });
 }
 
-function phaseLabel(mode: "create" | "edit") {
+function phaseLabel(mode: "create" | "edit", isOfferMode: boolean) {
+  if (isOfferMode) {
+    return mode === "create" ? "إضافة عرض" : "تعديل العرض";
+  }
+
   return mode === "create" ? "إضافة منتج" : "تعديل المنتج";
 }
 
@@ -114,6 +119,8 @@ export default function ProductManagementForm({ mode, categories, initialProduct
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const effectiveCategoryId = categoryId || defaultCategoryId || categories[0]?.id || "";
+  const selectedCategoryObj = categories.find((category) => category.id === effectiveCategoryId);
+  const isOfferMode = isOfferCategory(selectedCategoryObj);
 
   // Ids of variants that already existed on the product when this form
   // loaded. Used on submit to tell apart variants that must be sent through
@@ -241,12 +248,16 @@ export default function ProductManagementForm({ mode, categories, initialProduct
     <div className="space-y-6">
       <Panel>
         <SectionHeader
-          eyebrow="Product"
-          title={phaseLabel(mode)}
+          eyebrow={isOfferMode ? "Offer" : "Product"}
+          title={phaseLabel(mode, isOfferMode)}
           subtitle={
             mode === "create"
-              ? "Phase 1: احفظ بيانات المنتج والفاريانت أولاً بدون صور، وسيتم تحويلك بعدها لصفحة رفع الصور."
-              : "عدّل بيانات المنتج والفاريانت. لإدارة صور المنتج والفاريانت استخدم صفحة الصور المخصصة."
+              ? isOfferMode
+                ? "Phase 1: احفظ بيانات العرض وباقاته أولاً بدون صور، وسيتم تحويلك بعدها لصفحة رفع صورة العرض."
+                : "Phase 1: احفظ بيانات المنتج والفاريانت أولاً بدون صور، وسيتم تحويلك بعدها لصفحة رفع الصور."
+              : isOfferMode
+                ? "عدّل بيانات العرض وباقاته. لإدارة صورة العرض استخدم صفحة الصور المخصصة."
+                : "عدّل بيانات المنتج والفاريانت. لإدارة صور المنتج والفاريانت استخدم صفحة الصور المخصصة."
           }
           action={
             mode === "edit" && initialProduct ? (
@@ -255,7 +266,7 @@ export default function ProductManagementForm({ mode, categories, initialProduct
                 className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100"
               >
                 <ImageIcon className="h-3.5 w-3.5" />
-                <span>إدارة صور المنتج</span>
+                <span>{isOfferMode ? "إدارة صورة العرض" : "إدارة صور المنتج"}</span>
               </Link>
             ) : null
           }
@@ -263,15 +274,25 @@ export default function ProductManagementForm({ mode, categories, initialProduct
       </Panel>
 
       <Panel>
-        <SectionHeader eyebrow="Basic Information" title="البيانات الأساسية" subtitle="اسم المنتج، الوصف، والتصنيف." />
+        <SectionHeader
+          eyebrow={isOfferMode ? "Offer Basics" : "Basic Information"}
+          title={isOfferMode ? "بيانات العرض" : "البيانات الأساسية"}
+          subtitle={isOfferMode ? "اسم العرض، تفاصيله، وربطه بتصنيف العروض." : "اسم المنتج، الوصف، والتصنيف."}
+        />
+        {isOfferMode ? (
+          <div className="mx-5 mt-5 flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
+            <span>🎁</span>
+            <span>هذا المنتج مصنّف كعرض/باقة، وسيظهر تلقائياً في قسم &quot;عروض وباقات حصرية&quot; أعلى الصفحة الرئيسية.</span>
+          </div>
+        ) : null}
         <div className="grid gap-4 px-5 py-5 sm:grid-cols-2">
           <label className="grid gap-2 text-sm font-bold text-slate-700 sm:col-span-2">
-            الاسم
+            {isOfferMode ? "اسم العرض" : "الاسم"}
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
               className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-amber-400"
-              placeholder="مثال: كرسي حلاقة فاخر"
+              placeholder={isOfferMode ? "مثال: عرض الأصحاب - استشوار + كرسيين حلاقة" : "مثال: كرسي حلاقة فاخر"}
             />
           </label>
           <label className="grid gap-2 text-sm font-bold text-slate-700">
@@ -289,26 +310,34 @@ export default function ProductManagementForm({ mode, categories, initialProduct
             </select>
           </label>
           <label className="grid gap-2 text-sm font-bold text-slate-700 sm:col-span-2">
-            الوصف
+            {isOfferMode ? "تفاصيل العرض" : "الوصف"}
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               rows={5}
               className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-amber-400"
-              placeholder="وصف تفصيلي للمنتج..."
+              placeholder={isOfferMode ? "اكتب تفاصيل العرض وما يشمله من منتجات ومميزات..." : "وصف تفصيلي للمنتج..."}
             />
           </label>
         </div>
       </Panel>
 
       <Panel>
-        <SectionHeader eyebrow="Product Variants" title="النوع" subtitle="كل نوع يدعم سعر و اختلافات غير محدودة. الصور تُدار من صفحة الصور بعد الحفظ." />
+        <SectionHeader
+          eyebrow={isOfferMode ? "Offer Bundle" : "Product Variants"}
+          title={isOfferMode ? "باقات وأسعار العرض" : "النوع"}
+          subtitle={
+            isOfferMode
+              ? "كل صف يمثل باقة سعر كاملة للعرض، وكل عنصر تحته يمثل منتج/مكون ضمن هذا العرض (زي استشوار، كرسي حلاقة...)."
+              : "كل نوع يدعم سعر و اختلافات غير محدودة. الصور تُدار من صفحة الصور بعد الحفظ."
+          }
+        />
         <div className="overflow-x-auto px-5 py-5">
           <table className="min-w-full text-right text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
-                <th className="py-3 pl-4">السعر</th>
-                <th className="py-3 pl-4">الصفة</th>
+                <th className="py-3 pl-4">{isOfferMode ? "سعر الباقة" : "السعر"}</th>
+                <th className="py-3 pl-4">{isOfferMode ? "مكونات العرض" : "الصفة"}</th>
                 <th className="py-3 pl-4">حذف</th>
               </tr>
             </thead>
@@ -337,7 +366,7 @@ export default function ProductManagementForm({ mode, categories, initialProduct
                               }));
                             }}
                             className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-amber-400"
-                            placeholder="وصف جديد (لون او حجم)"
+                            placeholder={isOfferMode ? "اسم المكون (مثال: استشوار)" : "وصف جديد (لون او حجم)"}
                           />
                           <input
                             value={attribute.value}
@@ -348,7 +377,7 @@ export default function ProductManagementForm({ mode, categories, initialProduct
                               }));
                             }}
                             className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-amber-400"
-                            placeholder="القيمه (أحمر، كبير)"
+                            placeholder={isOfferMode ? "تفاصيل المكون (مثال: استشوار 2000 وات)" : "القيمه (أحمر، كبير)"}
                           />
                           <div className="flex items-center justify-end gap-2">
                             <button
@@ -369,7 +398,7 @@ export default function ProductManagementForm({ mode, categories, initialProduct
                               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 lg:col-span-3"
                             >
                               <Plus className="h-4 w-4" />
-                              <span>إضافة صفه جديده</span>
+                              <span>{isOfferMode ? "إضافة مكون للعرض" : "إضافة صفه جديده"}</span>
                             </button>
                           ) : null}
                         </div>
@@ -392,7 +421,7 @@ export default function ProductManagementForm({ mode, categories, initialProduct
         <div className="flex items-center justify-between gap-3 px-5 pb-5">
           <button type="button" onClick={addVariant} className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
             <Plus className="h-4 w-4" />
-            <span>إضافة نوع جديد</span>
+            <span>{isOfferMode ? "إضافة باقة سعر جديدة" : "إضافة نوع جديد"}</span>
           </button>
         </div>
       </Panel>
@@ -407,7 +436,7 @@ export default function ProductManagementForm({ mode, categories, initialProduct
         </button>
         <button type="button" onClick={handleSubmit} disabled={isSubmitting} className="inline-flex items-center gap-2 rounded-2xl bg-green-300 px-5 py-2.5 text-sm font-bold text-white hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-60">
           {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          <span>{mode === "create" ? "حفظ المنتج" : "حفظ التعديلات"}</span>
+          <span>{isOfferMode ? (mode === "create" ? "حفظ العرض" : "حفظ تعديلات العرض") : mode === "create" ? "حفظ المنتج" : "حفظ التعديلات"}</span>
         </button>
       </div>
     </div>

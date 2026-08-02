@@ -119,6 +119,14 @@ export default function CategoriesPage() {
       }
     >
       <div className="space-y-6">
+        <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
+          <span>🎁</span>
+          <span>
+            لعرض تصنيف كـ &quot;عروض وباقات&quot; مميزة في قسم خاص أعلى الصفحة الرئيسية، يكفي أن يحتوي اسم التصنيف على كلمة
+            &quot;عروض&quot; أو &quot;عرض&quot; (مثال: العروض). أي منتج تضيفه داخل هذا التصنيف سيُعامل تلقائياً كعرض/باقة في الواجهة ولوحة التحكم.
+          </span>
+        </div>
+
         <Panel>
           <SectionHeader eyebrow="Categories" title="جدول التصنيفات" subtitle="لا توجد هنا أي كيانات أخرى. فقط التصنيفات وإجراءاتها المباشرة." />
           <div className="overflow-x-auto px-5 py-5">

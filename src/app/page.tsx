@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Header from "../../components/Header";
 import HeroCarousel from "../../components/HeroCarousel";
 import CategoriesList from "../../components/CategoriesList";
+import OffersShowcase from "../../components/OffersShowcase";
 import Footer from "../../components/Footer";
 import CartDrawer from "../../components/CartDrawer";
 import AccountModal from "../../components/AccountModal";
@@ -15,6 +16,7 @@ import InlineBanner from "../components/ui/InlineBanner";
 import { Product, ProductVariant, Order, Category, Offer } from "../types";
 import { fetchCategories, fetchOffers, fetchOrders, fetchProducts } from "../lib/api";
 import { getProductDiscount } from "../lib/product-offers";
+import { getOfferProducts } from "../lib/offer-category";
 import { STORAGE_KEYS } from "../lib/browser-storage";
 import { usePersistentLocalState } from "../hooks/usePersistentLocalState";
 import { useAuthSession } from "../hooks/useAuthSession";
@@ -206,6 +208,14 @@ function StoreFrontContent() {
     [catalogProducts, activeOffers]
   );
 
+  // Bundle/offer products live under a dedicated "Offers" category (see
+  // src/lib/offer-category.ts) - shown in their own distinct banner section
+  // right under the Hero, on top of the normal category grid/catalog below.
+  const bundleOffers = useMemo(
+    () => getOfferProducts(discountedCatalogProducts, catalogCategories),
+    [discountedCatalogProducts, catalogCategories]
+  );
+
   const filteredProducts = discountedCatalogProducts.filter((product) => {
     const matchesCategory =
       selectedCategory === "all" ||
@@ -255,6 +265,11 @@ function StoreFrontContent() {
       
       <main className="flex-grow">
         <HeroCarousel onShopNowClick={() => handleCategorySelect("all")} onWhatsAppClick={handleWhatsAppClick} />
+        <OffersShowcase
+          offers={bundleOffers}
+          onViewOffer={handleViewProduct}
+          onAddToCart={(product) => handleAddToCart(product, 1, product.variants?.[0] ?? null)}
+        />
         <div id="categories-section">
           <CategoriesList categories={catalogCategories} selectedCategory={selectedCategory} onCategorySelect={handleCategorySelect} />
         </div>

@@ -6,6 +6,7 @@ import { Edit3, Image as ImageIcon, Plus, RotateCcw, Search, Trash2, XCircle } f
 import AdminShell from "@/components/admin/AdminShell";
 import { EmptyState, Panel, SectionHeader } from "@/components/admin/admin-kit";
 import { deleteProduct, fetchCategories, fetchDeletedProducts, fetchProducts, hardDeleteProduct, restoreProduct } from "@/lib/api";
+import { isOfferCategory } from "@/lib/offer-category";
 import { Category, Product } from "@/types";
 
 function formatDate(value?: string) {
@@ -222,7 +223,22 @@ export default function ProductsPage() {
                         <p className="font-bold text-slate-950">{product.name}</p>
                         <p className="mt-1 max-w-xl truncate text-xs text-slate-500">{product.description}</p>
                       </td>
-                      <td className="py-4 pl-4 text-slate-600">{categories.find((category) => category.id === product.category_id || category.id === product.category)?.name || "—"}</td>
+                      <td className="py-4 pl-4 text-slate-600">
+                        {(() => {
+                          const productCategory = categories.find((category) => category.id === product.category_id || category.id === product.category);
+                          if (!productCategory) {
+                            return "—";
+                          }
+
+                          return isOfferCategory(productCategory) ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">
+                              🎁 {productCategory.name}
+                            </span>
+                          ) : (
+                            productCategory.name
+                          );
+                        })()}
+                      </td>
                       <td className="py-4 pl-4 text-slate-600">{product.variants?.length || 0} نسخ</td>
                       <td className="py-4 pl-4 text-slate-500">{formatDate(product.created_at)}</td>
                       <td className="py-4 pl-4">
