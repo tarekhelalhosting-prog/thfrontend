@@ -142,7 +142,6 @@ export interface Order {
 
   // Nested relations
   items?: OrderItem[];
-  payment?: Payment;
 
   // UI Compatibility fields
   orderNumber?: string;

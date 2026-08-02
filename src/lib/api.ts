@@ -81,17 +81,6 @@ type ApiOrder = {
   items?: ApiOrderItem[];
 };
 
-type ApiPayment = {
-  payment_id?: string | number;
-  id?: string | number;
-  order_id?: string | number;
-  provider?: string;
-  transaction_id?: string | null;
-  status?: string;
-  amount?: string | number;
-  paid_at?: string | null;
-};
-
 // OfferProductSerializer only exposes (id, product, product_name, variant,
 // variant_description, item_type, quantity) - no offer FK back-ref.
 type ApiOfferProduct = {
@@ -529,34 +518,6 @@ function hasMeaningfulUserData(user: ApiUser): boolean {
   );
 }
 
-// The `OrderSerializer` never embeds a nested `payment`, so this always
-// synthesizes a placeholder "Pending/COD" payment from the order itself
-// unless an actual Payment payload was fetched separately (e.g. via
-// `fetchPaymentStatus`) and passed in.
-function mapDjangoPayment(djangoPayment: ApiPayment | undefined, order: ApiOrder & { id: string }): Payment | undefined {
-  if (!djangoPayment) {
-    return {
-      id: `pay-${order.id || "pending"}`,
-      order_id: order.id || "",
-      provider: "Paymob",
-      transaction_id: "",
-      status: "Pending",
-      amount: Number(order.total || 0),
-      paid_at: null,
-    };
-  }
-
-  return {
-    id: readStringValue(djangoPayment.id ?? djangoPayment.payment_id) || `pay-${order.id || "pending"}`,
-    order_id: readStringValue(djangoPayment.order_id) || order.id || "",
-    provider: "Paymob",
-    transaction_id: readStringValue(djangoPayment.transaction_id),
-    status: normalizePaymentStatus(djangoPayment.status),
-    amount: Number(djangoPayment.amount ?? order.total ?? 0),
-    paid_at: typeof djangoPayment.paid_at === "string" ? djangoPayment.paid_at : null,
-  };
-}
-
 function mapDjangoOrderItem(item: ApiOrderItem): OrderItem {
   return {
     id: readStringValue(item.id) || `item-${Math.random().toString(36).slice(2, 9)}`,
@@ -766,9 +727,30 @@ export function mapDjangoOrder(djangoOrder: ApiOrder): Order {
     orderNumber: orderId ? `TH-${orderId.padStart(6, "0")}` : "",
     customerName: customerName || "عميل صالون",
     customerPhone: user?.phone || "",
-    payment: mapDjangoPayment(undefined, { ...djangoOrder, id: orderId }),
     items: Array.isArray(djangoOrder.items) ? djangoOrder.items.map(mapDjangoOrderItem) : [],
   };
+}
+
+// The backend never exposes a real per-order Payment record to anyone but
+// the order's own owner (`GET /orders/{id}/payment-status/`), so admin-facing
+// UI can't show a real transaction id/paid-at for arbitrary orders. Instead,
+// this derives an honest payment signal from `order.status`: the Paymob
+// webhook (`PaymobWebhookView`) only ever moves an order out of PENDING by
+// setting it to CONFIRMED on successful payment, so Confirmed/Processing/
+// Ready/Completed all genuinely mean "paid".
+export type DerivedPaymentStatus = "Paid" | "Pending" | "Cancelled" | "Refunded";
+
+export function derivePaymentStatus(order: Order): DerivedPaymentStatus {
+  if (order.status === "Cancelled") {
+    return "Cancelled";
+  }
+  if (order.status === "Refunded") {
+    return "Refunded";
+  }
+  if (order.status === "Pending") {
+    return "Pending";
+  }
+  return "Paid";
 }
 
 export function mapDjangoAddress(djangoAddress: ApiAddress): Address {

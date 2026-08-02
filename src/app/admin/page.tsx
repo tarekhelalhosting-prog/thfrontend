@@ -6,7 +6,7 @@ import { CalendarRange, ReceiptText, Sparkles, Users } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
 import { ChartBars, EmptyState, MetricCard, Panel, SectionHeader, StatusPill } from "@/components/admin/admin-kit";
 import { useAuthSession } from "@/hooks/useAuthSession";
-import { fetchOffers, fetchOrders, fetchProducts } from "@/lib/api";
+import { derivePaymentStatus, fetchOffers, fetchOrders, fetchProducts } from "@/lib/api";
 import { extractUsersFromOrders } from "@/lib/customers";
 import { Offer, Order, Product } from "@/types";
 
@@ -140,7 +140,9 @@ export default function AdminPage() {
   const customers = useMemo(() => extractUsersFromOrders(orders), [orders]);
   const activeOffers = countActiveOffers(offers);
   const pendingOrders = orders.filter((order) => order.status === "Pending").length;
-  const totalSales = orders.filter((order) => order.payment?.status === "Paid").reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const totalSales = orders
+    .filter((order) => derivePaymentStatus(order) === "Paid")
+    .reduce((sum, order) => sum + Number(order.total || 0), 0);
 
   const dashboardActions = (
     <>

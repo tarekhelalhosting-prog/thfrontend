@@ -13,6 +13,7 @@ import { useAuthSession } from "../../hooks/useAuthSession";
 import { useCart } from "../../hooks/useCart";
 import {
   cancelOrder,
+  createPaymentIntention,
   createUserAddress,
   deleteUserAddress,
   deleteUserProfile,
@@ -80,6 +81,7 @@ export default function ProfilePage() {
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+  const [retryingOrderId, setRetryingOrderId] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const currentUserId = currentUser?.id;
   const currentUserPhone = currentUser?.phone ?? "";
@@ -97,7 +99,8 @@ export default function ProfilePage() {
     () => [...orders].sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()),
     [orders]
   );
-  const isOrderCancellable = (order: Order) => order.status === "Pending" || order.status === "Confirmed";
+  // Backend's `cancel` action only allows it from PENDING - every other status (including Confirmed) is rejected server-side.
+  const isOrderCancellable = (order: Order) => order.status === "Pending";
   const shouldShowAccountLoader =
     isLoading &&
     !firstName &&
@@ -402,6 +405,22 @@ export default function ProfilePage() {
         setErrorMessage(error instanceof Error ? error.message : "تعذر إلغاء الطلب.");
       } finally {
         setCancellingOrderId(null);
+      }
+    })();
+  };
+
+  const handleRetryPayment = (orderId: string) => {
+    setErrorMessage("");
+    setMessage("");
+    setRetryingOrderId(orderId);
+
+    void (async () => {
+      try {
+        const intention = await createPaymentIntention(orderId);
+        window.location.href = intention.checkoutUrl;
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "تعذر إنشاء عملية الدفع، حاول مرة أخرى.");
+        setRetryingOrderId(null);
       }
     })();
   };
@@ -739,15 +758,24 @@ export default function ProfilePage() {
                         {cancellingOrderId === order.id ? "جاري الإلغاء..." : "إلغاء الطلب"}
                       </button>
                     ) : null}
+
+                    {order.status === "Pending" ? (
+                      <button
+                        type="button"
+                        onClick={() => handleRetryPayment(order.id)}
+                        disabled={retryingOrderId === order.id}
+                        className="mt-3 mr-2 rounded-lg border border-gold-400/30 bg-gold-50 px-3 py-1.5 text-xs font-bold text-gold-700 disabled:opacity-60"
+                      >
+                        {retryingOrderId === order.id ? "جاري التحويل..." : "إعادة محاولة الدفع"}
+                      </button>
+                    ) : null}
                   </article>
                 ))}
               </div>
             )}
           </section>
         </div>
-      </main>
-
-      <Footer
+      </main>      <Footer
         categories={categories}
         onCategorySelect={(categoryId) => navigateToStore(categoryId)}
         onContactClick={() => window.open("https://wa.me/201021750655", "_blank")}

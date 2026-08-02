@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, CheckCircle2, CreditCard } from "lucide-react";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
 import { EmptyState, Panel, SectionHeader, StatusPill, Timeline } from "@/components/admin/admin-kit";
-import { cancelOrder, fetchOrders, updateOrderStatus } from "@/lib/api";
+import { cancelOrder, derivePaymentStatus, fetchOrders, updateOrderStatus } from "@/lib/api";
 import { Order } from "@/types";
 
 const ORDER_STATUS_OPTIONS: Order["status"][] = [
@@ -63,7 +63,8 @@ export default function OrderDetailPage() {
   const order = useMemo(() => orders.find((item) => item.id === orderId), [orders, orderId]);
   const effectiveSelectedStatus = selectedStatus || order?.status || "";
 
-  const isOrderCancellable = order ? order.status === "Pending" || order.status === "Confirmed" : false;
+  // Backend's `cancel` action only allows it from PENDING - every other status (including Confirmed) is rejected server-side.
+  const isOrderCancellable = order ? order.status === "Pending" : false;
 
   const handleSaveStatus = () => {
     if (!order || !effectiveSelectedStatus || effectiveSelectedStatus === order.status) {
@@ -254,20 +255,21 @@ export default function OrderDetailPage() {
           </Panel>
 
           <Panel>
-            <SectionHeader eyebrow="Payment" title="بيانات الدفع" subtitle="Paymob Transaction ID والحالة الحالية." />
+            <SectionHeader eyebrow="Payment" title="حالة الدفع" subtitle="لا يوفر الباك إند Transaction ID لغير صاحب الطلب، فالحالة هنا مستنتجة من حالة الطلب نفسها." />
             <div className="space-y-4 px-5 py-5 text-sm text-slate-600">
-              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <CreditCard className="h-4 w-4 text-amber-600" />
-                <div>
-                  <p className="text-xs text-slate-500">Transaction ID</p>
-                  <p className="font-bold text-slate-950">{order.payment?.transaction_id || order.orderNumber || order.id}</p>
-                </div>
-              </div>
               <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 <div>
-                  <p className="text-xs text-slate-500">الحالة</p>
-                  <p className="font-bold text-slate-950">{order.payment?.status || "Pending"}</p>
+                  <p className="text-xs text-slate-500">حالة الدفع</p>
+                  <p className="font-bold text-slate-950">
+                    {derivePaymentStatus(order) === "Paid"
+                      ? "تم الدفع"
+                      : derivePaymentStatus(order) === "Pending"
+                        ? "في انتظار الدفع"
+                        : derivePaymentStatus(order) === "Refunded"
+                          ? "تم الاسترداد"
+                          : "ملغي"}
+                  </p>
                 </div>
               </div>
             </div>

@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { User as UserType, Order } from "../src/types";
-import { loginUser, registerUser } from "../src/lib/api";
+import { derivePaymentStatus, loginUser, registerUser } from "../src/lib/api";
 import InlineBanner from "../src/components/ui/InlineBanner";
 import {
   hasValidationErrors,
@@ -271,12 +271,12 @@ export default function AccountModal({
                         <div className="space-y-1 text-left">
                           <span
                             className={`inline-block rounded px-2 py-0.5 text-[9px] font-bold ${
-                              order.payment?.status === "Paid"
+                              derivePaymentStatus(order) === "Paid"
                                 ? "bg-green-500/10 text-green-400"
                                 : "bg-yellow-500/10 text-yellow-500"
                             }`}
                           >
-                            {order.payment?.status === "Paid" ? "تم الدفع بنجاح" : "الدفع عند الاستلام"}
+                            {derivePaymentStatus(order) === "Paid" ? "تم الدفع بنجاح" : "لم يتم الدفع بعد"}
                           </span>
                           <span
                             className={`block text-[9px] font-bold ${
@@ -285,13 +285,17 @@ export default function AccountModal({
                           >
                             {order.status === "Pending"
                               ? "قيد التأكيد"
-                              : order.status === "Processing"
-                                ? "جاري التجهيز"
-                                : order.status === "Ready"
-                                  ? "جاهز للاستلام"
-                                  : order.status === "Completed"
-                                    ? "تم التسليم"
-                                    : "تم الإلغاء"}
+                              : order.status === "Confirmed"
+                                ? "تم التأكيد"
+                                : order.status === "Processing"
+                                  ? "جاري التجهيز"
+                                  : order.status === "Ready"
+                                    ? "جاهز للاستلام"
+                                    : order.status === "Completed"
+                                      ? "تم التسليم"
+                                      : order.status === "Refunded"
+                                        ? "تم الاسترداد"
+                                        : "تم الإلغاء"}
                           </span>
                         </div>
                       </div>
