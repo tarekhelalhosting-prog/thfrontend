@@ -150,7 +150,7 @@ function ProductDetailsContent({
                   <span className="font-mono text-gray-200">{imagesCount}</span>
                 </div>
                 <div className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2">
-                  <span className="block text-[10px] text-gray-500 mb-1">{isOfferMode ? "عدد المكونات" : "عدد النسخ"}</span>
+                  <span className="block text-[10px] text-gray-500 mb-1">{isOfferMode ? "عدد الباقات" : "عدد النسخ"}</span>
                   <span className="font-mono text-gray-200">{variantsCount}</span>
                 </div>
               </div>
