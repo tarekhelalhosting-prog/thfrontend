@@ -40,8 +40,9 @@ export function getOfferProducts(products: Product[], categories: Category[]): P
 
 // The offer's "مكونات العرض" (bundle components) list shown in the storefront
 // banner + product page - derived from the primary variant's attribute
-// values (the admin dashboard repurposes variant attributes as the list of
-// items included in the bundle, e.g. "استشوار", "كرسي حلاقة").
+// type + value pairs (the admin dashboard repurposes variant attributes as
+// the list of items included in the bundle, e.g. type "استشوار" value "2000
+// وات صيني" -> shown together so the component name itself is legible).
 export function getOfferComponents(product: Product): string[] {
   const primaryVariant = product.variants?.[0];
   if (!primaryVariant?.attributes) {
@@ -49,6 +50,15 @@ export function getOfferComponents(product: Product): string[] {
   }
 
   return primaryVariant.attributes
-    .map((attribute) => attribute.value?.trim())
-    .filter((value): value is string => Boolean(value));
+    .map((attribute) => {
+      const type = attribute.attribute_type?.trim();
+      const value = attribute.value?.trim();
+
+      if (type && value) {
+        return `${type}: ${value}`;
+      }
+
+      return type || value || "";
+    })
+    .filter((label): label is string => Boolean(label));
 }
