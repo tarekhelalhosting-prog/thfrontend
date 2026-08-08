@@ -126,11 +126,11 @@ export default function OffersShowcase({ offers, onViewOffer, onAddToCart }: Off
           <span className="text-gold-400 font-bold text-xs uppercase tracking-widest block mb-1">طارق هلال</span>
           <h3 className="inline-flex items-center gap-2 text-2xl sm:text-3xl font-black text-white relative">
             <Gift className="text-gold-400" size={26} />
-            <span>عروض وباقات حصرية</span>
+            <span>عروض طارق هلال المميزة</span>
             <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-12 h-1 bg-gold-400 rounded-full" />
           </h3>
           <p className="text-gray-400 text-xs sm:text-sm mt-3 max-w-xl mx-auto">
-            باقات جاهزة بأسعار مخفضة تجمع لك أكتر من منتج في عرض واحد، وفّر أكتر لما تجهز صالونك بالكامل.
+           تابع من خلال القسم عروضنا واسعارنا المخفضه واستمتع بأفضل العروض الحصرية من طارق هلال.
           </p>
         </div>
 

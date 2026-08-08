@@ -139,9 +139,10 @@ function ProductDetailsContent({
                   {offerComponents.map((item, index) => (
                     <span
                       key={`${product.id}-component-${index}`}
-                      className="rounded-full bg-gold-400/10 border border-gold-400/20 px-2.5 py-1 text-[10px] font-bold text-gold-300"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-gold-400/10 border border-gold-400/20 px-2.5 py-1 text-[10px] font-bold text-gold-300"
                     >
-                      🎁 {item}
+                      <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-gold-400" />
+                      {item}
                     </span>
                   ))}
                 </div>
