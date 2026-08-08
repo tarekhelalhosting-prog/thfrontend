@@ -42,6 +42,9 @@ export default function Header({
   const whatsappText = encodeURIComponent("مرحبا استاذ طارق انا مهتم اعرف اكتر عن باقات التجهيز هل مناسب نتكلم");
   const whatsappUrl = `https://wa.me/201021750655?text=${whatsappText}`;
   const whatsappDisplay = "01021750655";
+  const headerOfferCategories = categories.filter(
+    (category) => category.name.includes("عرض") || category.name.includes("عروض"),
+  );
 
   return (
     <>
@@ -236,7 +239,7 @@ export default function Header({
               >
                 الرئيسية
               </button>
-              {categories.slice(0, 3).map((cat) => (
+              {headerOfferCategories.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => onCategorySelect(cat.id)}

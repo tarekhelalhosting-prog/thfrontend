@@ -12,7 +12,7 @@ import PageState from "../../../components/ui/PageState";
 import { Category, Order, Product, ProductVariant } from "../../../types";
 import { useAuthSession } from "../../../hooks/useAuthSession";
 import { useCart } from "../../../hooks/useCart";
-import { fetchCategories, fetchOrders, fetchProductById, fetchStorefrontProducts } from "../../../lib/api";
+import { fetchCategories, fetchOrders, fetchProductById, fetchStorefrontProducts, isApiRequestError } from "../../../lib/api";
 import { getOfferComponents, isOfferCategory } from "../../../lib/offer-category";
 import { isProductUnavailable } from "../../../lib/product-availability";
 
@@ -311,6 +311,7 @@ export default function ProductDetailPage() {
   const [catalogCategories, setCatalogCategories] = useState<Category[]>([]);
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<"offline" | "server" | null>(null);
   const [myOrders, setMyOrders] = useState<Order[]>([]);
 
   useEffect(() => {
@@ -360,15 +361,27 @@ export default function ProductDetailPage() {
         const nextProduct = productResult.status === "fulfilled"
           ? productResult.value
           : nextProducts.find((item) => item.id === params.id) ?? null;
+        const productRequestFailed = productResult.status === "rejected";
+        const productNotFound = productRequestFailed
+          && isApiRequestError(productResult.reason)
+          && productResult.reason.status === 404;
+        const networkRequestFailed = productRequestFailed && productResult.reason instanceof TypeError;
+        let nextCatalogError: "offline" | "server" | null = null;
+
+        if (!nextProduct && productRequestFailed && !productNotFound) {
+          nextCatalogError = !navigator.onLine || networkRequestFailed ? "offline" : "server";
+        }
 
         setCatalogProducts(nextProducts);
         setCatalogCategories(nextCategories);
         setActiveProduct(nextProduct);
+        setCatalogError(nextCatalogError);
       } catch {
         if (!cancelled) {
           setCatalogProducts([]);
           setCatalogCategories([]);
           setActiveProduct(null);
+          setCatalogError(navigator.onLine ? "server" : "offline");
         }
       } finally {
         if (!cancelled) {
@@ -418,6 +431,30 @@ export default function ProductDetailPage() {
         title="جاري تحميل المنتج"
         message="نحاول جلب بيانات المنتج من الخادم الآن."
         fullPage
+      />
+    );
+  }
+
+  if (catalogError) {
+    const isOffline = catalogError === "offline";
+
+    return (
+      <PageState
+        variant="error"
+        title={isOffline ? "انقطع الاتصال بالإنترنت" : "تعذر تحميل المنتج"}
+        message={isOffline
+          ? "تأكد من اتصالك بالإنترنت ثم حاول مرة أخرى."
+          : "تعذر الاتصال بالخادم حاليًا. تحقق من اتصالك بالإنترنت ثم حاول مرة أخرى."}
+        fullPage
+        action={
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="rounded-xl bg-gold-400 px-6 py-2.5 text-xs font-extrabold text-dark-bg transition-colors hover:bg-gold-500"
+          >
+            إعادة المحاولة
+          </button>
+        }
       />
     );
   }

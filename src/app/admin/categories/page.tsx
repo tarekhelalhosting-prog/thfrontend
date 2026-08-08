@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Edit3, Image as ImageIcon, Plus, Trash2 } from "lucide-react";
+import { Edit3, Gift, Image as ImageIcon, Plus, Trash2 } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
 import CloudinaryImagePicker, { CloudinaryImageValue } from "@/components/admin/CloudinaryImagePicker";
 import { EmptyState, Modal, Panel, SectionHeader } from "@/components/admin/admin-kit";
 import { createCategory, deleteCategory, fetchCategories, fetchProducts, updateCategory } from "@/lib/api";
+import { isOfferCategory } from "@/lib/offer-category";
 import { Category, Product } from "@/types";
 
 function formatDate(value?: string) {
@@ -146,15 +147,26 @@ export default function CategoriesPage() {
                 ) : categories.length > 0 ? (
                   categories.map((category) => {
                     const count = productCounts.get(category.id) || productCounts.get(category.name) || 0;
+                    const isOffer = isOfferCategory(category);
 
                     return (
-                      <tr key={category.id} className="border-b border-slate-100 last:border-0">
+                      <tr key={category.id} className={`border-b border-slate-100 last:border-0 ${isOffer ? "bg-amber-50/40" : ""}`}>
                         <td className="py-4 pl-4">
                           <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
                             {category.image || category.media_url ? <img src={category.image || category.media_url} alt={category.name} className="h-full w-full object-cover" /> : <ImageIcon className="h-5 w-5 text-slate-400" />}
                           </div>
                         </td>
-                        <td className="py-4 pl-4 font-bold text-slate-950">{category.name}</td>
+                        <td className="py-4 pl-4 font-bold text-slate-950">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span>{category.name}</span>
+                            {isOffer ? (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800">
+                                <Gift className="h-3 w-3" />
+                                عروض وباقات
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
                         <td className="py-4 pl-4 text-slate-600">{count} منتج</td>
                         <td className="py-4 pl-4 text-slate-500">{formatDate(category.created_at)}</td>
                         <td className="py-4 pl-4">

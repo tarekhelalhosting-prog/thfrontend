@@ -163,7 +163,7 @@ export default function OffersShowcase({ offers, onViewOffer, onAddToCart }: Off
         </div>
 
         {/* Desktop/Tablet: classic grid */}
-        <div className={`hidden md:grid grid-cols-1 ${offers.length > 1 ? "md:grid-cols-2" : ""} gap-4 sm:gap-6`}>
+        <div className={`hidden md:grid grid-cols-1 ${offers.length > 1 ? "md:grid-cols-2" : "max-w-4xl mx-auto"} gap-4 sm:gap-6`}>
           {offers.map((offer) => renderOfferCard(offer, "desktop"))}
         </div>
       </div>

@@ -4,6 +4,17 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 const CLOUDINARY_UPLOAD_ENDPOINT = "/api/cloudinary/upload";
 const PRODUCT_IMAGE_PLACEHOLDER = "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=600";
 
+export class ApiRequestError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
+
+export function isApiRequestError(error: unknown): error is ApiRequestError {
+  return error instanceof ApiRequestError;
+}
+
 // Raw shapes as returned by the Django REST Framework serializers.
 // ProductImageSerializer only exposes (id, image, is_primary) and
 // ProductVariantSerializer only exposes (id, price, image, attributes) -
@@ -859,7 +870,7 @@ export async function fetchProductById(productId: string): Promise<Product> {
   ]);
 
   if (!response.ok) {
-    throw new Error("تعذر جلب بيانات المنتج");
+    throw new ApiRequestError("تعذر جلب بيانات المنتج", response.status);
   }
 
   const data = await response.json();
