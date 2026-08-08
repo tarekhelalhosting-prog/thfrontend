@@ -2,6 +2,7 @@
 import React from "react";
 import { ShoppingCart, Heart } from "lucide-react";
 import { Category, Product } from "../src/types";
+import { isProductUnavailable } from "../src/lib/product-availability";
 
 interface ProductCardProps {
   product: Product;
@@ -28,6 +29,7 @@ export default function ProductCard({
 
   const categorySource = categories?.length ? categories : [];
   const categoryName = categorySource.find((category) => category.id === product.category)?.name;
+  const isUnavailable = isProductUnavailable(product);
 
   // WhatsApp click handler for this specific product
   const handleWhatsAppClick = (e: React.MouseEvent) => {
@@ -44,7 +46,11 @@ export default function ProductCard({
       {/* Top actions */}
       <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 z-10 flex items-center justify-between">
         {/* Discount / Offer Badge */}
-        {product.discountBadge ? (
+        {isUnavailable ? (
+          <span className="rounded-lg bg-stone-800/90 px-2 py-1 text-[10px] font-extrabold text-white shadow-md">
+            غير متوفر حاليًا
+          </span>
+        ) : product.discountBadge ? (
           <span className="rounded-lg bg-red-500 px-2 py-1 text-[10px] font-extrabold text-white shadow-md">
             {product.discountBadge}
           </span>
@@ -109,17 +115,22 @@ export default function ProductCard({
 
           {/* Action Buttons */}
           <div className="grid grid-cols-5 gap-1">
-            {/* Add to Cart - takes 4/5 column width */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddToCart(product);
-              }}
-              className="col-span-4 flex items-center justify-center gap-1 bg-dark-bg border border-dark-border group-hover:bg-gold-400 group-hover:text-dark-bg text-gray-300 font-extrabold text-[10px] sm:text-xs py-1.5 sm:py-2 rounded-xl transition-all"
-            >
-              <ShoppingCart size={12} className="sm:w-[13px] sm:h-[13px]" />
-              <span>أضف للسلة</span>
-            </button>
+            {isUnavailable ? (
+              <div className="col-span-4 flex items-center justify-center rounded-xl border border-stone-300 bg-stone-100 px-2 py-1.5 text-center text-[10px] font-extrabold text-stone-700 sm:py-2 sm:text-xs">
+                المنتج غير متوفر حاليًا
+              </div>
+            ) : (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToCart(product);
+                }}
+                className="col-span-4 flex items-center justify-center gap-1 bg-dark-bg border border-dark-border group-hover:bg-gold-400 group-hover:text-dark-bg text-gray-300 font-extrabold text-[10px] sm:text-xs py-1.5 sm:py-2 rounded-xl transition-all"
+              >
+                <ShoppingCart size={12} className="sm:w-[13px] sm:h-[13px]" />
+                <span>أضف للسلة</span>
+              </button>
+            )}
 
             {/* Quick WhatsApp contact - 1/5 column width */}
             <button

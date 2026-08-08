@@ -46,6 +46,7 @@ export interface Product {
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null; // Soft Delete
+  isUnavailable?: boolean; // UI marker for products returned by the deleted-products endpoint
 
   // Related Django Entities (automatically included or fetched via prefetch_related / select_related)
   images?: ProductImage[];

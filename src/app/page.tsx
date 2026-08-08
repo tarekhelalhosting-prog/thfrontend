@@ -14,7 +14,8 @@ import ProductCard from "../../components/ProductCard";
 import PageState from "../components/ui/PageState";
 import InlineBanner from "../components/ui/InlineBanner";
 import { Product, ProductVariant, Order, Category, Offer } from "../types";
-import { fetchCategories, fetchOffers, fetchOrders, fetchProducts } from "../lib/api";
+import { fetchCategories, fetchOffers, fetchOrders, fetchStorefrontProducts } from "../lib/api";
+import { isProductUnavailable } from "../lib/product-availability";
 import { getProductDiscount } from "../lib/product-offers";
 import { getOfferProducts } from "../lib/offer-category";
 import { STORAGE_KEYS } from "../lib/browser-storage";
@@ -48,7 +49,7 @@ function StoreFrontContent() {
     void (async () => {
       try {
         const [productsResult, categoriesResult, offersResult] = await Promise.allSettled([
-          fetchProducts(),
+          fetchStorefrontProducts(),
           fetchCategories(),
           fetchOffers(),
         ]);
@@ -129,6 +130,10 @@ function StoreFrontContent() {
   };
 
   const handleAddToCart = (product: Product, quantity = 1, variant: ProductVariant | null = null) => {
+    if (isProductUnavailable(product)) {
+      return;
+    }
+
     addCartItem(product, variant, quantity);
     setIsCartOpen(true);
   };

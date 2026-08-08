@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Gift, ShoppingCart, Sparkles } from "lucide-react";
 import { Product } from "../src/types";
 import { getOfferComponents } from "../src/lib/offer-category";
+import { isProductUnavailable } from "../src/lib/product-availability";
 
 interface OffersShowcaseProps {
   offers: Product[];
@@ -51,6 +52,7 @@ export default function OffersShowcase({ offers, onViewOffer, onAddToCart }: Off
   function renderOfferCard(offer: Product, layout: "mobile" | "desktop", isFirst?: boolean, isLast?: boolean) {
     const components = getOfferComponents(offer);
     const isMobile = layout === "mobile";
+    const isUnavailable = isProductUnavailable(offer);
 
     return (
       <div
@@ -73,8 +75,8 @@ export default function OffersShowcase({ offers, onViewOffer, onAddToCart }: Off
         {/* Same top-corner position as the discount badge on ProductCard */}
         <div className="absolute top-3 sm:top-4 right-3 sm:right-4 z-10">
           <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-gold-400/40 bg-gold-400/15 backdrop-blur-sm px-2.5 sm:px-3 py-1 text-[9px] sm:text-xs font-bold text-gold-300">
-            <Sparkles size={11} />
-            <span>عرض خاص وحصري</span>
+            {isUnavailable ? null : <Sparkles size={11} />}
+            <span>{isUnavailable ? "غير متوفر حاليًا" : "عرض خاص وحصري"}</span>
           </span>
         </div>
 
@@ -94,17 +96,23 @@ export default function OffersShowcase({ offers, onViewOffer, onAddToCart }: Off
               ) : null}
             </div>
 
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onAddToCart(offer);
-              }}
-              className="flex items-center gap-1 sm:gap-2 bg-gradient-to-r from-gold-400 to-gold-600 text-dark-bg font-extrabold text-[10px] sm:text-sm px-2.5 py-1.5 sm:px-5 sm:py-2.5 rounded-xl shadow-md shadow-gold-500/20 hover:from-gold-300 hover:to-gold-500 transition-all"
-            >
-              <ShoppingCart size={12} />
-              <span>اطلب العرض</span>
-            </button>
+            {isUnavailable ? (
+              <span className="rounded-xl border border-white/25 bg-black/45 px-2.5 py-1.5 text-[10px] font-extrabold text-white backdrop-blur-sm sm:px-5 sm:py-2.5 sm:text-sm">
+                المنتج غير متوفر حاليًا
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onAddToCart(offer);
+                }}
+                className="flex items-center gap-1 sm:gap-2 bg-gradient-to-r from-gold-400 to-gold-600 text-dark-bg font-extrabold text-[10px] sm:text-sm px-2.5 py-1.5 sm:px-5 sm:py-2.5 rounded-xl shadow-md shadow-gold-500/20 hover:from-gold-300 hover:to-gold-500 transition-all"
+              >
+                <ShoppingCart size={12} />
+                <span>اطلب العرض</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

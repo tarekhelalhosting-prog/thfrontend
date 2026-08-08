@@ -608,6 +608,7 @@ export function mapDjangoProduct(djangoProd: ApiProduct): Product {
 
   // Extract price from first variant, or use flat price
   const price = variants[0]?.price ?? Number(djangoProd.price ?? 0);
+  const deletedAt = typeof djangoProd.deleted_at === "string" ? djangoProd.deleted_at : null;
 
   // `category` is a PrimaryKeyRelatedField on the backend (just the id), and
   // `category_id` is never actually sent by the API, so both UI-facing
@@ -625,6 +626,8 @@ export function mapDjangoProduct(djangoProd: ApiProduct): Product {
     price: Number(price),
     image: imageUrl,
     category: categoryValue,
+    deleted_at: deletedAt,
+    isUnavailable: Boolean(deletedAt),
   };
 }
 
@@ -1601,8 +1604,34 @@ export async function fetchDeletedProducts(): Promise<Product[]> {
     throw new Error("تعذر جلب المنتجات المحذوفة");
   }
   const data = await response.json();
-  const results = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
-  return results.map(mapDjangoProduct);
+  const results: ApiProduct[] = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+  return results.map((product) => ({
+    ...mapDjangoProduct(product),
+    isUnavailable: true,
+  }));
+}
+
+export async function fetchStorefrontProducts(): Promise<Product[]> {
+  const [activeResult, deletedResult] = await Promise.allSettled([
+    fetchProducts(),
+    fetchDeletedProducts(),
+  ]);
+
+  if (activeResult.status === "rejected") {
+    throw activeResult.reason;
+  }
+
+  const productsById = new Map(activeResult.value.map((product) => [product.id, product]));
+
+  if (deletedResult.status === "fulfilled") {
+    deletedResult.value.forEach((product) => {
+      if (!productsById.has(product.id)) {
+        productsById.set(product.id, product);
+      }
+    });
+  }
+
+  return Array.from(productsById.values());
 }
 
 export async function restoreProduct(productId: string): Promise<Product> {

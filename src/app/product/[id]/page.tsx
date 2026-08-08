@@ -12,8 +12,9 @@ import PageState from "../../../components/ui/PageState";
 import { Category, Order, Product, ProductVariant } from "../../../types";
 import { useAuthSession } from "../../../hooks/useAuthSession";
 import { useCart } from "../../../hooks/useCart";
-import { fetchCategories, fetchOrders, fetchProductById, fetchProducts } from "../../../lib/api";
+import { fetchCategories, fetchOrders, fetchProductById, fetchStorefrontProducts } from "../../../lib/api";
 import { getOfferComponents, isOfferCategory } from "../../../lib/offer-category";
+import { isProductUnavailable } from "../../../lib/product-availability";
 
 function ProductDetailsContent({
   product,
@@ -51,6 +52,7 @@ function ProductDetailsContent({
   const displayPrice = selectedVariant?.price ?? product.price;
   const variantsCount = variants.length;
   const imagesCount = product.images?.length || 1;
+  const isUnavailable = isProductUnavailable(product);
 
   const handleSelectVariant = (variant: ProductVariant) => {
     setSelectedVariantId(variant.id);
@@ -118,6 +120,11 @@ function ProductDetailsContent({
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-white leading-tight">
                 {product.name}
               </h1>
+              {isUnavailable ? (
+                <p className="w-fit rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-extrabold text-amber-800">
+                  المنتج غير متوفر حاليًا
+                </p>
+              ) : null}
             </div>
 
             <div className="p-4 rounded-2xl bg-dark-card border border-dark-border space-y-2">
@@ -189,35 +196,43 @@ function ProductDetailsContent({
               </div>
             )}
 
-            <div className="border-t border-b border-dark-border/60 py-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-              <div className="flex items-center justify-between sm:justify-start gap-3 bg-dark-card border border-dark-border rounded-xl p-1 shrink-0">
+            {isUnavailable ? (
+              <div className="border-y border-dark-border/60 py-5">
+                <div className="rounded-xl border border-stone-300 bg-stone-100 px-4 py-3 text-center text-sm font-extrabold text-stone-700">
+                  المنتج غير متوفر حاليًا ولا يمكن إضافته إلى السلة
+                </div>
+              </div>
+            ) : (
+              <div className="border-t border-b border-dark-border/60 py-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                <div className="flex items-center justify-between sm:justify-start gap-3 bg-dark-card border border-dark-border rounded-xl p-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setQuantity((currentQuantity) => Math.max(1, currentQuantity - 1))}
+                    className="w-10 h-10 rounded-lg bg-dark-bg text-gray-300 hover:text-white font-bold flex items-center justify-center border border-dark-border/40"
+                  >
+                    -
+                  </button>
+                  <span className="text-sm font-bold px-4 font-mono w-12 text-center">{quantity}</span>
+                  <button
+                    type="button"
+                    onClick={() => setQuantity((currentQuantity) => currentQuantity + 1)}
+                    className="w-10 h-10 rounded-lg bg-dark-bg text-gray-300 hover:text-white font-bold flex items-center justify-center border border-dark-border/40"
+                  >
+                    +
+                  </button>
+                </div>
+
                 <button
-                  type="button"
-                  onClick={() => setQuantity((currentQuantity) => Math.max(1, currentQuantity - 1))}
-                  className="w-10 h-10 rounded-lg bg-dark-bg text-gray-300 hover:text-white font-bold flex items-center justify-center border border-dark-border/40"
+                  onClick={() => onAddToCart(product, quantity, selectedVariant)}
+                  className="flex-grow flex items-center justify-center gap-2.5 bg-gradient-to-r from-gold-400 to-gold-500 hover:from-gold-500 hover:to-gold-600 text-dark-bg font-black py-3.5 px-6 rounded-xl shadow-lg transition-all text-xs sm:text-sm"
                 >
-                  -
-                </button>
-                <span className="text-sm font-bold px-4 font-mono w-12 text-center">{quantity}</span>
-                <button
-                  type="button"
-                  onClick={() => setQuantity((currentQuantity) => currentQuantity + 1)}
-                  className="w-10 h-10 rounded-lg bg-dark-bg text-gray-300 hover:text-white font-bold flex items-center justify-center border border-dark-border/40"
-                >
-                  +
+                  <ShoppingCart size={18} />
+                  <span>إضافة {quantity} من هذا الصنف إلى السلة</span>
                 </button>
               </div>
+            )}
 
-              <button
-                onClick={() => onAddToCart(product, quantity, selectedVariant)}
-                className="flex-grow flex items-center justify-center gap-2.5 bg-gradient-to-r from-gold-400 to-gold-500 hover:from-gold-500 hover:to-gold-600 text-dark-bg font-black py-3.5 px-6 rounded-xl shadow-lg transition-all text-xs sm:text-sm"
-              >
-                <ShoppingCart size={18} />
-                <span>إضافة {quantity} من هذا الصنف إلى السلة</span>
-              </button>
-            </div>
-
-            <div className="sm:hidden sticky bottom-3 z-20">
+            {!isUnavailable && <div className="sm:hidden sticky bottom-3 z-20">
               <div className="rounded-2xl border border-gold-400/20 bg-dark-card/95 backdrop-blur-md p-3 shadow-2xl">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -234,7 +249,7 @@ function ProductDetailsContent({
                   </button>
                 </div>
               </div>
-            </div>
+            </div>}
 
           </div>
         </div>
@@ -268,6 +283,11 @@ function ProductDetailsContent({
                   <div className="flex items-baseline gap-2 mt-1.5 font-mono">
                     <span className="text-xs font-bold text-white">{formatPrice(relatedProduct.price)}</span>
                   </div>
+                  {isProductUnavailable(relatedProduct) ? (
+                    <span className="mt-2 inline-flex rounded-lg bg-stone-100 px-2 py-1 text-[9px] font-extrabold text-stone-700">
+                      غير متوفر حاليًا
+                    </span>
+                  ) : null}
                 </button>
               ))}
             </div>
@@ -327,7 +347,7 @@ export default function ProductDetailPage() {
       try {
         const [productResult, productsResult, categoriesResult] = await Promise.allSettled([
           fetchProductById(params.id),
-          fetchProducts(),
+          fetchStorefrontProducts(),
           fetchCategories(),
         ]);
 
@@ -363,6 +383,10 @@ export default function ProductDetailPage() {
   }, [params.id]);
 
   const handleAddToCart = (nextProduct: Product, quantity = 1, variant: ProductVariant | null = null) => {
+    if (isProductUnavailable(nextProduct)) {
+      return;
+    }
+
     addCartItem(nextProduct, variant, quantity);
     setIsCartOpen(true);
   };
