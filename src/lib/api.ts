@@ -655,10 +655,23 @@ export function mapDjangoCategory(djangoCat: Partial<Category>): Category {
     ...djangoCat,
     id: String(djangoCat.id || ""),
     name: djangoCat.name || "",
+    description: djangoCat.description || "",
+    priority: djangoCat.priority == null ? null : Number(djangoCat.priority),
     media_url: djangoCat.image || djangoCat.media_url || "",
     public_id: djangoCat.public_id || undefined,
     image: djangoCat.image || djangoCat.media_url || "https://images.unsplash.com/photo-1621605815971-fbc98d665033?q=80&w=400"
   };
+}
+
+export function sortCategoriesByPriority(categories: Category[]): Category[] {
+  return categories
+    .map((category, index) => ({ category, index }))
+    .sort((left, right) => {
+      const leftPriority = left.category.priority ?? Number.POSITIVE_INFINITY;
+      const rightPriority = right.category.priority ?? Number.POSITIVE_INFINITY;
+      return leftPriority - rightPriority || left.index - right.index;
+    })
+    .map(({ category }) => category);
 }
 
 export function mapDjangoUser(djangoUser: ApiUser): User {
@@ -884,7 +897,7 @@ export async function fetchCategories(): Promise<Category[]> {
     throw new Error("حدث خطأ أثناء جلب الأقسام من الخادم");
   }
   const data = await response.json();
-  return Array.isArray(data) ? data.map(mapDjangoCategory) : [];
+  return Array.isArray(data) ? sortCategoriesByPriority(data.map(mapDjangoCategory)) : [];
 }
 
 // Fetch all offers from Django API (OfferViewSet, DefaultPagination), following
@@ -1705,12 +1718,22 @@ export async function deleteProductVariant(variantId: string): Promise<void> {
   }
 }
 
-export async function createCategory(categoryData: { name: string; image?: string; public_id?: string }): Promise<Category> {
+type CategoryPayload = {
+  name: string;
+  description?: string;
+  priority?: number | null;
+  image?: string;
+  public_id?: string;
+};
+
+export async function createCategory(categoryData: CategoryPayload): Promise<Category> {
   const response = await fetchWithAutoRefresh("/categories/", {
     method: "POST",
     headers: buildAuthHeaders(),
     body: JSON.stringify({
       name: categoryData.name,
+      description: categoryData.description || "",
+      priority: categoryData.priority ?? null,
       media_url: categoryData.image || "",
       image: categoryData.image || "",
       ...(categoryData.public_id ? { public_id: categoryData.public_id } : {}),
@@ -1725,12 +1748,14 @@ export async function createCategory(categoryData: { name: string; image?: strin
   return mapDjangoCategory(data);
 }
 
-export async function updateCategory(categoryId: string, categoryData: { name: string; image?: string; public_id?: string }): Promise<Category> {
+export async function updateCategory(categoryId: string, categoryData: CategoryPayload): Promise<Category> {
   const response = await fetchWithAutoRefresh(`/categories/${categoryId}/`, {
     method: "PUT",
     headers: buildAuthHeaders(),
     body: JSON.stringify({
       name: categoryData.name,
+      description: categoryData.description || "",
+      priority: categoryData.priority ?? null,
       media_url: categoryData.image || "",
       image: categoryData.image || "",
       ...(categoryData.public_id ? { public_id: categoryData.public_id } : {}),

@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import Image from "next/image";
 import { Search, ShoppingCart, User, Menu, Phone, MapPin, X, ChevronDown, ShieldAlert, LogOut } from "lucide-react";
 import { Category, User as UserType } from "../src/types";
+import { isOfferCategory } from "../src/lib/offer-category";
 
 interface HeaderProps {
   cartCount: number;
@@ -42,8 +43,8 @@ export default function Header({
   const whatsappText = encodeURIComponent("مرحبا استاذ طارق انا مهتم اعرف اكتر عن باقات التجهيز هل مناسب نتكلم");
   const whatsappUrl = `https://wa.me/201021750655?text=${whatsappText}`;
   const whatsappDisplay = "01021750655";
-  const headerOfferCategories = categories.filter(
-    (category) => category.name.includes("عرض") || category.name.includes("عروض"),
+  const headerFeaturedCategories = categories.filter(
+    (category) => category.priority === 1 || isOfferCategory(category),
   );
 
   return (
@@ -193,7 +194,7 @@ export default function Header({
           <div className="flex items-center justify-between">
             
             {/* Categories Selector */}
-            <div className="relative">
+            <div className="relative shrink-0">
               <button
                 onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
                 className="flex items-center gap-2 bg-gold-400 text-white font-bold text-sm px-5 py-3.5 hover:bg-gold-500 transition-colors select-none"
@@ -232,32 +233,32 @@ export default function Header({
             </div>
 
             {/* Navigation Links */}
-            <nav className="flex items-center gap-1 lg:gap-2">
+            <nav className="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden lg:gap-2">
               <button
                 onClick={() => onCategorySelect("all")}
-                className={`px-4 py-3.5 text-sm font-medium transition-colors border-b-2 hover:text-gold-500 ${selectedCategory === "all" && currentView === "home" ? "border-gold-400 text-gold-500 font-semibold" : "border-transparent text-gray-600"}`}
+                className={`shrink-0 px-4 py-3.5 text-sm font-medium transition-colors border-b-2 hover:text-gold-500 ${selectedCategory === "all" && currentView === "home" ? "border-gold-400 text-gold-500 font-semibold" : "border-transparent text-gray-600"}`}
               >
                 الرئيسية
               </button>
-              {headerOfferCategories.map((cat) => (
+              {headerFeaturedCategories.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => onCategorySelect(cat.id)}
-                  className={`px-4 py-3.5 text-sm font-medium transition-colors border-b-2 hover:text-gold-500 ${selectedCategory === cat.id ? "border-gold-400 text-gold-500 font-semibold" : "border-transparent text-gray-600"}`}
+                  className={`shrink-0 px-4 py-3.5 text-sm font-medium transition-colors border-b-2 hover:text-gold-500 ${selectedCategory === cat.id ? "border-gold-400 text-gold-500 font-semibold" : "border-transparent text-gray-600"}`}
                 >
                   {cat.name}
                 </button>
               ))}
               <button
                 onClick={onContactClick}
-                className="px-4 py-3.5 text-sm font-medium transition-colors border-b-2 border-transparent text-gray-600 hover:text-gold-500"
+                className="shrink-0 px-4 py-3.5 text-sm font-medium transition-colors border-b-2 border-transparent text-gray-600 hover:text-gold-500"
               >
                 تواصل معنا
               </button>
             </nav>
 
             {/* Quick Contact Info */}
-            <div className="flex items-center gap-2 text-gold-500">
+            <div className="flex shrink-0 items-center gap-2 text-gold-500">
               <Phone size={16} />
               <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-bold font-mono hover:text-gold-400 transition-colors" dir="ltr">
                 {whatsappDisplay}

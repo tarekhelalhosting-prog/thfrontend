@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { Gift, ShoppingCart, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Gift, ShoppingCart, Sparkles } from "lucide-react";
 import { Product } from "../src/types";
 import { getOfferComponents } from "../src/lib/offer-category";
 import { isProductUnavailable } from "../src/lib/product-availability";
@@ -18,8 +18,13 @@ function formatPrice(price: number) {
 export default function OffersShowcase({ offers, onViewOffer, onAddToCart }: OffersShowcaseProps) {
   const firstItemRef = useRef<HTMLDivElement>(null);
   const lastItemRef = useRef<HTMLDivElement>(null);
+  const desktopScrollerRef = useRef<HTMLDivElement>(null);
+  const desktopFirstItemRef = useRef<HTMLDivElement>(null);
+  const desktopLastItemRef = useRef<HTMLDivElement>(null);
   const [firstVisible, setFirstVisible] = useState(true);
   const [lastVisible, setLastVisible] = useState(false);
+  const [desktopFirstVisible, setDesktopFirstVisible] = useState(true);
+  const [desktopLastVisible, setDesktopLastVisible] = useState(false);
 
   // Edge fades should only hint at scrollable content that's actually still
   // hidden - track the first/last card's visibility so each fade disappears
@@ -44,6 +49,38 @@ export default function OffersShowcase({ offers, onViewOffer, onAddToCart }: Off
     observer.observe(lastEl);
     return () => observer.disconnect();
   }, [offers.length]);
+
+  useEffect(() => {
+    if (offers.length <= 2) return;
+    const scroller = desktopScrollerRef.current;
+    const firstItem = desktopFirstItemRef.current;
+    const lastItem = desktopLastItemRef.current;
+    if (!scroller || !firstItem || !lastItem) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.target === firstItem) setDesktopFirstVisible(entry.isIntersecting);
+          if (entry.target === lastItem) setDesktopLastVisible(entry.isIntersecting);
+        });
+      },
+      { root: scroller, threshold: 0.95 }
+    );
+
+    observer.observe(firstItem);
+    observer.observe(lastItem);
+    return () => observer.disconnect();
+  }, [offers.length]);
+
+  const scrollDesktop = (direction: "left" | "right") => {
+    const scroller = desktopScrollerRef.current;
+    if (!scroller) return;
+
+    scroller.scrollBy({
+      left: direction === "left" ? -scroller.clientWidth * 0.9 : scroller.clientWidth * 0.9,
+      behavior: "smooth",
+    });
+  };
 
   if (offers.length === 0) {
     return null;
@@ -162,9 +199,56 @@ export default function OffersShowcase({ offers, onViewOffer, onAddToCart }: Off
           </div>
         </div>
 
-        {/* Desktop/Tablet: classic grid */}
-        <div className={`hidden md:grid grid-cols-1 ${offers.length > 1 ? "md:grid-cols-2" : "max-w-4xl mx-auto"} gap-4 sm:gap-6`}>
-          {offers.map((offer) => renderOfferCard(offer, "desktop"))}
+        {/* Desktop/Tablet: centered single offer or two-at-a-time carousel */}
+        <div className="hidden md:block">
+          {offers.length === 1 ? (
+            <div className="mx-auto max-w-4xl">
+              {renderOfferCard(offers[0], "desktop")}
+            </div>
+          ) : (
+            <div className="relative">
+              <div
+                ref={desktopScrollerRef}
+                dir="rtl"
+                className="overflow-x-auto scroll-smooth pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+              >
+                <div className="grid grid-flow-col auto-cols-[calc((100%-1.5rem)/2)] gap-6">
+                  {offers.map((offer, index) => (
+                    <div
+                      key={offer.id}
+                      ref={index === 0 ? desktopFirstItemRef : index === offers.length - 1 ? desktopLastItemRef : undefined}
+                      className="snap-start"
+                    >
+                      {renderOfferCard(offer, "desktop")}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {offers.length > 2 && !desktopLastVisible ? (
+                <button
+                  type="button"
+                  onClick={() => scrollDesktop("left")}
+                  aria-label="عرض العروض التالية"
+                  title="عرض العروض التالية"
+                  className="absolute left-1 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-gold-400/40 bg-dark-card/95 text-gold-500 shadow-xl transition-colors hover:bg-gold-400 hover:text-dark-bg"
+                >
+                  <ChevronLeft size={22} />
+                </button>
+              ) : null}
+              {offers.length > 2 && !desktopFirstVisible ? (
+                <button
+                  type="button"
+                  onClick={() => scrollDesktop("right")}
+                  aria-label="عرض العروض السابقة"
+                  title="عرض العروض السابقة"
+                  className="absolute right-1 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-gold-400/40 bg-dark-card/95 text-gold-500 shadow-xl transition-colors hover:bg-gold-400 hover:text-dark-bg"
+                >
+                  <ChevronRight size={22} />
+                </button>
+              ) : null}
+            </div>
+          )}
         </div>
       </div>
     </section>

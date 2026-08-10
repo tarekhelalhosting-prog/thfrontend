@@ -405,9 +405,8 @@ export default function ProductDetailPage() {
     setIsCartOpen(true);
   };
 
-  const handleWhatsAppClick = () => {
-    const text = encodeURIComponent("مرحبا استاذ طارق انا مهتم اعرف اكتر عن باقات التجهيز هل مناسب نتكلم");
-    window.open(`https://wa.me/201021750655?text=${text}`, "_blank");
+  const handleContactClick = () => {
+    document.getElementById("footer-contact")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const navigateToStore = (categoryId = "all", search = "") => {
@@ -502,7 +501,7 @@ export default function ProductDetailPage() {
         selectedCategory={activeProduct.category}
         onCategorySelect={(categoryId) => navigateToStore(categoryId)}
         categories={catalogCategories}
-        onContactClick={handleWhatsAppClick}
+        onContactClick={handleContactClick}
       />
 
       <main className="flex-grow">
@@ -518,7 +517,6 @@ export default function ProductDetailPage() {
       <Footer
         categories={catalogCategories}
         onCategorySelect={(categoryId) => navigateToStore(categoryId)}
-        onContactClick={handleWhatsAppClick}
       />
 
       <CartDrawer

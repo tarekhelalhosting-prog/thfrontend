@@ -28,6 +28,7 @@ export interface Category {
   media_url: string; // Category image URL
   public_id?: string; // Cloudinary public_id for the category image
   description?: string; // category description
+  priority?: number | null; // Lower values appear first; null appears last
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null; // Soft Delete

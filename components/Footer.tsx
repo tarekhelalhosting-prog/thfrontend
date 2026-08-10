@@ -7,10 +7,9 @@ import { Category } from "../src/types";
 interface FooterProps {
   categories: Category[];
   onCategorySelect: (id: string) => void;
-  onContactClick: () => void;
 }
 
-export default function Footer({ categories, onCategorySelect, onContactClick }: FooterProps) {
+export default function Footer({ categories, onCategorySelect }: FooterProps) {
   const logoSrc = "/file.png";
   const whatsappText = encodeURIComponent("مرحبا استاذ طارق انا مهتم اعرف اكتر عن باقات التجهيز هل مناسب نتكلم");
   const whatsappUrl = `https://wa.me/201021750655?text=${whatsappText}`;
@@ -70,21 +69,34 @@ export default function Footer({ categories, onCategorySelect, onContactClick }:
             </div>
 
             <p className="text-xs text-gray-500 leading-relaxed mb-6 max-w-sm">
-              نحن في طارق هلال نوفر كل ما تحتاجه صالونات الحلاقة والتجميل في مصر من كراسي هيدروليك، مغاسل شعر، مرايا مضيئة، وأجهزة كهربائية أصلية بأعلى جودة وأفضل الأسعار مع الضمان الحقيقي وقطع الغيار.
+             نحن في طارق هلال نوفر كل ما تحتاجه صالونات الحلاقة والتجميل في مصر من كراسي هيدروليك، مغاسل شعر، وأجهزة كهربائية أصلية بأعلى جودة وأفضل الأسعار
             </p>
 
             {/* Social Media Links */}
-            <div className="flex gap-2.5">
+            <div className="flex flex-wrap gap-2.5">
               <a
                 href="https://www.facebook.com/tarek.helal.store/?locale=ar_AR"
                 target="_blank"
-                rel="noreferrer"
-                className="p-2.5 rounded-xl bg-dark-card border border-dark-border text-gray-400 hover:text-gold-400 hover:border-gold-400 transition-all"
-                title="فيسبوك"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-dark-card border border-dark-border px-3 py-2.5 text-gray-400 hover:text-gold-400 hover:border-gold-400 transition-all"
+                title="فيسبوك فرع المنصورة"
               >
                 <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                   <path d="M13.5 22V12.9H16.6L17.1 9.4H13.5V7.2C13.5 6.2 13.8 5.5 15.3 5.5H17.2V2.3C16.3 2.2 15.4 2.1 14.5 2.1C11.8 2.1 10 3.8 10 7V9.4H7V12.9H10V22H13.5Z" />
                 </svg>
+                <span className="text-xs font-bold">فرع المنصورة</span>
+              </a>
+              <a
+                href="https://www.facebook.com/tarekhelalnozha"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-dark-card border border-dark-border px-3 py-2.5 text-gray-400 hover:text-gold-400 hover:border-gold-400 transition-all"
+                title="فيسبوك فرع النزهة"
+              >
+                <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M13.5 22V12.9H16.6L17.1 9.4H13.5V7.2C13.5 6.2 13.8 5.5 15.3 5.5H17.2V2.3C16.3 2.2 15.4 2.1 14.5 2.1C11.8 2.1 10 3.8 10 7V9.4H7V12.9H10V22H13.5Z" />
+                </svg>
+                <span className="text-xs font-bold">فرع النزهة</span>
               </a>
               <a
                 href="https://www.tiktok.com/@tarek.helal.center"
@@ -122,7 +134,7 @@ export default function Footer({ categories, onCategorySelect, onContactClick }:
           </div>
 
           {/* Contact info Column (2 columns) */}
-          <div className="lg:col-span-2 text-right">
+          <div id="footer-contact" className="scroll-mt-28 lg:col-span-2 text-right">
             <h4 className="text-sm font-bold text-white mb-4 relative pb-2 inline-block">
               تواصل معنا
               <span className="absolute bottom-0 right-0 w-8 h-0.5 bg-gold-400 rounded" />

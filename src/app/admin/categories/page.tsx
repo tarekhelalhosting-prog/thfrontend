@@ -5,7 +5,7 @@ import { Edit3, Gift, Image as ImageIcon, Plus, Trash2 } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
 import CloudinaryImagePicker, { CloudinaryImageValue } from "@/components/admin/CloudinaryImagePicker";
 import { EmptyState, Modal, Panel, SectionHeader } from "@/components/admin/admin-kit";
-import { createCategory, deleteCategory, fetchCategories, fetchProducts, updateCategory } from "@/lib/api";
+import { createCategory, deleteCategory, fetchCategories, fetchProducts, sortCategoriesByPriority, updateCategory } from "@/lib/api";
 import { isOfferCategory } from "@/lib/offer-category";
 import { Category, Product } from "@/types";
 
@@ -24,8 +24,11 @@ export default function CategoriesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState("");
   const [image, setImage] = useState<CloudinaryImageValue[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -60,15 +63,21 @@ export default function CategoriesPage() {
   const openCreateModal = () => {
     setEditingId(null);
     setName("");
+    setDescription("");
+    setPriority("");
     setImage([]);
+    setFormError("");
     setModalOpen(true);
   };
 
   const openEditModal = (category: Category) => {
     setEditingId(category.id);
     setName(category.name);
+    setDescription(category.description || "");
+    setPriority(category.priority == null ? "" : String(category.priority));
     const existingUrl = category.image || category.media_url || "";
     setImage(existingUrl ? [{ url: existingUrl, public_id: category.public_id }] : []);
+    setFormError("");
     setModalOpen(true);
   };
 
@@ -76,21 +85,38 @@ export default function CategoriesPage() {
     void (async () => {
       const trimmedName = name.trim();
       if (!trimmedName) {
+        setFormError("اكتب اسم التصنيف أولاً.");
+        return;
+      }
+
+      const parsedPriority = priority === "" ? null : Number(priority);
+      if (parsedPriority !== null && (!Number.isInteger(parsedPriority) || parsedPriority < 1 || parsedPriority > 1000)) {
+        setFormError("الأولوية يجب أن تكون رقماً صحيحاً من 1 إلى 1000، أو اتركها فارغة.");
         return;
       }
 
       try {
         setIsSaving(true);
+        setFormError("");
         const imageUrl = image[0]?.url || "";
         const publicId = image[0]?.public_id;
+        const payload = {
+          name: trimmedName,
+          description: description.trim(),
+          priority: parsedPriority,
+          image: imageUrl,
+          public_id: publicId,
+        };
         if (editingId) {
-          const updated = await updateCategory(editingId, { name: trimmedName, image: imageUrl, public_id: publicId });
-          setCategories((current) => current.map((item) => (item.id === editingId ? updated : item)));
+          const updated = await updateCategory(editingId, payload);
+          setCategories((current) => sortCategoriesByPriority(current.map((item) => (item.id === editingId ? updated : item))));
         } else {
-          const created = await createCategory({ name: trimmedName, image: imageUrl, public_id: publicId });
-          setCategories((current) => [created, ...current]);
+          const created = await createCategory(payload);
+          setCategories((current) => sortCategoriesByPriority([...current, created]));
         }
         setModalOpen(false);
+      } catch (error) {
+        setFormError(error instanceof Error ? error.message : "تعذر حفظ التصنيف، حاول مرة أخرى.");
       } finally {
         setIsSaving(false);
       }
@@ -111,7 +137,7 @@ export default function CategoriesPage() {
   return (
     <AdminShell
       title="التصنيفات"
-      subtitle="هنا يمكنك إدارة التصنيفات: إضافة تصنيف جديد، تعديل اسم أو صورة التصنيف، وحذف التصنيفات غير المرغوبة."
+      subtitle="أضف وصفاً واضحاً لكل قسم وحدد أولوية ظهوره؛ الرقم الأصغر يظهر أولاً."
       actions={
         <button type="button" onClick={openCreateModal} className="inline-flex items-center gap-2 rounded-2xl bg-green-300 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-green-400">
           <Plus className="h-4 w-4" />
@@ -129,13 +155,14 @@ export default function CategoriesPage() {
         </div>
 
         <Panel>
-          <SectionHeader eyebrow="Categories" title="جدول التصنيفات" subtitle="لا توجد هنا أي كيانات أخرى. فقط التصنيفات وإجراءاتها المباشرة." />
+          <SectionHeader eyebrow="Categories" title="جدول التصنيفات" subtitle="الأقسام مرتبة حسب الأولوية من الرقم الأصغر إلى الأكبر، والأقسام بلا أولوية تظهر في النهاية." />
           <div className="overflow-x-auto px-5 py-5">
             <table className="min-w-full text-right text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
                   <th className="py-3 pl-4">الصورة</th>
                   <th className="py-3 pl-4">اسم التصنيف</th>
+                  <th className="py-3 pl-4">الأولوية</th>
                   <th className="py-3 pl-4">عدد المنتجات</th>
                   <th className="py-3 pl-4">تاريخ الإنشاء</th>
                   <th className="py-3 pl-4">إجراء</th>
@@ -143,7 +170,7 @@ export default function CategoriesPage() {
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr><td colSpan={5} className="py-10 text-center text-slate-500">جاري تحميل التصنيفات...</td></tr>
+                  <tr><td colSpan={6} className="py-10 text-center text-slate-500">جاري تحميل التصنيفات...</td></tr>
                 ) : categories.length > 0 ? (
                   categories.map((category) => {
                     const count = productCounts.get(category.id) || productCounts.get(category.name) || 0;
@@ -166,6 +193,16 @@ export default function CategoriesPage() {
                               </span>
                             ) : null}
                           </div>
+                          {category.description ? (
+                            <p className="mt-1.5 max-w-md text-xs font-normal leading-5 text-slate-500">{category.description}</p>
+                          ) : null}
+                        </td>
+                        <td className="py-4 pl-4">
+                          {category.priority == null ? (
+                            <span className="text-xs text-slate-400">بدون أولوية</span>
+                          ) : (
+                            <span className="inline-flex min-w-8 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-black text-emerald-700">{category.priority}</span>
+                          )}
                         </td>
                         <td className="py-4 pl-4 text-slate-600">{count} منتج</td>
                         <td className="py-4 pl-4 text-slate-500">{formatDate(category.created_at)}</td>
@@ -185,7 +222,7 @@ export default function CategoriesPage() {
                     );
                   })
                 ) : (
-                  <tr><td colSpan={5} className="py-10"><EmptyState title="لا توجد تصنيفات بعد" description="ابدأ بإضافة التصنيف الأول ثم اربطه بالمنتجات من صفحة المنتجات." /></td></tr>
+                  <tr><td colSpan={6} className="py-10"><EmptyState title="لا توجد تصنيفات بعد" description="ابدأ بإضافة التصنيف الأول ثم اربطه بالمنتجات من صفحة المنتجات." /></td></tr>
                 )}
               </tbody>
             </table>
@@ -196,7 +233,7 @@ export default function CategoriesPage() {
       <Modal
         open={modalOpen}
         title={editingId ? "تعديل التصنيف" : "إضافة تصنيف جديد"}
-        subtitle="نموذج بسيط ومباشر: الاسم + صورة التصنيف فقط."
+        subtitle="الوصف يظهر للزائر أسفل اسم القسم، والأولوية ترتب الأقسام في المتجر."
         onClose={() => setModalOpen(false)}
         footer={
           <>
@@ -206,9 +243,21 @@ export default function CategoriesPage() {
         }
       >
         <div className="grid gap-4">
+          {formError ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{formError}</div>
+          ) : null}
           <label className="grid gap-2 text-sm font-bold text-slate-700">
             اسم التصنيف
             <input value={name} onChange={(event) => setName(event.target.value)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-amber-400" placeholder="مثال: كراسي الحلاقة" />
+          </label>
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            وصف التصنيف
+            <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} className="resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 outline-none transition-colors focus:border-amber-400" placeholder="وصف مختصر يساعد الزائر على فهم محتوى القسم" />
+          </label>
+          <label className="grid gap-2 text-sm font-bold text-slate-700">
+            أولوية الظهور
+            <input type="number" min={1} max={1000} step={1} value={priority} onChange={(event) => setPriority(event.target.value)} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-amber-400" placeholder="من 1 إلى 1000" />
+            <span className="text-xs font-normal leading-5 text-slate-500">الرقم الأصغر يظهر أولاً. يمكن تكرار نفس الرقم لأكثر من قسم، والرقم 1 يظهر أيضاً في الهيدر.</span>
           </label>
           <CloudinaryImagePicker
             title="صورة التصنيف"

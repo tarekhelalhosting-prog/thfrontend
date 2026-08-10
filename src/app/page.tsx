@@ -150,6 +150,10 @@ function StoreFrontContent() {
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
+  const handleContactClick = () => {
+    document.getElementById("footer-contact")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const updateStoreUrl = (nextCategory: string, nextSearch: string) => {
     const params = new URLSearchParams(searchParams.toString());
 
@@ -265,7 +269,7 @@ function StoreFrontContent() {
         selectedCategory={selectedCategory}
         onCategorySelect={handleCategorySelect}
         categories={catalogCategories}
-        onContactClick={handleWhatsAppClick}
+        onContactClick={handleContactClick}
       />
       
       <main className="flex-grow">
@@ -322,7 +326,7 @@ function StoreFrontContent() {
         </section>
       </main>
 
-      <Footer categories={catalogCategories} onCategorySelect={handleCategorySelect} onContactClick={handleWhatsAppClick} />
+      <Footer categories={catalogCategories} onCategorySelect={handleCategorySelect} />
 
       {/* المودالز والنوافذ المنبثقة التفاعلية */}
       <CartDrawer 

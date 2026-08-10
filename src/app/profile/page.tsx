@@ -459,7 +459,7 @@ export default function ProfilePage() {
         selectedCategory={selectedCategory}
         onCategorySelect={handleCategorySelect}
         categories={categories}
-        onContactClick={() => window.open("https://wa.me/201021750655", "_blank")}
+        onContactClick={() => document.getElementById("footer-contact")?.scrollIntoView({ behavior: "smooth", block: "start" })}
         currentUser={currentUser}
         onAccountClick={() => {}}
         onAdminClick={() => router.push("/admin")}
@@ -779,7 +779,6 @@ export default function ProfilePage() {
       </main>      <Footer
         categories={categories}
         onCategorySelect={(categoryId) => navigateToStore(categoryId)}
-        onContactClick={() => window.open("https://wa.me/201021750655", "_blank")}
       />
 
       <CartDrawer
