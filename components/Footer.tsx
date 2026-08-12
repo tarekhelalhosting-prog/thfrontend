@@ -189,6 +189,48 @@ export default function Footer({ categories, onCategorySelect }: FooterProps) {
             </ul>
           </div>
 
+          {/* Policies Column (2 columns) */}
+          <div className="lg:col-span-2 text-right">
+            <h4 className="text-sm font-bold text-white mb-4 relative pb-2 inline-block">
+              السياسات
+              <span className="absolute bottom-0 right-0 w-8 h-0.5 bg-gold-400 rounded" />
+            </h4>
+            <ul className="flex flex-col gap-3">
+              <li>
+                <a 
+                  href="/about-us" 
+                  className="hover:text-gold-400 transition-colors text-right"
+                >
+                  من نحن
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="/privacy-policy" 
+                  className="hover:text-gold-400 transition-colors text-right"
+                >
+                  سياسة الخصوصية
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="/delivery-shipping-policy" 
+                  className="hover:text-gold-400 transition-colors text-right"
+                >
+                  سياسة الشحن والتوصيل
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="/refund-cancellation-policy" 
+                  className="hover:text-gold-400 transition-colors text-right"
+                >
+                  سياسة الاسترجاع والإلغاء
+                </a>
+              </li>
+            </ul>
+          </div>
+
           {/* Branches Column (2 columns) */}
           <div className="lg:col-span-2 text-right">
             <h4 className="text-sm font-bold text-white mb-4 relative pb-2 inline-block">
