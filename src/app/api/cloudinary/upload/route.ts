@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   }
 
   const timestamp = String(Math.floor(Date.now() / 1000));
-  const uploadParams = preserveAspectRatio
+  const uploadParams: Record<string, string> = preserveAspectRatio
     ? { folder, timestamp }
     : { folder, timestamp, transformation: PRODUCT_IMAGE_TRANSFORMATION };
   const signature = buildSignature(uploadParams, apiSecret);
