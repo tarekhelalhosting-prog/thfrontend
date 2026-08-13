@@ -85,11 +85,11 @@ function ProductDetailsContent({
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           <div className="lg:col-span-5 space-y-4">
-            <div className="relative aspect-square rounded-2xl bg-dark-card border border-dark-border overflow-hidden group">
+            <div className="relative aspect-square rounded-2xl bg-white border border-dark-border overflow-hidden group">
               <img
                 src={activeImage}
                 alt={product.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
               />
             </div>
 
@@ -99,9 +99,9 @@ function ProductDetailsContent({
                   key={`${product.id}-${index}`}
                   type="button"
                   onClick={() => setActiveImage(image)}
-                  className={`aspect-square rounded-xl overflow-hidden border-2 ${activeImage === image ? "border-gold-400" : "border-dark-border"} bg-dark-card`}
+                  className={`aspect-square rounded-xl overflow-hidden border-2 ${activeImage === image ? "border-gold-400" : "border-dark-border"} bg-white`}
                 >
-                  <img src={image} alt={`${product.name}-${index + 1}`} className="w-full h-full object-cover" />
+                  <img src={image} alt={`${product.name}-${index + 1}`} className="w-full h-full object-contain" />
                 </button>
               ))}
             </div>
@@ -270,11 +270,11 @@ function ProductDetailsContent({
                   onClick={() => router.push(`/product/${relatedProduct.id}`)}
                   className="bg-dark-card border border-dark-border rounded-xl p-3 text-right cursor-pointer group hover:border-gold-400 transition-all duration-300"
                 >
-                  <div className="aspect-square rounded-lg overflow-hidden bg-dark-bg border border-dark-border/40 mb-3 relative">
+                  <div className="aspect-square rounded-lg overflow-hidden bg-white border border-dark-border/40 mb-3 relative">
                     <img
                       src={relatedProduct.image}
                       alt={relatedProduct.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
                     />
                   </div>
                   <span className="text-[9px] text-gold-400 font-bold">{categories.find((category) => category.id === relatedProduct.category)?.name}</span>

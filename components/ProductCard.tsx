@@ -70,12 +70,12 @@ export default function ProductCard({
       </div>
 
       {/* Product Image */}
-      <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-dark-bg mb-3 sm:mb-4 flex items-center justify-center border border-dark-border/10">
+      <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-white mb-3 sm:mb-4 flex items-center justify-center border border-dark-border/10">
         <img
           src={product.image}
           alt={product.name}
           referrerPolicy="no-referrer"
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-dark-card/20 to-transparent pointer-events-none" />
       </div>
