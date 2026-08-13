@@ -345,9 +345,15 @@ function buildAuthHeaders(withJson = true): HeadersInit {
   return headers;
 }
 
-export async function uploadProductImageToCloudinary(file: File): Promise<CloudinaryUploadResult> {
+export async function uploadProductImageToCloudinary(
+  file: File,
+  options: { preserveAspectRatio?: boolean } = {}
+): Promise<CloudinaryUploadResult> {
   const formData = new FormData();
   formData.append("file", file);
+  if (options.preserveAspectRatio) {
+    formData.append("preserve_aspect_ratio", "true");
+  }
 
   const response = await fetch(CLOUDINARY_UPLOAD_ENDPOINT, {
     method: "POST",

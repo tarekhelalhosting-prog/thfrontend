@@ -288,6 +288,7 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
             primaryIndex={primaryImageIndex}
             onPrimaryIndexChange={setPrimaryImageIndex}
             maxImages={10}
+            preserveAspectRatio={isOfferMode}
           />
         </div>
       </Panel>
@@ -319,6 +320,7 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
                 }
                 onChange={(nextValue) => updateVariantImage(String(variant.id), nextValue[0] || null)}
                 maxImages={1}
+                preserveAspectRatio={isOfferMode}
               />
             </div>
           ))}

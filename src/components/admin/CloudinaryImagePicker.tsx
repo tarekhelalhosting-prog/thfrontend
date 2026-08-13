@@ -18,13 +18,17 @@ type CloudinaryImagePickerProps = {
   onPrimaryIndexChange?: (nextIndex: number) => void;
   maxImages?: number;
   disabled?: boolean;
+  preserveAspectRatio?: boolean;
 };
 
 const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const maxFileSizeBytes = 5 * 1024 * 1024;
 
-async function uploadFileDirectToCloudinary(file: File): Promise<CloudinaryImageValue> {
-  const result = await uploadProductImageToCloudinary(file);
+async function uploadFileDirectToCloudinary(
+  file: File,
+  preserveAspectRatio: boolean
+): Promise<CloudinaryImageValue> {
+  const result = await uploadProductImageToCloudinary(file, { preserveAspectRatio });
   return { url: result.url, public_id: result.public_id };
 }
 
@@ -37,6 +41,7 @@ export default function CloudinaryImagePicker({
   onPrimaryIndexChange,
   maxImages = 1,
   disabled = false,
+  preserveAspectRatio = false,
 }: CloudinaryImagePickerProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -95,7 +100,7 @@ export default function CloudinaryImagePicker({
 
       for (const file of nextFiles) {
         setCurrentFileName(file.name);
-        const uploadedImage = await uploadFileDirectToCloudinary(file);
+        const uploadedImage = await uploadFileDirectToCloudinary(file, preserveAspectRatio);
         nextImages.push(uploadedImage);
       }
 

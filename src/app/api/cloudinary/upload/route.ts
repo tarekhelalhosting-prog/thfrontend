@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 export const runtime = "nodejs";
+const PRODUCT_IMAGE_TRANSFORMATION = "c_pad,w_1200,h_1200,b_white";
 
 function buildSignature(params: Record<string, string>, apiSecret: string) {
   const signatureBase = Object.keys(params)
@@ -23,19 +24,26 @@ export async function POST(request: Request) {
 
   const formData = await request.formData();
   const file = formData.get("file");
+  const preserveAspectRatio = formData.get("preserve_aspect_ratio") === "true";
 
   if (!(file instanceof File)) {
     return Response.json({ message: "Missing image file." }, { status: 400 });
   }
 
   const timestamp = String(Math.floor(Date.now() / 1000));
-  const signature = buildSignature({ folder, timestamp }, apiSecret);
+  const uploadParams = preserveAspectRatio
+    ? { folder, timestamp }
+    : { folder, timestamp, transformation: PRODUCT_IMAGE_TRANSFORMATION };
+  const signature = buildSignature(uploadParams, apiSecret);
 
   const cloudinaryForm = new FormData();
   cloudinaryForm.append("file", file, file.name);
   cloudinaryForm.append("api_key", apiKey);
   cloudinaryForm.append("timestamp", timestamp);
   cloudinaryForm.append("folder", folder);
+  if (!preserveAspectRatio) {
+    cloudinaryForm.append("transformation", PRODUCT_IMAGE_TRANSFORMATION);
+  }
   cloudinaryForm.append("signature", signature);
 
   const cloudinaryResponse = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
