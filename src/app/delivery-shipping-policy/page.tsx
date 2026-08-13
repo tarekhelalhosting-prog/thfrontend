@@ -97,6 +97,13 @@ export default function DeliveryShippingPolicy() {
             >
               واتس آب
             </a>
+            <a
+              href="mailto:tarekhelalstore@gmail.com"
+              className="border border-gold-400 text-gold-400 hover:bg-gold-400 hover:text-dark-bg font-black px-8 py-3 rounded-lg transition-all"
+              dir="ltr"
+            >
+              tarekhelalstore@gmail.com
+            </a>
           </div>
         </section>
 

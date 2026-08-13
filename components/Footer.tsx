@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import Image from "next/image";
-import { Phone, MapPin, ChevronUp, ArrowLeft } from "lucide-react";
+import { Phone, MapPin, ChevronUp, ArrowLeft, Mail } from "lucide-react";
 import { Category } from "../src/types";
 
 interface FooterProps {
@@ -184,6 +184,16 @@ export default function Footer({ categories, onCategorySelect }: FooterProps) {
                   dir="ltr"
                 >
                   {landlineDisplay}
+                </a>
+              </li>
+              <li className="flex items-center gap-2 justify-start">
+                <Mail size={14} className="text-gold-400 shrink-0" />
+                <a
+                  href="mailto:tarekhelalstore@gmail.com"
+                  className="hover:text-gold-400 transition-colors font-mono tracking-[0.02em]"
+                  dir="ltr"
+                >
+                  tarekhelalstore@gmail.com
                 </a>
               </li>
             </ul>
