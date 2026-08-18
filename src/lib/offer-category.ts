@@ -35,7 +35,7 @@ export function isOfferProduct(product: Product, categories: Category[]): boolea
 }
 
 export function getOfferProducts(products: Product[], categories: Category[]): Product[] {
-  return products.filter((product) => isOfferProduct(product, categories));
+  return products.filter((product) => isOfferProduct(product, categories) || product.isOnOffer);
 }
 
 // The offer's "مكونات العرض" (bundle components) list shown in the storefront
