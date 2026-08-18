@@ -17,7 +17,6 @@ import { Product, ProductVariant, Order, Category, Offer } from "../types";
 import { fetchCategories, fetchOffers, fetchOrders, fetchStorefrontProductPage } from "../lib/api";
 import { isProductUnavailable } from "../lib/product-availability";
 import { getProductDiscount, getProductVariantDiscount } from "../lib/product-offers";
-import { getOfferProducts } from "../lib/offer-category";
 import { STORAGE_KEYS } from "../lib/browser-storage";
 import { usePersistentLocalState } from "../hooks/usePersistentLocalState";
 import { useAuthSession } from "../hooks/useAuthSession";
@@ -42,6 +41,8 @@ function StoreFrontContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [offerProducts, setOfferProducts] = useState<Product[]>([]);
+  const [isOffersLoading, setIsOffersLoading] = useState(true);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const selectedCategory = searchParams.get("category") || "all";
@@ -56,7 +57,7 @@ function StoreFrontContent() {
         setIsCatalogLoading(true);
         setCurrentPage(1);
 
-        const [productsResult, categoriesResult, offersResult] = await Promise.allSettled([
+        const [productsResult, categoriesResult, offersResult, offerProductsResult] = await Promise.allSettled([
           fetchStorefrontProductPage({
             page: 1,
             pageSize: PAGE_SIZE,
@@ -66,6 +67,12 @@ function StoreFrontContent() {
           }),
           fetchCategories(),
           fetchOffers(),
+          fetchStorefrontProductPage({
+            page: 1,
+            pageSize: 100,
+            hasActiveOffer: true,
+            ordering: "-created_at",
+          }),
         ]);
 
         if (cancelled) {
@@ -75,6 +82,10 @@ function StoreFrontContent() {
         if (productsResult.status === "fulfilled") {
           setCatalogProducts(productsResult.value.products);
           setTotalCount(productsResult.value.count);
+        }
+
+        if (offerProductsResult.status === "fulfilled") {
+          setOfferProducts(offerProductsResult.value.products);
         }
 
         if (categoriesResult.status === "fulfilled") {
@@ -99,6 +110,7 @@ function StoreFrontContent() {
       } finally {
         if (!cancelled) {
           setIsCatalogLoading(false);
+          setIsOffersLoading(false);
         }
       }
     })();
@@ -244,13 +256,33 @@ function StoreFrontContent() {
     [catalogProducts, activeOffers]
   );
 
-  // Bundle/offer products live under a dedicated "Offers" category (see
-  // src/lib/offer-category.ts) - shown in their own distinct banner section
-  // right under the Hero, on top of the normal category grid/catalog below.
-  const bundleOffers = useMemo(
-    () => getOfferProducts(discountedCatalogProducts, catalogCategories),
-    [discountedCatalogProducts, catalogCategories]
+  // Offer products are loaded in a single dedicated backend request so the
+  // hero OffersShowcase always shows every product that currently has an
+  // active offer, regardless of which catalog page the user has scrolled to.
+  const discountedOfferProducts = useMemo(
+    () =>
+      offerProducts.map((product) => {
+        const discount = getProductDiscount(product, activeOffers);
+        if (!discount) {
+          return product;
+        }
+        const hasPriceDrop = discount.discountedPrice < discount.originalPrice;
+        return {
+          ...product,
+          price: discount.discountedPrice,
+          originalPrice: hasPriceDrop ? discount.originalPrice : undefined,
+          discountBadge: discount.badgeText,
+          isOnOffer: true,
+        };
+      }),
+    [offerProducts, activeOffers]
   );
+
+  // The backend's has_active_offer=true filter already returns exactly the
+  // right set (active offer match OR "عروض" category) - do not re-filter
+  // client-side, that would drop products whose offer isn't independently
+  // re-matched via the separately paginated activeOffers list.
+  const bundleOffers = discountedOfferProducts;
 
   const loadNextPage = useCallback(async () => {
     if (catalogProducts.length >= totalCount || isLoadingMore || isCatalogLoading) return;
@@ -333,11 +365,13 @@ function StoreFrontContent() {
       
       <main className="flex-grow">
         <HeroCarousel onShopNowClick={() => handleCategorySelect("all")} onWhatsAppClick={handleWhatsAppClick} />
-        <OffersShowcase
-          offers={bundleOffers}
-          onViewOffer={handleViewProduct}
-          onAddToCart={(product) => handleAddToCart(product, 1, product.variants?.[0] ?? null)}
-        />
+        {!isOffersLoading && bundleOffers.length > 0 && (
+          <OffersShowcase
+            offers={bundleOffers}
+            onViewOffer={handleViewProduct}
+            onAddToCart={(product) => handleAddToCart(product, 1, product.variants?.[0] ?? null)}
+          />
+        )}
         <div id="categories-section">
           <CategoriesList categories={catalogCategories} selectedCategory={selectedCategory} onCategorySelect={handleCategorySelect} />
         </div>

@@ -1699,6 +1699,7 @@ export type StorefrontListParams = {
   category?: string;
   search?: string;
   ordering?: string;
+  hasActiveOffer?: boolean;
 };
 
 export async function fetchStorefrontProductPage(params: StorefrontListParams = {}): Promise<ProductPage> {
@@ -1713,6 +1714,9 @@ export async function fetchStorefrontProductPage(params: StorefrontListParams = 
   }
   if (params.ordering) {
     query.set("ordering", params.ordering);
+  }
+  if (params.hasActiveOffer) {
+    query.set("has_active_offer", "true");
   }
 
   const response = await fetchFromFirstAvailable([`/products/?${query.toString()}`]);
