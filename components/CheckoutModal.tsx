@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { X, CheckCircle2, Calendar, ArrowRight, ClipboardCheck, CreditCard, Coins, MapPin, Plus, Loader2 } from "lucide-react";
 import { Address, CartItem, SalonBundle, Order, User } from "../src/types";
-import { getCartLineKey, getCartItemUnitPrice, describeCartItemVariant } from "../src/lib/cart";
+import { getCartLineKey, getCartItemUnitPrice, getCartItemOriginalUnitPrice, describeCartItemVariant } from "../src/lib/cart";
 import { createOrder, createPaymentIntention, createUserAddress, fetchUserAddresses } from "../src/lib/api";
 import PageState from "../src/components/ui/PageState";
 import InlineBanner from "../src/components/ui/InlineBanner";
@@ -110,6 +110,15 @@ export default function CheckoutModal({
     () => cartItems.reduce((acc, item) => acc + getCartItemUnitPrice(item) * item.quantity, 0),
     [cartItems]
   );
+  const originalSubtotal = useMemo(
+    () => cartItems.reduce((acc, item) => {
+      const original = getCartItemOriginalUnitPrice(item);
+      const unit = original ?? getCartItemUnitPrice(item);
+      return acc + unit * item.quantity;
+    }, 0),
+    [cartItems]
+  );
+  const totalSavings = Math.max(0, Math.round((originalSubtotal - subtotal) * 100) / 100);
   const processingFee = createdOrder?.processing_fee ?? Math.round(subtotal * 0.024 * 100) / 100;
   const displayTotal = createdOrder?.total ?? Math.round((subtotal + processingFee) * 100) / 100;
   const isBundleOnlyCheckout = Boolean(selectedBundle) && cartItems.length === 0;
@@ -293,6 +302,12 @@ export default function CheckoutModal({
               </div>
 
               <div className="border-t border-dark-border/40 pt-3 space-y-2 text-xs">
+                {totalSavings > 0 && (
+                  <div className="flex justify-between text-emerald-400">
+                    <span>توفير من العروض:</span>
+                    <span className="font-bold font-mono">- {formatPrice(totalSavings)}</span>
+                  </div>
+                )}
                 {processingFee > 0 && (
                   <div className="flex justify-between text-gray-400">
                     <span>رسوم معالجة الدفع:</span>
@@ -507,6 +522,12 @@ export default function CheckoutModal({
                   <span>المجموع الفرعي:</span>
                   <span className="text-gray-200 font-bold font-mono">{formatPrice(subtotal)}</span>
                 </div>
+                {totalSavings > 0 && (
+                  <div className="flex justify-between text-emerald-400">
+                    <span>توفير من العروض:</span>
+                    <span className="font-bold font-mono">- {formatPrice(totalSavings)}</span>
+                  </div>
+                )}
                 {processingFee > 0 && (
                   <div className="flex justify-between text-gray-400">
                     <span>رسوم معالجة الدفع:</span>

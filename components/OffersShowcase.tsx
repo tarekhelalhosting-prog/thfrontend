@@ -110,9 +110,9 @@ export default function OffersShowcase({ offers, onViewOffer, onAddToCart }: Off
           <div className="absolute inset-0 bg-gradient-to-l from-black/60 via-transparent to-transparent" />
         </div>
 
-        {/* Same top-corner position as the discount badge on ProductCard */}
+        {/* Same style as the discount badge on ProductCard, in red */}
         <div className="absolute top-3 sm:top-4 right-3 sm:right-4 z-10">
-          <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-gold-400/40 bg-gold-400/15 backdrop-blur-sm px-2.5 sm:px-3 py-1 text-[9px] sm:text-xs font-bold text-gold-300">
+          <span className="inline-flex w-fit items-center gap-1 rounded-lg bg-red-500 px-2 py-1 text-[10px] font-extrabold text-white shadow-md">
             {isUnavailable ? null : <Sparkles size={11} />}
             <span>{isUnavailable ? "غير متوفر حاليًا" : "عرض خاص وحصري"}</span>
           </span>

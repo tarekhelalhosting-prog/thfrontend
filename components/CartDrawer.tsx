@@ -2,7 +2,7 @@
 import React, { useMemo } from "react";
 import { X, Trash2, Plus, Minus, ShoppingBag, ArrowLeft, Gift } from "lucide-react";
 import { CartItem, Offer, Product } from "../src/types";
-import { getCartLineKey, getCartItemUnitPrice, getCartItemImage, describeCartItemVariant } from "../src/lib/cart";
+import { getCartLineKey, getCartItemUnitPrice, getCartItemOriginalUnitPrice, getCartItemImage, describeCartItemVariant } from "../src/lib/cart";
 import { getCartGiftPreviews } from "../src/lib/product-offers";
 
 interface CartDrawerProps {
@@ -94,6 +94,8 @@ export default function CartDrawer({
                 const lineKey = getCartLineKey(item);
                 const variantDescription = describeCartItemVariant(item);
                 const unitPrice = getCartItemUnitPrice(item);
+                const originalUnitPrice = getCartItemOriginalUnitPrice(item);
+                const lineSubtotal = unitPrice * item.quantity;
                 return (
                 <div
                   key={lineKey}
@@ -118,9 +120,26 @@ export default function CartDrawer({
                         {variantDescription}
                       </span>
                     )}
-                    <span className="text-xs font-bold text-gold-400 mt-1 block">
-                      {formatPrice(unitPrice)}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      <span className="text-xs font-bold text-gold-400">
+                        {formatPrice(unitPrice)}
+                      </span>
+                      {originalUnitPrice && originalUnitPrice > unitPrice && (
+                        <span className="text-[10px] text-gray-500 line-through">
+                          {formatPrice(originalUnitPrice)}
+                        </span>
+                      )}
+                      {item.applied_offer?.offer_type === "FIXED" && (
+                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded">
+                          وفّر {Math.round(originalUnitPrice! - unitPrice)} ج
+                        </span>
+                      )}
+                      {item.applied_offer?.offer_type === "PERCENTAGE" && (
+                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded">
+                          خصم {Math.round(((originalUnitPrice! - unitPrice) / originalUnitPrice!) * 100)}%
+                        </span>
+                      )}
+                    </div>
 
                     {/* Quantity Controls */}
                     <div className="flex items-center gap-2 mt-2">
@@ -157,8 +176,8 @@ export default function CartDrawer({
 
                   {/* Individual Item Subtotal */}
                   <div className="text-left font-bold text-xs text-gray-200 shrink-0 pt-0.5 sm:pt-0">
-                    <span className="hidden sm:inline">{formatPrice(unitPrice * item.quantity)}</span>
-                    <span className="sm:hidden text-[10px]">{formatPrice(unitPrice * item.quantity)}</span>
+                    <span className="hidden sm:inline">{formatPrice(lineSubtotal)}</span>
+                    <span className="sm:hidden text-[10px]">{formatPrice(lineSubtotal)}</span>
                   </div>
                 </div>
                 );

@@ -189,6 +189,15 @@ export interface CartItem {
   unit_price: number;
   quantity: number;
   subtotal: number;
+  // Optional active offer snapshot so the storefront can show the discounted
+  // unit price in the cart/checkout even before the order is created.
+  applied_offer?: {
+    offer_id: string;
+    offer_name: string;
+    offer_type: Offer["offer_type"];
+    original_unit_price: number;
+    discounted_unit_price: number;
+  } | null;
 }
 
 export interface Review {

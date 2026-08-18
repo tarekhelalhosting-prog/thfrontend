@@ -154,13 +154,11 @@ export function getCartGiftPreviews(
  * (first) variant wins over a product-wide (variant = null) match, same
  * priority order as the backend.
  */
-export function getProductDiscount(
+function findBestDiscountOffer(
   product: Product,
-  offers: Offer[]
-): ProductDiscountInfo | null {
-  const primaryVariantId = product.variants?.[0]?.id;
-  const basePrice = product.price;
-
+  offers: Offer[],
+  variantId?: string
+): Offer | null {
   let exactMatch: Offer | null = null;
   let productWideMatch: Offer | null = null;
 
@@ -174,7 +172,7 @@ export function getProductDiscount(
         continue;
       }
 
-      if (primaryVariantId && item.variant === primaryVariantId) {
+      if (variantId && item.variant === variantId) {
         exactMatch = offer;
       } else if (!item.variant) {
         productWideMatch = offer;
@@ -182,11 +180,10 @@ export function getProductDiscount(
     }
   }
 
-  const offer = exactMatch || productWideMatch;
-  if (!offer) {
-    return null;
-  }
+  return exactMatch || productWideMatch;
+}
 
+function buildProductDiscountInfo(offer: Offer, basePrice: number): ProductDiscountInfo | null {
   if (offer.offer_type === "BUY_X_GET_Y") {
     return {
       offerId: offer.id,
@@ -214,4 +211,42 @@ export function getProductDiscount(
     discountedPrice,
     badgeText,
   };
+}
+
+/**
+ * Mirrors the backend's `get_active_offer_product` + `calculate_unit_price`
+ * (offers/services.py) purely on the client, so the storefront can show a
+ * discount badge/price on product listing cards without any extra
+ * per-product backend requests - just the one bulk `fetchOffers()` call
+ * made once alongside `fetchProducts()`.
+ *
+ * Only REQUIRED offer_products can discount the product being displayed
+ * (GIFT rows describe the free item awarded by a Buy X Get Y offer, not a
+ * discount on this product). An exact match on the product's primary
+ * (first) variant wins over a product-wide (variant = null) match, same
+ * priority order as the backend.
+ */
+export function getProductDiscount(
+  product: Product,
+  offers: Offer[]
+): ProductDiscountInfo | null {
+  const primaryVariantId = product.variants?.[0]?.id;
+  const basePrice = product.price;
+  const offer = findBestDiscountOffer(product, offers, primaryVariantId);
+  return offer ? buildProductDiscountInfo(offer, basePrice) : null;
+}
+
+/**
+ * Variant-aware version of `getProductDiscount`. Used when the customer has
+ * selected a specific variant so the cart/checkout show the price that
+ * applies to that variant.
+ */
+export function getProductVariantDiscount(
+  product: Product,
+  variant: ProductVariant | null,
+  offers: Offer[]
+): ProductDiscountInfo | null {
+  const basePrice = variant?.price ?? product.price;
+  const offer = findBestDiscountOffer(product, offers, variant?.id);
+  return offer ? buildProductDiscountInfo(offer, basePrice) : null;
 }

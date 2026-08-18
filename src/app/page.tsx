@@ -16,7 +16,7 @@ import InlineBanner from "../components/ui/InlineBanner";
 import { Product, ProductVariant, Order, Category, Offer } from "../types";
 import { fetchCategories, fetchOffers, fetchOrders, fetchStorefrontProducts } from "../lib/api";
 import { isProductUnavailable } from "../lib/product-availability";
-import { getProductDiscount } from "../lib/product-offers";
+import { getProductDiscount, getProductVariantDiscount } from "../lib/product-offers";
 import { getOfferProducts } from "../lib/offer-category";
 import { STORAGE_KEYS } from "../lib/browser-storage";
 import { usePersistentLocalState } from "../hooks/usePersistentLocalState";
@@ -134,11 +134,22 @@ function StoreFrontContent() {
       return;
     }
 
-    addCartItem(product, variant, quantity);
+    const discount = variant ? getProductVariantDiscount(product, variant, activeOffers) : getProductDiscount(product, activeOffers);
+    const activeOffer = discount && discount.discountedPrice < discount.originalPrice
+      ? {
+          offer_id: discount.offerId,
+          offer_name: discount.offerName,
+          offer_type: discount.offerType,
+          original_unit_price: discount.originalPrice,
+          discounted_unit_price: discount.discountedPrice,
+        }
+      : undefined;
+
+    addCartItem(product, variant, quantity, activeOffer);
     setIsCartOpen(true);
   };
 
-  
+
   const handleToggleFavorite = (product: Product) => {
     setFavorites(prev =>
       prev.includes(product.id) ? prev.filter(id => id !== product.id) : [...prev, product.id]

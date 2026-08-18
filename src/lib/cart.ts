@@ -8,8 +8,14 @@ export function getCartLineKey(item: CartItem): string {
 }
 
 // A variant's own price always wins over the product's fallback price.
+// If the cart line carries an active offer snapshot, show the discounted
+// unit price so the cart/checkout reflect the real amount the customer pays.
 export function getCartItemUnitPrice(item: CartItem): number {
-  return item.unit_price;
+  return item.applied_offer?.discounted_unit_price ?? item.unit_price;
+}
+
+export function getCartItemOriginalUnitPrice(item: CartItem): number | null {
+  return item.applied_offer?.original_unit_price ?? null;
 }
 
 export function getCartItemImage(item: CartItem): string {

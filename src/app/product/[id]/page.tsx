@@ -14,7 +14,7 @@ import { useAuthSession } from "../../../hooks/useAuthSession";
 import { useCart } from "../../../hooks/useCart";
 import { fetchCategories, fetchOffers, fetchOrders, fetchProductById, fetchStorefrontProducts, isApiRequestError } from "../../../lib/api";
 import { getOfferComponents, isOfferCategory } from "../../../lib/offer-category";
-import { getBuyXGetYOffersForProduct } from "../../../lib/product-offers";
+import { getBuyXGetYOffersForProduct, getProductDiscount, getProductVariantDiscount } from "../../../lib/product-offers";
 import { isProductUnavailable } from "../../../lib/product-availability";
 
 function ProductDetailsContent({
@@ -434,7 +434,18 @@ export default function ProductDetailPage() {
       return;
     }
 
-    addCartItem(nextProduct, variant, quantity);
+    const discount = variant ? getProductVariantDiscount(nextProduct, variant, activeOffers) : getProductDiscount(nextProduct, activeOffers);
+    const activeOffer = discount && discount.discountedPrice < discount.originalPrice
+      ? {
+          offer_id: discount.offerId,
+          offer_name: discount.offerName,
+          offer_type: discount.offerType,
+          original_unit_price: discount.originalPrice,
+          discounted_unit_price: discount.discountedPrice,
+        }
+      : undefined;
+
+    addCartItem(nextProduct, variant, quantity, activeOffer);
     setIsCartOpen(true);
   };
 

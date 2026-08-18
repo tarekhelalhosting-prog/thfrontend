@@ -5,20 +5,21 @@ import { usePersistentLocalState } from "./usePersistentLocalState";
 import { STORAGE_KEYS } from "../lib/browser-storage";
 import { addCartItem, clearCart as clearCartApi, fetchCart, removeCartItem, updateCartItem } from "../lib/api";
 import { isValidCartItem } from "../lib/cart";
-import { CartItem, Product, ProductVariant, User } from "../types";
+import { CartItem, Offer, Product, ProductVariant, User } from "../types";
 
 interface UseCartResult {
   cartItems: CartItem[];
   isHydrated: boolean;
   cartCount: number;
-  addItem: (product: Product, variant: ProductVariant | null, quantity?: number) => void;
+  addItem: (product: Product, variant: ProductVariant | null, quantity?: number, activeOffer?: CartItem["applied_offer"]) => void;
   updateQuantity: (productVariantId: string, delta: number) => void;
   removeItem: (productVariantId: string) => void;
   clearCart: () => void;
 }
 
-function buildGuestCartItem(product: Product, variant: ProductVariant, quantity: number): CartItem {
-  const unitPrice = variant.price ?? product.price;
+function buildGuestCartItem(product: Product, variant: ProductVariant, quantity: number, activeOffer?: CartItem["applied_offer"]): CartItem {
+  const originalUnitPrice = variant.price ?? product.price;
+  const discountedUnitPrice = activeOffer?.discounted_unit_price ?? originalUnitPrice;
   const description = variant.attributes?.length
     ? variant.attributes.map((attribute) => attribute.value).join(" - ")
     : "";
@@ -28,9 +29,10 @@ function buildGuestCartItem(product: Product, variant: ProductVariant, quantity:
     product_name: product.name,
     variant_description: description,
     image: variant.media_url || product.image,
-    unit_price: unitPrice,
+    unit_price: originalUnitPrice,
     quantity,
-    subtotal: unitPrice * quantity,
+    subtotal: discountedUnitPrice * quantity,
+    applied_offer: activeOffer ?? null,
   };
 }
 
@@ -74,7 +76,6 @@ export function useCart(currentUser: User | null): UseCartResult {
 
     if (!userId) {
       loggedInUserIdRef.current = null;
-      setServerCart(null);
       return;
     }
 
@@ -120,21 +121,24 @@ export function useCart(currentUser: User | null): UseCartResult {
       : [];
   const isHydrated = isAuthenticated ? serverCart !== null && !isServerCartLoading : isLocalCartHydrated;
 
-  const addItem = useCallback((product: Product, variant: ProductVariant | null, quantity = 1) => {
+  const addItem = useCallback((product: Product, variant: ProductVariant | null, quantity = 1, activeOffer?: CartItem["applied_offer"]) => {
     if (!variant) {
       return;
     }
 
     if (isAuthenticated) {
       void addCartItem(variant.id, quantity).then((updatedItem) => {
+        const itemWithOffer: CartItem = activeOffer
+          ? { ...updatedItem, applied_offer: activeOffer, subtotal: activeOffer.discounted_unit_price * updatedItem.quantity }
+          : updatedItem;
         setServerCart((current) => {
           const existingIndex = (current ?? []).findIndex((item) => item.product_variant_id === variant.id);
           if (existingIndex >= 0) {
             const next = [...(current ?? [])];
-            next[existingIndex] = updatedItem;
+            next[existingIndex] = itemWithOffer;
             return next;
           }
-          return [...(current ?? []), updatedItem];
+          return [...(current ?? []), itemWithOffer];
         });
       });
       return;
@@ -145,14 +149,15 @@ export function useCart(currentUser: User | null): UseCartResult {
       if (existingIndex >= 0) {
         const next = [...current];
         const nextQuantity = next[existingIndex].quantity + quantity;
+        const unitPrice = next[existingIndex].applied_offer?.discounted_unit_price ?? next[existingIndex].unit_price;
         next[existingIndex] = {
           ...next[existingIndex],
           quantity: nextQuantity,
-          subtotal: next[existingIndex].unit_price * nextQuantity,
+          subtotal: unitPrice * nextQuantity,
         };
         return next;
       }
-      return [...current, buildGuestCartItem(product, variant, quantity)];
+      return [...current, buildGuestCartItem(product, variant, quantity, activeOffer)];
     });
   }, [isAuthenticated, setLocalCart]);
 
@@ -195,22 +200,27 @@ export function useCart(currentUser: User | null): UseCartResult {
           });
         }
 
-        return (current ?? []).map((item) =>
-          item.product_variant_id === productVariantId
-            ? { ...item, quantity: nextQuantity, subtotal: item.unit_price * nextQuantity }
-            : item
-        );
+        return (current ?? []).map((item) => {
+          if (item.product_variant_id !== productVariantId) {
+            return item;
+          }
+          const unitPrice = item.applied_offer?.discounted_unit_price ?? item.unit_price;
+          return { ...item, quantity: nextQuantity, subtotal: unitPrice * nextQuantity };
+        });
       });
       return;
     }
 
     setLocalCart((current) =>
       current
-        .map((item) =>
-          item.product_variant_id === productVariantId
-            ? { ...item, quantity: item.quantity + delta, subtotal: item.unit_price * (item.quantity + delta) }
-            : item
-        )
+        .map((item) => {
+          if (item.product_variant_id !== productVariantId) {
+            return item;
+          }
+          const nextQuantity = item.quantity + delta;
+          const unitPrice = item.applied_offer?.discounted_unit_price ?? item.unit_price;
+          return { ...item, quantity: nextQuantity, subtotal: unitPrice * nextQuantity };
+        })
         .filter((item) => item.quantity > 0)
     );
   }, [isAuthenticated, setLocalCart]);
