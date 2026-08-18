@@ -157,11 +157,13 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
 
           // The backend now matches variants by `id` on update instead of
           // replacing the whole list, so every entry must include it.
+          // Only include image and public_id if they have actual values to avoid
+          // clearing variant images when not intended.
           return {
             id: variant.id,
             price: variant.price,
-            image: nextVariantImage || undefined,
-            public_id: variantImageDraft?.public_id,
+            ...(nextVariantImage ? { image: nextVariantImage } : {}),
+            ...(variantImageDraft?.public_id ? { public_id: variantImageDraft.public_id } : {}),
             attributes: (variant.attributes || []).map((attribute) => ({
               attribute_type: attribute.attribute_type,
               value: attribute.value,

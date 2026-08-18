@@ -242,6 +242,11 @@ export default function ProductManagementForm({ mode, categories, initialProduct
   });
 
   const handleSubmit = () => {
+    // Prevent double-submission by checking isSubmitting flag early
+    if (isSubmitting) {
+      return;
+    }
+
     void (async () => {
       setFormError("");
 
@@ -251,6 +256,9 @@ export default function ProductManagementForm({ mode, categories, initialProduct
 
         if (mode === "create") {
           const savedProduct = await createProduct(buildProductPayload());
+          // Use setTimeout to ensure state is set before navigation,
+          // preventing the user from clicking the button again during transition
+          await new Promise((resolve) => setTimeout(resolve, 100));
           router.push(`/admin/products/${savedProduct.id}/images`);
           return;
         }
