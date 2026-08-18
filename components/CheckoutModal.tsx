@@ -110,8 +110,8 @@ export default function CheckoutModal({
     () => cartItems.reduce((acc, item) => acc + getCartItemUnitPrice(item) * item.quantity, 0),
     [cartItems]
   );
-  const processingFee = createdOrder?.processing_fee ?? 0;
-  const displayTotal = createdOrder?.total ?? subtotal;
+  const processingFee = createdOrder?.processing_fee ?? Math.round(subtotal * 0.024 * 100) / 100;
+  const displayTotal = createdOrder?.total ?? Math.round((subtotal + processingFee) * 100) / 100;
   const isBundleOnlyCheckout = Boolean(selectedBundle) && cartItems.length === 0;
   const selectedAddress = addresses.find((address) => address.id === selectedAddressId) || null;
   const createdOrderDateLabel = useMemo(

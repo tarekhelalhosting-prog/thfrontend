@@ -153,6 +153,10 @@ export interface Order {
   customerEmail?: string;
   city?: string;
   address?: string;
+  addressTitle?: string;
+  addressCountry?: string;
+  addressCity?: string;
+  addressStreet?: string;
 }
 
 export interface OrderItem {

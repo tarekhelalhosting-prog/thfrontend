@@ -149,7 +149,7 @@ export default function OrderDetailPage() {
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
           <Panel>
-            <SectionHeader eyebrow="Customer" title="بيانات العميل" subtitle="اسم العميل ورقم الهاتف." />
+            <SectionHeader eyebrow="Customer" title="بيانات العميل" subtitle="اسم العميل ورقم الهاتف وعنوان التوصيل." />
             <div className="grid gap-4 px-5 py-5 sm:grid-cols-2">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs text-slate-500">الاسم</p>
@@ -158,6 +158,16 @@ export default function OrderDetailPage() {
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs text-slate-500">الهاتف</p>
                 <p className="mt-1 font-bold text-slate-950">{order.customerPhone || "—"}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
+                <p className="text-xs text-slate-500">عنوان التوصيل</p>
+                <p className="mt-1 font-bold text-slate-950">
+                  {order.addressTitle || order.addressCity
+                    ? [order.addressTitle, order.addressCountry, order.addressCity, order.addressStreet]
+                        .filter(Boolean)
+                        .join(" - ")
+                    : order.address || order.city || "—"}
+                </p>
               </div>
             </div>
           </Panel>

@@ -79,10 +79,18 @@ type ApiOrderUser = {
   phone?: string;
 };
 
+type ApiOrderAddress = {
+  id?: string | number;
+  title?: string;
+  country?: string;
+  city?: string;
+  street?: string;
+};
+
 type ApiOrder = {
   id?: string | number;
   user?: ApiOrderUser | string | number | null;
-  address?: string | number;
+  address?: string | number | ApiOrderAddress | null;
   status?: string;
   subtotal?: string | number;
   discount?: string | number;
@@ -746,10 +754,22 @@ export function mapDjangoOrder(djangoOrder: ApiOrder): Order {
   const userId = user ? readStringValue(user.id) : readStringValue(rawUser);
   const customerName = user ? `${user.first_name || ""} ${user.last_name || ""}`.trim() : "";
 
+  const rawAddress = djangoOrder.address;
+  const addressObj = rawAddress && typeof rawAddress === "object" ? (rawAddress as ApiOrderAddress) : null;
+  const addressId = addressObj ? readStringValue(addressObj.id) : readStringValue(rawAddress);
+  const addressTitle = addressObj?.title || "";
+  const addressCountry = addressObj?.country || "";
+  const addressCity = addressObj?.city || "";
+  const addressStreet = addressObj?.street || "";
+
   return {
     id: orderId,
     user_id: userId || null,
-    address_id: readStringValue(djangoOrder.address) || null,
+    address_id: addressId || null,
+    addressTitle,
+    addressCountry,
+    addressCity,
+    addressStreet,
     status: normalizeOrderStatus(djangoOrder.status),
     subtotal: Number(djangoOrder.subtotal || 0),
     discount: Number(djangoOrder.discount || 0),
