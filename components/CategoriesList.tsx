@@ -9,40 +9,14 @@ interface CategoriesListProps {
 }
 
 export default function CategoriesList({ categories, selectedCategory, onCategorySelect }: CategoriesListProps) {
-  const firstItemRef = useRef<HTMLButtonElement>(null);
-  const lastItemRef = useRef<HTMLButtonElement>(null);
   const desktopScrollerRef = useRef<HTMLDivElement>(null);
   const desktopFirstItemRef = useRef<HTMLButtonElement>(null);
   const desktopLastItemRef = useRef<HTMLButtonElement>(null);
-  const [firstVisible, setFirstVisible] = useState(true);
-  const [lastVisible, setLastVisible] = useState(false);
   const [desktopFirstVisible, setDesktopFirstVisible] = useState(true);
   const [desktopLastVisible, setDesktopLastVisible] = useState(false);
 
-  // Edge fades should only hint at scrollable content that's actually still
-  // hidden - track the first/last card's visibility so each fade disappears
-  // once the user has scrolled to that edge, instead of staying on always.
-  useEffect(() => {
-    if (categories.length <= 2) return;
-    const firstEl = firstItemRef.current;
-    const lastEl = lastItemRef.current;
-    if (!firstEl || !lastEl) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.target === firstEl) setFirstVisible(entry.isIntersecting);
-          if (entry.target === lastEl) setLastVisible(entry.isIntersecting);
-        });
-      },
-      { root: firstEl.closest("[data-scroller]"), threshold: 0.95 }
-    );
-
-    observer.observe(firstEl);
-    observer.observe(lastEl);
-    return () => observer.disconnect();
-  }, [categories.length]);
-
+  // Desktop edge arrows: track the first/last card's visibility so each arrow
+  // disappears once the user has scrolled to that edge.
   useEffect(() => {
     const scroller = desktopScrollerRef.current;
     const firstItem = desktopFirstItemRef.current;
@@ -101,13 +75,12 @@ export default function CategoriesList({ categories, selectedCategory, onCategor
             style={{ WebkitOverflowScrolling: "touch" }}
           >
             <div className="grid grid-flow-col auto-cols-[calc((100%-0.75rem)/2)] gap-3">
-            {categories.map((cat, index) => {
+            {categories.map((cat) => {
               const isSelected = selectedCategory === cat.id;
               return (
                 <button
                   type="button"
                   key={cat.id}
-                  ref={index === 0 ? firstItemRef : index === categories.length - 1 ? lastItemRef : undefined}
                   onClick={() => onCategorySelect(cat.id)}
                   className={`snap-start cursor-pointer rounded-2xl p-3 bg-dark-card border transition-all duration-300 text-center flex flex-col items-center group select-none min-h-[168px] ${isSelected ? 'border-gold-400 shadow-lg shadow-gold-500/10' : 'border-dark-border hover:border-gold-400/30'}`}
                 >
@@ -135,12 +108,6 @@ export default function CategoriesList({ categories, selectedCategory, onCategor
             })}
             </div>
 
-            {categories.length > 2 && !firstVisible && (
-              <div className="pointer-events-none absolute inset-y-0 right-4 w-7 bg-gradient-to-l from-dark-bg to-transparent" />
-            )}
-            {categories.length > 2 && !lastVisible && (
-              <div className="pointer-events-none absolute inset-y-0 left-4 w-7 bg-gradient-to-r from-dark-bg to-transparent" />
-            )}
           </div>
         </div>
 
