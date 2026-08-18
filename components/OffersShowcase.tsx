@@ -17,40 +17,14 @@ function formatPrice(price: number) {
 }
 
 export default function OffersShowcase({ offers, onViewOffer, onAddToCart }: OffersShowcaseProps) {
-  const firstItemRef = useRef<HTMLDivElement>(null);
-  const lastItemRef = useRef<HTMLDivElement>(null);
   const desktopScrollerRef = useRef<HTMLDivElement>(null);
   const desktopFirstItemRef = useRef<HTMLDivElement>(null);
   const desktopLastItemRef = useRef<HTMLDivElement>(null);
-  const [firstVisible, setFirstVisible] = useState(true);
-  const [lastVisible, setLastVisible] = useState(false);
   const [desktopFirstVisible, setDesktopFirstVisible] = useState(true);
   const [desktopLastVisible, setDesktopLastVisible] = useState(false);
 
-  // Edge fades should only hint at scrollable content that's actually still
-  // hidden - track the first/last card's visibility so each fade disappears
-  // once the user has scrolled to that edge, instead of staying on always.
-  useEffect(() => {
-    if (offers.length <= 2) return;
-    const firstEl = firstItemRef.current;
-    const lastEl = lastItemRef.current;
-    if (!firstEl || !lastEl) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.target === firstEl) setFirstVisible(entry.isIntersecting);
-          if (entry.target === lastEl) setLastVisible(entry.isIntersecting);
-        });
-      },
-      { root: firstEl.closest("[data-scroller]"), threshold: 0.95 }
-    );
-
-    observer.observe(firstEl);
-    observer.observe(lastEl);
-    return () => observer.disconnect();
-  }, [offers.length]);
-
+  // Desktop edge fades: track the first/last card's visibility so each fade
+  // disappears once the user has scrolled to that edge.
   useEffect(() => {
     if (offers.length <= 2) return;
     const scroller = desktopScrollerRef.current;
@@ -87,7 +61,7 @@ export default function OffersShowcase({ offers, onViewOffer, onAddToCart }: Off
     return null;
   }
 
-  function renderOfferCard(offer: Product, layout: "mobile" | "desktop", isFirst?: boolean, isLast?: boolean) {
+  function renderOfferCard(offer: Product, layout: "mobile" | "desktop") {
     const components = getOfferComponents(offer);
     const isMobile = layout === "mobile";
     const isUnavailable = isProductUnavailable(offer);
@@ -95,7 +69,6 @@ export default function OffersShowcase({ offers, onViewOffer, onAddToCart }: Off
     return (
       <div
         key={offer.id}
-        ref={isFirst ? firstItemRef : isLast ? lastItemRef : undefined}
         onClick={() => onViewOffer(offer)}
         className={`group relative overflow-hidden rounded-2xl sm:rounded-3xl border border-gold-400/25 bg-dark-card shadow-lg shadow-gold-900/10 cursor-pointer select-none ${isMobile ? "snap-start" : ""}`}
       >
@@ -186,17 +159,9 @@ export default function OffersShowcase({ offers, onViewOffer, onAddToCart }: Off
             style={{ WebkitOverflowScrolling: "touch" }}
           >
             <div className="grid grid-flow-col auto-cols-[calc((100%-0.75rem)/2)] gap-3">
-              {offers.map((offer, index) =>
-                renderOfferCard(offer, "mobile", index === 0, index === offers.length - 1)
-              )}
+              {offers.map((offer) => renderOfferCard(offer, "mobile"))}
             </div>
 
-            {offers.length > 2 && !firstVisible && (
-              <div className="pointer-events-none absolute inset-y-0 right-4 w-7 bg-gradient-to-l from-dark-bg to-transparent" />
-            )}
-            {offers.length > 2 && !lastVisible && (
-              <div className="pointer-events-none absolute inset-y-0 left-4 w-7 bg-gradient-to-r from-dark-bg to-transparent" />
-            )}
           </div>
         </div>
 
