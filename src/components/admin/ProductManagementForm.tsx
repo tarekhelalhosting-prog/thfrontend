@@ -148,8 +148,25 @@ export default function ProductManagementForm({ mode, categories, initialProduct
       return event.returnValue;
     };
 
+    const handlePopState = (event: PopStateEvent) => {
+      // User pressed browser back/forward while form is dirty.
+      if (window.confirm("لديك بيانات لم تحفظها. هل أنت متأكد أنك تريد المغادرة دون حفظ؟")) {
+        return;
+      }
+
+      // Cancel the navigation: push the current history entry back so the user stays.
+      event.preventDefault();
+      window.history.pushState(null, "", window.location.href);
+    };
+
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    window.history.pushState(null, "", window.location.href);
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+    };
   }, [isDirty, isSubmitting]);
   const selectedCategoryObj = categories.find((category) => category.id === effectiveCategoryId);
   const isOfferMode = isOfferCategory(selectedCategoryObj);
