@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Image as ImageIcon, Loader2, Plus, Trash2 } from "lucide-react";
@@ -119,59 +119,6 @@ export default function ProductManagementForm({ mode, categories, initialProduct
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const effectiveCategoryId = categoryId || defaultCategoryId || categories[0]?.id || "";
-
-  const initialSnapshot = useMemo(
-    () => ({
-      name: initialProduct?.name || "",
-      description: initialProduct?.description || "",
-      categoryId: initialProduct?.category_id || initialProduct?.category || defaultCategoryId || "",
-      variants: initialProduct ? mapVariants(initialProduct) : [makeEmptyVariant()],
-    }),
-    [initialProduct, defaultCategoryId]
-  );
-
-  const isDirty = useMemo(() => {
-    const current = { name, description, categoryId: effectiveCategoryId, variants };
-    return JSON.stringify(current) !== JSON.stringify(initialSnapshot);
-  }, [name, description, effectiveCategoryId, variants, initialSnapshot]);
-
-  useEffect(() => {
-    if (!isDirty || isSubmitting) {
-      return;
-    }
-
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      // Modern browsers show a generic message regardless of the return value,
-      // but assigning a string keeps older browsers happy.
-      event.returnValue = "لديك بيانات لم تحفظها. هل أنت متأكد أنك تريد المغادرة؟";
-      return event.returnValue;
-    };
-
-    const handlePopState = (event: PopStateEvent) => {
-      // User pressed browser back/forward while form is dirty.
-      if (window.confirm("لديك بيانات لم تحفظها. هل أنت متأكد أنك تريد المغادرة دون حفظ؟")) {
-        return;
-      }
-
-      // Cancel the navigation: push the current history entry back so the user stays.
-      // Reuse the existing history.state (instead of null) so Next.js's own
-      // router bookkeeping attached to this entry isn't wiped out - clobbering
-      // it with null previously broke subsequent router.push() calls, causing
-      // Next to hard-reload the current route instead of navigating.
-      event.preventDefault();
-      window.history.pushState(window.history.state, "", window.location.href);
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    window.history.pushState(window.history.state, "", window.location.href);
-    window.addEventListener("popstate", handlePopState);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      window.removeEventListener("popstate", handlePopState);
-    };
-  }, [isDirty, isSubmitting]);
   const selectedCategoryObj = categories.find((category) => category.id === effectiveCategoryId);
   const isOfferMode = isOfferCategory(selectedCategoryObj);
 
@@ -260,9 +207,6 @@ export default function ProductManagementForm({ mode, categories, initialProduct
 
         if (mode === "create") {
           const savedProduct = await createProduct(buildProductPayload());
-          // Use setTimeout to ensure state is set before navigation,
-          // preventing the user from clicking the button again during transition
-          await new Promise((resolve) => setTimeout(resolve, 100));
           router.push(`/admin/products/${savedProduct.id}/images`);
           return;
         }
@@ -494,12 +438,7 @@ export default function ProductManagementForm({ mode, categories, initialProduct
       <div className="flex items-center justify-end gap-3">
         <button
           type="button"
-          onClick={() => {
-            if (isDirty && !window.confirm("لديك بيانات لم تحفظها. هل أنت متأكد أنك تريد المغادرة دون حفظ؟")) {
-              return;
-            }
-            router.push("/admin/products");
-          }}
+          onClick={() => router.push("/admin/products")}
           className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
         >
           إلغاء
