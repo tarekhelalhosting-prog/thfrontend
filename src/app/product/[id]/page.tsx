@@ -1,30 +1,33 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowRight, ShoppingCart } from "lucide-react";
+import { ArrowRight, Gift, ShoppingCart } from "lucide-react";
 import Header from "../../../../components/Header";
 import Footer from "../../../../components/Footer";
 import CartDrawer from "../../../../components/CartDrawer";
 import AccountModal from "../../../../components/AccountModal";
 import CheckoutModal from "../../../../components/CheckoutModal";
 import PageState from "../../../components/ui/PageState";
-import { Category, Order, Product, ProductVariant } from "../../../types";
+import { Category, Offer, Order, Product, ProductVariant } from "../../../types";
 import { useAuthSession } from "../../../hooks/useAuthSession";
 import { useCart } from "../../../hooks/useCart";
-import { fetchCategories, fetchOrders, fetchProductById, fetchStorefrontProducts, isApiRequestError } from "../../../lib/api";
+import { fetchCategories, fetchOffers, fetchOrders, fetchProductById, fetchStorefrontProducts, isApiRequestError } from "../../../lib/api";
 import { getOfferComponents, isOfferCategory } from "../../../lib/offer-category";
+import { getBuyXGetYOffersForProduct } from "../../../lib/product-offers";
 import { isProductUnavailable } from "../../../lib/product-availability";
 
 function ProductDetailsContent({
   product,
   categories,
   allProducts,
+  offers,
   onAddToCart,
 }: {
   product: Product;
   categories: Category[];
   allProducts: Product[];
+  offers: Offer[];
   onAddToCart: (product: Product, quantity: number, variant: ProductVariant | null) => void;
 }) {
   const router = useRouter();
@@ -50,6 +53,10 @@ function ProductDetailsContent({
   const variants = product.variants || [];
   const selectedVariant = variants.find((variant) => variant.id === selectedVariantId) || variants[0] || null;
   const displayPrice = selectedVariant?.price ?? product.price;
+  const buyXGetYGifts = useMemo(
+    () => getBuyXGetYOffersForProduct(product, selectedVariant, offers),
+    [offers, product, selectedVariant]
+  );
   const variantsCount = variants.length;
   const imagesCount = product.images?.length || 1;
   const isUnavailable = isProductUnavailable(product);
@@ -170,6 +177,29 @@ function ProductDetailsContent({
                 {product.description}
               </p>
             </div>
+
+            {buyXGetYGifts.map((offer) => (
+              <div key={offer.offerId} className="rounded-2xl border border-emerald-400/40 bg-emerald-50 p-4 text-right">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white">
+                    <Gift size={18} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black text-emerald-800">{offer.offerName}</p>
+                    <p className="mt-1 text-xs font-bold text-emerald-700">
+                      اشترِ {offer.requiredQuantity} من هذا الصنف واحصل على:
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {offer.gifts.map((gift) => (
+                        <span key={`${offer.offerId}-${gift.variantId ?? gift.productId}`} className="rounded-lg border border-emerald-400/30 bg-white px-2.5 py-1 text-[11px] font-bold text-emerald-800">
+                          {gift.quantity > 1 ? `${gift.quantity} x ` : ""}{gift.productName}{gift.variantDescription ? ` - ${gift.variantDescription}` : ""} مجانا
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
 
             {variants.length > 0 && (
               <div className="space-y-3">
@@ -310,6 +340,7 @@ export default function ProductDetailPage() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [catalogCategories, setCatalogCategories] = useState<Category[]>([]);
+  const [activeOffers, setActiveOffers] = useState<Offer[]>([]);
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<"offline" | "server" | null>(null);
@@ -347,10 +378,11 @@ export default function ProductDetailPage() {
 
     void (async () => {
       try {
-        const [productResult, productsResult, categoriesResult] = await Promise.allSettled([
+        const [productResult, productsResult, categoriesResult, offersResult] = await Promise.allSettled([
           fetchProductById(params.id),
           fetchStorefrontProducts(),
           fetchCategories(),
+          fetchOffers(),
         ]);
 
         if (cancelled) {
@@ -375,6 +407,7 @@ export default function ProductDetailPage() {
 
         setCatalogProducts(nextProducts);
         setCatalogCategories(nextCategories);
+        setActiveOffers(offersResult.status === "fulfilled" ? offersResult.value : []);
         setActiveProduct(nextProduct);
         setCatalogError(nextCatalogError);
       } catch {
@@ -510,6 +543,7 @@ export default function ProductDetailPage() {
           product={activeProduct}
           categories={catalogCategories}
           allProducts={catalogProducts}
+          offers={activeOffers}
           onAddToCart={handleAddToCart}
         />
       </main>
@@ -523,6 +557,8 @@ export default function ProductDetailPage() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cartItems={hydratedCart}
+        offers={activeOffers}
+        products={catalogProducts}
         onUpdateQuantity={(id: string, delta: number) => updateCartQuantity(id, delta)}
         onRemoveItem={(id: string) => removeCartItem(id)}
         onCheckout={() => {

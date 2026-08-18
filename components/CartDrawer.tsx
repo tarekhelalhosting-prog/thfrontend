@@ -1,8 +1,9 @@
 "use client";
-import React from "react";
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowLeft } from "lucide-react";
-import { CartItem } from "../src/types";
+import React, { useMemo } from "react";
+import { X, Trash2, Plus, Minus, ShoppingBag, ArrowLeft, Gift } from "lucide-react";
+import { CartItem, Offer, Product } from "../src/types";
 import { getCartLineKey, getCartItemUnitPrice, getCartItemImage, describeCartItemVariant } from "../src/lib/cart";
+import { getCartGiftPreviews } from "../src/lib/product-offers";
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -11,6 +12,8 @@ interface CartDrawerProps {
   onUpdateQuantity: (id: string, delta: number) => void;
   onRemoveItem: (id: string) => void;
   onCheckout: () => void;
+  offers?: Offer[];
+  products?: Product[];
 }
 
 export default function CartDrawer({
@@ -19,8 +22,15 @@ export default function CartDrawer({
   cartItems,
   onUpdateQuantity,
   onRemoveItem,
-  onCheckout
+  onCheckout,
+  offers = [],
+  products = [],
 }: CartDrawerProps) {
+  const earnedGifts = useMemo(
+    () => getCartGiftPreviews(cartItems, offers, products),
+    [cartItems, offers, products]
+  );
+
   if (!isOpen) return null;
 
   const formatPrice = (price: number) => {
@@ -154,6 +164,35 @@ export default function CartDrawer({
                 );
               })
             )}
+
+            {earnedGifts.map((gift) => {
+              const giftProduct = products.find((product) => product.id === gift.productId);
+              const giftVariant = giftProduct?.variants?.find((variant) => variant.id === gift.variantId);
+              const giftImage = giftVariant?.media_url || giftProduct?.image;
+              const giftName = gift.productName === "هدية مجانية" ? giftProduct?.name || gift.productName : gift.productName;
+
+              return (
+                <div key={`${gift.offerId}-${gift.variantId ?? gift.productId}`} className="flex items-start gap-3 sm:gap-4 rounded-xl border border-emerald-400/40 bg-emerald-50 p-3">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-emerald-400/30 bg-white sm:h-16 sm:w-16">
+                    {giftImage ? (
+                      <img src={giftImage} alt={giftName} className="h-full w-full object-contain" />
+                    ) : (
+                      <Gift size={22} className="text-emerald-600" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1 text-right">
+                    <div className="flex items-center gap-1.5 text-[10px] font-black text-emerald-700">
+                      <Gift size={13} />
+                      <span>هدية مجانية من عرض {gift.offerName}</span>
+                    </div>
+                    <h4 className="mt-1 text-xs font-bold text-emerald-950">{giftName}</h4>
+                    {gift.variantDescription ? <span className="mt-0.5 block text-[10px] text-emerald-700">{gift.variantDescription}</span> : null}
+                    <span className="mt-1 block text-xs font-black text-emerald-700">مجاني {gift.quantity > 1 ? `x ${gift.quantity}` : ""}</span>
+                  </div>
+                  <span className="shrink-0 pt-0.5 text-xs font-black text-emerald-700">0 جنيه</span>
+                </div>
+              );
+            })}
           </div>
 
           {/* Footer Totals */}

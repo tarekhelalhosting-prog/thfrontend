@@ -19,7 +19,9 @@ import {
   deleteUserProfile,
   fetchCategories,
   fetchCurrentUser,
+  fetchOffers,
   fetchOrders,
+  fetchStorefrontProducts,
   fetchUserAddressById,
   fetchUserAddresses,
   setDefaultUserAddress,
@@ -35,7 +37,7 @@ import {
   validateStreet,
 } from "../../lib/form-validation";
 import { translateStatusLabel } from "../../lib/status-labels";
-import { Address, Category, Order } from "../../types";
+import { Address, Category, Offer, Order, Product } from "../../types";
 
 type AddressFormState = {
   title: string;
@@ -84,6 +86,8 @@ export default function ProfilePage() {
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [retryingOrderId, setRetryingOrderId] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
+  const [activeOffers, setActiveOffers] = useState<Offer[]>([]);
   const currentUserId = currentUser?.id;
   const currentUserPhone = currentUser?.phone ?? "";
   const currentUserFirstName = currentUser?.first_name ?? "";
@@ -114,13 +118,21 @@ export default function ProfilePage() {
 
     void (async () => {
       try {
-        const fetchedCategories = await fetchCategories();
+        const [fetchedCategories, fetchedProducts, fetchedOffers] = await Promise.all([
+          fetchCategories(),
+          fetchStorefrontProducts(),
+          fetchOffers(),
+        ]);
         if (!cancelled) {
           setCategories(fetchedCategories);
+          setCatalogProducts(fetchedProducts);
+          setActiveOffers(fetchedOffers);
         }
       } catch {
         if (!cancelled) {
           setCategories([]);
+          setCatalogProducts([]);
+          setActiveOffers([]);
         }
       }
     })();
@@ -785,6 +797,8 @@ export default function ProfilePage() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cartItems={hydratedCart}
+        offers={activeOffers}
+        products={catalogProducts}
         onUpdateQuantity={(id, quantityDelta) => updateCartQuantity(id, quantityDelta)}
         onRemoveItem={(id) => removeCartItem(id)}
         onCheckout={() => {

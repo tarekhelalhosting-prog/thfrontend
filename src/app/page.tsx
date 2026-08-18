@@ -333,6 +333,8 @@ function StoreFrontContent() {
         isOpen={isCartOpen} 
         onClose={() => setIsCartOpen(false)} 
         cartItems={hydratedCart} 
+        offers={activeOffers}
+        products={catalogProducts}
         onUpdateQuantity={(id: string, q: number) => updateCartQuantity(id, q)}
         onRemoveItem={(id: string) => removeCartItem(id)}
         onCheckout={() => {

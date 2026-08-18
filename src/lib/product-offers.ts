@@ -1,4 +1,4 @@
-import { Offer, Product } from "@/types";
+import { CartItem, Offer, Product, ProductVariant } from "@/types";
 
 export type ProductDiscountInfo = {
   offerId: string;
@@ -7,6 +7,26 @@ export type ProductDiscountInfo = {
   originalPrice: number;
   discountedPrice: number; // equals originalPrice for BUY_X_GET_Y (no price change, just unlocks a gift)
   badgeText: string;
+};
+
+export type BuyXGetYGift = {
+  productId: string;
+  variantId: string | null;
+  productName: string;
+  variantDescription: string | null;
+  quantity: number;
+};
+
+export type BuyXGetYProductOffer = {
+  offerId: string;
+  offerName: string;
+  requiredQuantity: number;
+  gifts: BuyXGetYGift[];
+};
+
+export type CartGiftPreview = BuyXGetYGift & {
+  offerId: string;
+  offerName: string;
 };
 
 function isOfferCurrentlyActive(offer: Offer, now: Date): boolean {
@@ -38,6 +58,104 @@ function computeDiscountedPrice(offer: Offer, price: number): number {
   }
 
   return price;
+}
+
+function matchesOfferProduct(productId: string, variantId: string, offerProduct: Offer["offer_products"][number]): boolean {
+  return (
+    offerProduct.product === productId &&
+    (offerProduct.variant === null || offerProduct.variant === variantId)
+  );
+}
+
+function mapGift(offerProduct: Offer["offer_products"][number], quantity = offerProduct.quantity): BuyXGetYGift {
+  return {
+    productId: offerProduct.product,
+    variantId: offerProduct.variant ?? null,
+    productName: offerProduct.product_name || "هدية مجانية",
+    variantDescription: offerProduct.variant_description ?? null,
+    quantity,
+  };
+}
+
+export function getBuyXGetYOffersForProduct(
+  product: Product,
+  variant: ProductVariant | null,
+  offers: Offer[],
+  now: Date = new Date()
+): BuyXGetYProductOffer[] {
+  if (!variant) {
+    return [];
+  }
+
+  return offers.flatMap((offer) => {
+    if (offer.offer_type !== "BUY_X_GET_Y" || !isOfferCurrentlyActive(offer, now)) {
+      return [];
+    }
+
+    const requiredItem = offer.offer_products.find(
+      (item) => item.item_type === "REQUIRED" && matchesOfferProduct(product.id, variant.id, item)
+    );
+    const gifts = offer.offer_products.filter((item) => item.item_type === "GIFT").map(mapGift);
+
+    if (!requiredItem || gifts.length === 0) {
+      return [];
+    }
+
+    return [{
+      offerId: offer.id,
+      offerName: offer.name,
+      requiredQuantity: requiredItem.quantity,
+      gifts,
+    }];
+  });
+}
+
+export function getCartGiftPreviews(
+  cartItems: CartItem[],
+  offers: Offer[],
+  products: Product[],
+  now: Date = new Date()
+): CartGiftPreview[] {
+  const productByVariantId = new Map<string, Product>();
+  for (const product of products) {
+    for (const variant of product.variants ?? []) {
+      productByVariantId.set(variant.id, product);
+    }
+  }
+
+  return offers.flatMap((offer) => {
+    if (offer.offer_type !== "BUY_X_GET_Y" || !isOfferCurrentlyActive(offer, now)) {
+      return [];
+    }
+
+    const requiredItems = offer.offer_products.filter((item) => item.item_type === "REQUIRED");
+    const giftItems = offer.offer_products.filter((item) => item.item_type === "GIFT");
+    if (requiredItems.length === 0 || giftItems.length === 0) {
+      return [];
+    }
+
+    const timesUnlocked = Math.min(
+      ...requiredItems.map((requiredItem) => {
+        const matchedQuantity = cartItems.reduce((total, cartItem) => {
+          const product = productByVariantId.get(cartItem.product_variant_id);
+          return product && matchesOfferProduct(product.id, cartItem.product_variant_id, requiredItem)
+            ? total + cartItem.quantity
+            : total;
+        }, 0);
+        return Math.floor(matchedQuantity / requiredItem.quantity);
+      })
+    );
+
+    if (!Number.isFinite(timesUnlocked) || timesUnlocked < 1) {
+      return [];
+    }
+
+    return giftItems.map((giftItem) => ({
+      ...mapGift(giftItem, giftItem.quantity * timesUnlocked),
+      offerId: offer.id,
+      offerName: offer.name,
+    }));
+  });
 }
 
 /**
