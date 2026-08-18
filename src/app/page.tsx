@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Header from "../../components/Header";
 import HeroCarousel from "../../components/HeroCarousel";
@@ -14,7 +14,7 @@ import ProductCard from "../../components/ProductCard";
 import PageState from "../components/ui/PageState";
 import InlineBanner from "../components/ui/InlineBanner";
 import { Product, ProductVariant, Order, Category, Offer } from "../types";
-import { fetchCategories, fetchOffers, fetchOrders, fetchStorefrontProducts } from "../lib/api";
+import { fetchCategories, fetchOffers, fetchOrders, fetchStorefrontProductPage } from "../lib/api";
 import { isProductUnavailable } from "../lib/product-availability";
 import { getProductDiscount, getProductVariantDiscount } from "../lib/product-offers";
 import { getOfferProducts } from "../lib/offer-category";
@@ -39,17 +39,31 @@ function StoreFrontContent() {
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [myOrders, setMyOrders] = useState<Order[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const selectedCategory = searchParams.get("category") || "all";
   const searchTerm = searchParams.get("search") || "";
+  const PAGE_SIZE = 12;
 
   useEffect(() => {
     let cancelled = false;
 
     void (async () => {
       try {
+        setIsCatalogLoading(true);
+        setCurrentPage(1);
+
         const [productsResult, categoriesResult, offersResult] = await Promise.allSettled([
-          fetchStorefrontProducts(),
+          fetchStorefrontProductPage({
+            page: 1,
+            pageSize: PAGE_SIZE,
+            category: selectedCategory,
+            search: searchTerm,
+            ordering: "-created_at",
+          }),
           fetchCategories(),
           fetchOffers(),
         ]);
@@ -59,7 +73,8 @@ function StoreFrontContent() {
         }
 
         if (productsResult.status === "fulfilled") {
-          setCatalogProducts(productsResult.value);
+          setCatalogProducts(productsResult.value.products);
+          setTotalCount(productsResult.value.count);
         }
 
         if (categoriesResult.status === "fulfilled") {
@@ -91,7 +106,7 @@ function StoreFrontContent() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedCategory, searchTerm]);
 
   useEffect(() => {
     const userId = hydratedUser?.id ?? null;
@@ -237,20 +252,52 @@ function StoreFrontContent() {
     [discountedCatalogProducts, catalogCategories]
   );
 
-  const filteredProducts = discountedCatalogProducts.filter((product) => {
-    const matchesCategory =
-      selectedCategory === "all" ||
-      selectedCategory === "salon-bundles" ||
-      product.category === selectedCategory;
+  const loadNextPage = useCallback(async () => {
+    if (catalogProducts.length >= totalCount || isLoadingMore || isCatalogLoading) return;
 
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-    const matchesSearch =
-      normalizedSearch.length === 0 ||
-      product.name.toLowerCase().includes(normalizedSearch) ||
-      product.description.toLowerCase().includes(normalizedSearch);
+    setIsLoadingMore(true);
+    try {
+      const nextPage = await fetchStorefrontProductPage({
+        page: currentPage + 1,
+        pageSize: PAGE_SIZE,
+        category: selectedCategory,
+        search: searchTerm,
+        ordering: "-created_at",
+      });
+      setCatalogProducts((prev) => {
+        const existingIds = new Set(prev.map((p) => p.id));
+        const newProducts = nextPage.products.filter((p) => !existingIds.has(p.id));
+        return [...prev, ...newProducts];
+      });
+      setCurrentPage((prev) => prev + 1);
+      setTotalCount(nextPage.count);
+    } catch {
+      // keep current products; a retry will happen on next scroll
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [catalogProducts.length, totalCount, isLoadingMore, isCatalogLoading, currentPage, selectedCategory, searchTerm]);
 
-    return matchesCategory && matchesSearch;
-  });
+  const hasMore = catalogProducts.length < totalCount;
+
+  useEffect(() => {
+    if (!hasMore || isCatalogLoading) return;
+
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void loadNextPage();
+        }
+      },
+      { rootMargin: "200px" }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, isCatalogLoading, loadNextPage]);
 
   const catalogTitle =
     selectedCategory === "all"
@@ -309,26 +356,40 @@ function StoreFrontContent() {
                 </div>
               </div>
               <span className="text-xs text-gray-400">
-                {filteredProducts.length} منتج
+                {totalCount} منتج
               </span>
             </div>
 
             {isCatalogLoading ? (
               <PageState variant="loading" title="جاري تحميل المنتجات والأقسام..." />
-            ) : filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6">
-                {filteredProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onAddToCart={(p) => handleAddToCart(p, 1, p.variants?.[0] ?? null)}
-                    isFavorite={favorites.includes(product.id)}
-                    onToggleFavorite={handleToggleFavorite}
-                    onViewDetails={handleViewProduct}
-                    categories={catalogCategories}
-                  />
-                ))}
-              </div>
+            ) : catalogProducts.length > 0 ? (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6">
+                  {discountedCatalogProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      onAddToCart={(p) => handleAddToCart(p, 1, p.variants?.[0] ?? null)}
+                      isFavorite={favorites.includes(product.id)}
+                      onToggleFavorite={handleToggleFavorite}
+                      onViewDetails={handleViewProduct}
+                      categories={catalogCategories}
+                    />
+                  ))}
+                </div>
+                {hasMore && (
+                  <div ref={sentinelRef} className="mt-8 flex items-center justify-center">
+                    {isLoadingMore ? (
+                      <span className="inline-flex items-center gap-2 text-xs font-bold text-gold-400">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-gold-400 border-t-transparent" />
+                        جاري تحميل المزيد...
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">استمر في التمرير لعرض المزيد</span>
+                    )}
+                  </div>
+                )}
+              </>
             ) : (
               <div className="rounded-2xl border border-dark-border bg-dark-card p-8 text-center text-gray-400">
                 لا توجد منتجات مطابقة لهذا القسم أو البحث الحالي.

@@ -1,5 +1,12 @@
 import { Product, Category, Order, OrderItem, Payment, ProductImage, ProductVariant, ProductVariantAttribute, User, Address, CartItem, Offer, OfferProduct } from "../types";
 
+export type ProductPage = {
+  products: Product[];
+  count: number;
+  next: string | null;
+  previous: string | null;
+};
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 const CLOUDINARY_UPLOAD_ENDPOINT = "/api/cloudinary/upload";
 const PRODUCT_IMAGE_PLACEHOLDER = "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=600";
@@ -1684,6 +1691,48 @@ export async function fetchStorefrontProducts(): Promise<Product[]> {
   }
 
   return Array.from(productsById.values());
+}
+
+export type StorefrontListParams = {
+  page?: number;
+  pageSize?: number;
+  category?: string;
+  search?: string;
+  ordering?: string;
+};
+
+export async function fetchStorefrontProductPage(params: StorefrontListParams = {}): Promise<ProductPage> {
+  const query = new URLSearchParams();
+  query.set("page", String(params.page ?? 1));
+  query.set("page_size", String(params.pageSize ?? 12));
+  if (params.category && params.category !== "all") {
+    query.set("category", params.category);
+  }
+  if (params.search?.trim()) {
+    query.set("search", params.search.trim());
+  }
+  if (params.ordering) {
+    query.set("ordering", params.ordering);
+  }
+
+  const response = await fetchFromFirstAvailable([`/products/?${query.toString()}`]);
+  if (!response.ok) {
+    throw new Error("حدث خطأ أثناء جلب المنتجات من الخادم");
+  }
+
+  const data = await response.json();
+  const products: Product[] = Array.isArray(data.results)
+    ? data.results.map(mapDjangoProduct)
+    : Array.isArray(data)
+      ? data.map(mapDjangoProduct)
+      : [];
+
+  return {
+    products,
+    count: data.count ?? products.length,
+    next: data.next ?? null,
+    previous: data.previous ?? null,
+  };
 }
 
 export async function restoreProduct(productId: string): Promise<Product> {
