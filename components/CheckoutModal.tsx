@@ -65,7 +65,6 @@ export default function CheckoutModal({
   const [addressFieldErrors, setAddressFieldErrors] = useState<Partial<Record<AddressField, string>>>({});
   const [isSavingAddress, setIsSavingAddress] = useState(false);
 
-  const [notes, setNotes] = useState("");
   const [step, setStep] = useState<"details" | "success">("details");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -459,17 +458,6 @@ export default function CheckoutModal({
                     </div>
                     <span className="text-xs font-bold">دفع إلكتروني عبر Paymob (فيزا / ماستركارد / محفظة)</span>
                   </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] text-gray-400 font-bold block">ملاحظات إضافية (اختياري - لا تُحفظ مع الطلب، تُرسل عبر واتساب فقط)</label>
-                  <textarea
-                    rows={2}
-                    placeholder="مثال: أرغب في تنجيد كراسي الحلاقة بالجلد الطبيعي البني الفاتح..."
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    className="w-full bg-dark-card border border-dark-border focus:border-gold-500 rounded-xl py-2 px-3 text-xs sm:text-sm text-white focus:outline-none resize-none"
-                  />
                 </div>
 
                 {createdOrder && (
