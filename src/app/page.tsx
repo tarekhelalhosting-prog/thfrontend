@@ -138,6 +138,7 @@ function StoreFrontContent() {
     setIsCartOpen(true);
   };
 
+  
   const handleToggleFavorite = (product: Product) => {
     setFavorites(prev =>
       prev.includes(product.id) ? prev.filter(id => id !== product.id) : [...prev, product.id]
