@@ -29,11 +29,12 @@ export default function ProductImagesPhaseForm({ product }: ProductImagesPhaseFo
     [...(product.images || [])].sort((left, right) => (left.sort_order || 0) - (right.sort_order || 0))
   );
   const [productImages, setProductImages] = useState<CloudinaryImageValue[]>(() =>
-    initialImages.length > 0
-      ? initialImages.map((image) => ({ url: image.media_url, public_id: image.public_id }))
-      : product.image
-        ? [{ url: product.image }]
-        : []
+    // Only seed from genuinely saved ProductImage rows. `product.image` falls
+    // back to a generic placeholder URL (see PRODUCT_IMAGE_PLACEHOLDER in
+    // api.ts) when the product has no real images yet - treating that as an
+    // existing image here used to persist the placeholder itself as a real
+    // ProductImage row and mark it primary, hiding the actually uploaded image.
+    initialImages.map((image) => ({ url: image.media_url, public_id: image.public_id }))
   );
   const [primaryImageIndex, setPrimaryImageIndex] = useState(() => {
     const primaryIndex = initialImages.findIndex((image) => image.is_primary);
