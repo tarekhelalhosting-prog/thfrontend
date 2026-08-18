@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ArrowRight, ShoppingCart, ShieldCheck, Truck, Clock, Sparkles, Star, ChevronLeft, ChevronRight, Phone } from "lucide-react";
 import { Product, Category } from "../src/types";
-import ProtectedImage from "./ProtectedImage";
+import ImageProtector from "./ImageProtector";
 
 interface ProductDetailPageProps {
   product: Product;
@@ -72,7 +72,7 @@ export default function ProductDetailPage({
           {/* Images Column (5 Columns) */}
           <div className="lg:col-span-5 space-y-4">
             <div className="relative aspect-square rounded-2xl bg-dark-card border border-dark-border overflow-hidden group">
-              <ProtectedImage
+              <ImageProtector
                 src={activeImage}
                 alt={product.name}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -90,26 +90,26 @@ export default function ProductDetailPage({
                 onClick={() => setActiveImage(product.image)}
                 className={`aspect-square rounded-xl overflow-hidden border-2 ${activeImage === product.image ? 'border-gold-400' : 'border-dark-border'} bg-dark-card`}
               >
-                <ProtectedImage src={product.image} alt="main" className="w-full h-full object-cover" />
+                <ImageProtector src={product.image} alt="main" className="w-full h-full object-cover" />
               </button>
               {/* Fallback Unsplash details placeholders to make UI spectacular */}
               <button 
                 onClick={() => setActiveImage("https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=600&auto=format&fit=crop")}
                 className={`aspect-square rounded-xl overflow-hidden border-2 ${activeImage.includes("photo-1503951914875") ? 'border-gold-400' : 'border-dark-border'} bg-dark-card`}
               >
-                <ProtectedImage src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=600&auto=format&fit=crop" alt="detail 2" className="w-full h-full object-cover" />
+                <ImageProtector src="https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=600&auto=format&fit=crop" alt="detail 2" className="w-full h-full object-cover" />
               </button>
               <button 
                 onClick={() => setActiveImage("https://images.unsplash.com/photo-1621605815971-fbc98d665033?q=80&w=600&auto=format&fit=crop")}
                 className={`aspect-square rounded-xl overflow-hidden border-2 ${activeImage.includes("photo-1621605815971") ? 'border-gold-400' : 'border-dark-border'} bg-dark-card`}
               >
-                <ProtectedImage src="https://images.unsplash.com/photo-1621605815971-fbc98d665033?q=80&w=600&auto=format&fit=crop" alt="detail 3" className="w-full h-full object-cover" />
+                <ImageProtector src="https://images.unsplash.com/photo-1621605815971-fbc98d665033?q=80&w=600&auto=format&fit=crop" alt="detail 3" className="w-full h-full object-cover" />
               </button>
               <button 
                 onClick={() => setActiveImage("https://images.unsplash.com/photo-1596178065887-1198b6148b2b?q=80&w=600&auto=format&fit=crop")}
                 className={`aspect-square rounded-xl overflow-hidden border-2 ${activeImage.includes("photo-1596178065887") ? 'border-gold-400' : 'border-dark-border'} bg-dark-card`}
               >
-                <ProtectedImage src="https://images.unsplash.com/photo-1596178065887-1198b6148b2b?q=80&w=600&auto=format&fit=crop" alt="detail 4" className="w-full h-full object-cover" />
+                <ImageProtector src="https://images.unsplash.com/photo-1596178065887-1198b6148b2b?q=80&w=600&auto=format&fit=crop" alt="detail 4" className="w-full h-full object-cover" />
               </button>
             </div>
           </div>
@@ -257,7 +257,7 @@ export default function ProductDetailPage({
                   className="bg-dark-card border border-dark-border rounded-xl p-3 text-right cursor-pointer group hover:border-gold-400 transition-all duration-300"
                 >
                   <div className="aspect-square rounded-lg overflow-hidden bg-dark-bg border border-dark-border/40 mb-3 relative">
-                    <ProtectedImage
+                    <ImageProtector
                       src={relProduct.image}
                       alt={relProduct.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

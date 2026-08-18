@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { X, Star, ShoppingCart, CheckCircle, ShieldCheck, HelpCircle, Users } from "lucide-react";
 import { Product } from "../src/types";
-import ProtectedImage from "./ProtectedImage";
+import ImageProtector from "./ImageProtector";
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -58,7 +58,7 @@ export default function ProductDetailModal({
           {/* Image Side (5 Cols) */}
           <div className="md:col-span-5">
             <div className="relative aspect-square w-full rounded-2xl overflow-hidden border border-dark-border bg-dark-card shadow-inner">
-              <ProtectedImage
+              <ImageProtector
                 src={product.image}
                 alt={product.name}
                 referrerPolicy="no-referrer"
