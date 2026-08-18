@@ -155,12 +155,16 @@ export default function ProductManagementForm({ mode, categories, initialProduct
       }
 
       // Cancel the navigation: push the current history entry back so the user stays.
+      // Reuse the existing history.state (instead of null) so Next.js's own
+      // router bookkeeping attached to this entry isn't wiped out - clobbering
+      // it with null previously broke subsequent router.push() calls, causing
+      // Next to hard-reload the current route instead of navigating.
       event.preventDefault();
-      window.history.pushState(null, "", window.location.href);
+      window.history.pushState(window.history.state, "", window.location.href);
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
-    window.history.pushState(null, "", window.location.href);
+    window.history.pushState(window.history.state, "", window.location.href);
     window.addEventListener("popstate", handlePopState);
 
     return () => {
