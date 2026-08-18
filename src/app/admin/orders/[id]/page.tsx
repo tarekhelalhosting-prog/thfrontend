@@ -159,15 +159,17 @@ export default function OrderDetailPage() {
                 <p className="text-xs text-slate-500">الهاتف</p>
                 <p className="mt-1 font-bold text-slate-950">{order.customerPhone || "—"}</p>
               </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs text-slate-500">المحافظة / المدينة</p>
+                <p className="mt-1 font-bold text-slate-950">{order.addressCity || order.city || "—"}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs text-slate-500">الدولة</p>
+                <p className="mt-1 font-bold text-slate-950">{order.addressCountry || "—"}</p>
+              </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
-                <p className="text-xs text-slate-500">عنوان التوصيل</p>
-                <p className="mt-1 font-bold text-slate-950">
-                  {order.addressTitle || order.addressCity
-                    ? [order.addressTitle, order.addressCountry, order.addressCity, order.addressStreet]
-                        .filter(Boolean)
-                        .join(" - ")
-                    : order.address || order.city || "—"}
-                </p>
+                <p className="text-xs text-slate-500">العنوان بالتفصيل</p>
+                <p className="mt-1 font-bold text-slate-950">{order.addressStreet || order.address || "—"}</p>
               </div>
             </div>
           </Panel>
