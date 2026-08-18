@@ -4,7 +4,6 @@ import { ChevronLeft, ChevronRight, Gift, ShoppingCart, Sparkles } from "lucide-
 import { Product } from "../src/types";
 import { getOfferComponents } from "../src/lib/offer-category";
 import { isProductUnavailable } from "../src/lib/product-availability";
-import ImageProtector from "./ImageProtector";
 
 interface OffersShowcaseProps {
   offers: Product[];
@@ -73,11 +72,12 @@ export default function OffersShowcase({ offers, onViewOffer, onAddToCart }: Off
         className={`group relative overflow-hidden rounded-2xl sm:rounded-3xl border border-gold-400/25 bg-dark-card shadow-lg shadow-gold-900/10 cursor-pointer select-none ${isMobile ? "snap-start" : ""}`}
       >
         <div className={`relative w-full ${isMobile ? "aspect-[3/4]" : "aspect-[16/9]"}`}>
-          <ImageProtector
+          <img
             src={offer.image}
             alt={offer.name}
             referrerPolicy="no-referrer"
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            draggable={false}
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 select-none"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/10" />
           <div className="absolute inset-0 bg-gradient-to-l from-black/60 via-transparent to-transparent" />
