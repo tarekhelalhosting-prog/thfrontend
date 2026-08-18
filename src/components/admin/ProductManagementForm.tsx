@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Image as ImageIcon, Loader2, Plus, Trash2 } from "lucide-react";
@@ -119,6 +119,38 @@ export default function ProductManagementForm({ mode, categories, initialProduct
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const effectiveCategoryId = categoryId || defaultCategoryId || categories[0]?.id || "";
+
+  const initialSnapshot = useMemo(
+    () => ({
+      name: initialProduct?.name || "",
+      description: initialProduct?.description || "",
+      categoryId: initialProduct?.category_id || initialProduct?.category || defaultCategoryId || "",
+      variants: initialProduct ? mapVariants(initialProduct) : [makeEmptyVariant()],
+    }),
+    [initialProduct, defaultCategoryId]
+  );
+
+  const isDirty = useMemo(() => {
+    const current = { name, description, categoryId: effectiveCategoryId, variants };
+    return JSON.stringify(current) !== JSON.stringify(initialSnapshot);
+  }, [name, description, effectiveCategoryId, variants, initialSnapshot]);
+
+  useEffect(() => {
+    if (!isDirty || isSubmitting) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      // Modern browsers show a generic message regardless of the return value,
+      // but assigning a string keeps older browsers happy.
+      event.returnValue = "لديك بيانات لم تحفظها. هل أنت متأكد أنك تريد المغادرة؟";
+      return event.returnValue;
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty, isSubmitting]);
   const selectedCategoryObj = categories.find((category) => category.id === effectiveCategoryId);
   const isOfferMode = isOfferCategory(selectedCategoryObj);
 
@@ -431,7 +463,16 @@ export default function ProductManagementForm({ mode, categories, initialProduct
       ) : null}
 
       <div className="flex items-center justify-end gap-3">
-        <button type="button" onClick={() => router.push("/admin/products")} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={() => {
+            if (isDirty && !window.confirm("لديك بيانات لم تحفظها. هل أنت متأكد أنك تريد المغادرة دون حفظ؟")) {
+              return;
+            }
+            router.push("/admin/products");
+          }}
+          className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
+        >
           إلغاء
         </button>
         <button type="button" onClick={handleSubmit} disabled={isSubmitting} className="inline-flex items-center gap-2 rounded-2xl bg-green-300 px-5 py-2.5 text-sm font-bold text-white hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-60">

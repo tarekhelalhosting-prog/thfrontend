@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Sparkles, ArrowLeft, Phone, ShoppingCart, CheckCircle, Shield } from "lucide-react";
 import { Product, SalonBundle } from "../src/types";
+import ProtectedImage from "./ProtectedImage";
 
 interface SpecialOffersProps {
   products: Product[];
@@ -52,7 +53,7 @@ export default function SpecialOffers({
                   >
                     {/* Tiny Image */}
                     <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 border border-dark-border">
-                      <img
+                      <ProtectedImage
                         src={prod.image}
                         alt={prod.name}
                         referrerPolicy="no-referrer"
@@ -165,7 +166,7 @@ export default function SpecialOffers({
                     {/* Picture side (5 cols) */}
                     <div className="md:col-span-5 flex flex-col items-center">
                       <div className="w-full aspect-[4/3] md:aspect-square rounded-xl overflow-hidden border border-dark-border mb-4 bg-dark-card shadow-lg">
-                        <img
+                        <ProtectedImage
                           src={activeBundle.image}
                           alt={activeBundle.name}
                           referrerPolicy="no-referrer"

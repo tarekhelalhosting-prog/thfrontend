@@ -3,6 +3,7 @@ import React from "react";
 import { ShoppingCart, Heart } from "lucide-react";
 import { Category, Product } from "../src/types";
 import { isProductUnavailable } from "../src/lib/product-availability";
+import ProtectedImage from "./ProtectedImage";
 
 interface ProductCardProps {
   product: Product;
@@ -71,7 +72,7 @@ export default function ProductCard({
 
       {/* Product Image */}
       <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-white mb-3 sm:mb-4 flex items-center justify-center border border-dark-border/10">
-        <img
+        <ProtectedImage
           src={product.image}
           alt={product.name}
           referrerPolicy="no-referrer"
