@@ -8,11 +8,14 @@ import Footer from "../../../../components/Footer";
 import CartDrawer from "../../../../components/CartDrawer";
 import AccountModal from "../../../../components/AccountModal";
 import CheckoutModal from "../../../../components/CheckoutModal";
+import ProductCard from "../../../../components/ProductCard";
 import PageState from "../../../components/ui/PageState";
 import { Category, Offer, Order, Product, ProductVariant } from "../../../types";
 import { useAuthSession } from "../../../hooks/useAuthSession";
 import { useCart } from "../../../hooks/useCart";
+import { usePersistentLocalState } from "../../../hooks/usePersistentLocalState";
 import { fetchCategories, fetchOffers, fetchOrders, fetchProductById, fetchStorefrontProducts, isApiRequestError } from "../../../lib/api";
+import { STORAGE_KEYS } from "../../../lib/browser-storage";
 import { getOfferComponents, isOfferCategory } from "../../../lib/offer-category";
 import { getBuyXGetYOffersForProduct, getProductDiscount, getProductVariantDiscount } from "../../../lib/product-offers";
 import { isProductUnavailable } from "../../../lib/product-availability";
@@ -22,13 +25,19 @@ function ProductDetailsContent({
   categories,
   allProducts,
   offers,
+  favorites,
   onAddToCart,
+  onToggleFavorite,
+  onViewDetails,
 }: {
   product: Product;
   categories: Category[];
   allProducts: Product[];
   offers: Offer[];
+  favorites: string[];
   onAddToCart: (product: Product, quantity: number, variant: ProductVariant | null) => void;
+  onToggleFavorite: (product: Product) => void;
+  onViewDetails: (product: Product) => void;
 }) {
   const router = useRouter();
   const [quantity, setQuantity] = useState(1);
@@ -37,9 +46,29 @@ function ProductDetailsContent({
 
   const formatPrice = (price: number) => `${price.toLocaleString("en-EG")} جنيه`;
 
-  const relatedProducts = allProducts
-    .filter((item) => item.category === product.category && item.id !== product.id)
-    .slice(0, 4);
+  const relatedProducts = useMemo(
+    () =>
+      allProducts
+        .filter((item) => item.category === product.category && item.id !== product.id)
+        .slice(0, 4)
+        .map((item) => {
+          const discount = getProductDiscount(item, offers);
+          if (!discount) {
+            return item;
+          }
+
+          const hasPriceDrop = discount.discountedPrice < discount.originalPrice;
+
+          return {
+            ...item,
+            price: discount.discountedPrice,
+            originalPrice: hasPriceDrop ? discount.originalPrice : undefined,
+            discountBadge: discount.badgeText,
+            isOnOffer: true,
+          };
+        }),
+    [allProducts, offers, product.category, product.id]
+  );
 
   const galleryImages = product.images?.length
     ? product.images
@@ -292,34 +321,17 @@ function ProductDetailsContent({
               <span className="text-[10px] sm:text-xs text-gold-500 font-bold">باقة تأسيس متكاملة</span>
             </div>
 
-            <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {relatedProducts.map((relatedProduct) => (
-                <button
+                <ProductCard
                   key={relatedProduct.id}
-                  type="button"
-                  onClick={() => router.push(`/product/${relatedProduct.id}`)}
-                  className="bg-dark-card border border-dark-border rounded-xl p-3 text-right cursor-pointer group hover:border-gold-400 transition-all duration-300"
-                >
-                  <div className="aspect-square rounded-lg overflow-hidden bg-white border border-dark-border/40 mb-3 relative">
-                    <img
-                      src={relatedProduct.image}
-                      alt={relatedProduct.name}
-                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-                  <span className="text-[9px] text-gold-400 font-bold">{categories.find((category) => category.id === relatedProduct.category)?.name}</span>
-                  <h4 className="text-[11px] sm:text-xs font-bold text-gray-200 mt-1 line-clamp-1 group-hover:text-gold-400 transition-colors">
-                    {relatedProduct.name}
-                  </h4>
-                  <div className="flex items-baseline gap-2 mt-1.5 font-mono">
-                    <span className="text-xs font-bold text-white">{formatPrice(relatedProduct.price)}</span>
-                  </div>
-                  {isProductUnavailable(relatedProduct) ? (
-                    <span className="mt-2 inline-flex rounded-lg bg-stone-100 px-2 py-1 text-[9px] font-extrabold text-stone-700">
-                      غير متوفر حاليًا
-                    </span>
-                  ) : null}
-                </button>
+                  product={relatedProduct}
+                  onAddToCart={(p) => onAddToCart(p, 1, p.variants?.[0] ?? null)}
+                  isFavorite={favorites.includes(relatedProduct.id)}
+                  onToggleFavorite={onToggleFavorite}
+                  onViewDetails={onViewDetails}
+                  categories={categories}
+                />
               ))}
             </div>
           </div>
@@ -345,6 +357,7 @@ export default function ProductDetailPage() {
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<"offline" | "server" | null>(null);
   const [myOrders, setMyOrders] = useState<Order[]>([]);
+  const { value: favorites, setValue: setFavorites } = usePersistentLocalState<string[]>(STORAGE_KEYS.favorites, []);
 
   useEffect(() => {
     const userId = hydratedUser?.id ?? null;
@@ -447,6 +460,16 @@ export default function ProductDetailPage() {
 
     addCartItem(nextProduct, variant, quantity, activeOffer);
     setIsCartOpen(true);
+  };
+
+  const handleToggleFavorite = (nextProduct: Product) => {
+    setFavorites((prev) =>
+      prev.includes(nextProduct.id) ? prev.filter((id) => id !== nextProduct.id) : [...prev, nextProduct.id]
+    );
+  };
+
+  const handleViewProduct = (nextProduct: Product) => {
+    router.push(`/product/${nextProduct.id}`);
   };
 
   const handleContactClick = () => {
@@ -555,7 +578,10 @@ export default function ProductDetailPage() {
           categories={catalogCategories}
           allProducts={catalogProducts}
           offers={activeOffers}
+          favorites={favorites}
           onAddToCart={handleAddToCart}
+          onToggleFavorite={handleToggleFavorite}
+          onViewDetails={handleViewProduct}
         />
       </main>
 
