@@ -110,6 +110,7 @@ export default function CheckoutModal({
     () => cartItems.reduce((acc, item) => acc + getCartItemUnitPrice(item) * item.quantity, 0),
     [cartItems]
   );
+  const processingFee = createdOrder?.processing_fee ?? 0;
   const displayTotal = createdOrder?.total ?? subtotal;
   const isBundleOnlyCheckout = Boolean(selectedBundle) && cartItems.length === 0;
   const selectedAddress = addresses.find((address) => address.id === selectedAddressId) || null;
@@ -292,6 +293,12 @@ export default function CheckoutModal({
               </div>
 
               <div className="border-t border-dark-border/40 pt-3 space-y-2 text-xs">
+                {processingFee > 0 && (
+                  <div className="flex justify-between text-gray-400">
+                    <span>رسوم معالجة الدفع:</span>
+                    <span className="text-gray-200 font-bold font-mono">{formatPrice(processingFee)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm sm:text-base font-black pt-2 text-gold-500">
                   <span>المبلغ الإجمالي الكلي:</span>
                   <span>{formatPrice(displayTotal)}</span>
@@ -500,6 +507,12 @@ export default function CheckoutModal({
                   <span>المجموع الفرعي:</span>
                   <span className="text-gray-200 font-bold font-mono">{formatPrice(subtotal)}</span>
                 </div>
+                {processingFee > 0 && (
+                  <div className="flex justify-between text-gray-400">
+                    <span>رسوم معالجة الدفع:</span>
+                    <span className="text-gray-200 font-bold font-mono">{formatPrice(processingFee)}</span>
+                  </div>
+                )}
                 <hr className="border-dark-border my-1" />
                 <div className="flex justify-between text-sm sm:text-base font-black text-gold-500 pt-1">
                   <span>الإجمالي الكلي:</span>

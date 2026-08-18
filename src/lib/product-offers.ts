@@ -29,23 +29,8 @@ export type CartGiftPreview = BuyXGetYGift & {
   offerName: string;
 };
 
-function isOfferCurrentlyActive(offer: Offer, now: Date): boolean {
-  if (!offer.is_active) {
-    return false;
-  }
-
-  const startsAt = offer.starts_at ? new Date(offer.starts_at) : null;
-  const endsAt = offer.ends_at ? new Date(offer.ends_at) : null;
-
-  if (startsAt && !Number.isNaN(startsAt.getTime()) && now < startsAt) {
-    return false;
-  }
-
-  if (endsAt && !Number.isNaN(endsAt.getTime()) && now > endsAt) {
-    return false;
-  }
-
-  return true;
+function isOfferCurrentlyActive(offer: Offer): boolean {
+  return offer.is_active;
 }
 
 function computeDiscountedPrice(offer: Offer, price: number): number {
@@ -80,15 +65,14 @@ function mapGift(offerProduct: Offer["offer_products"][number], quantity = offer
 export function getBuyXGetYOffersForProduct(
   product: Product,
   variant: ProductVariant | null,
-  offers: Offer[],
-  now: Date = new Date()
+  offers: Offer[]
 ): BuyXGetYProductOffer[] {
   if (!variant) {
     return [];
   }
 
   return offers.flatMap((offer) => {
-    if (offer.offer_type !== "BUY_X_GET_Y" || !isOfferCurrentlyActive(offer, now)) {
+    if (offer.offer_type !== "BUY_X_GET_Y" || !isOfferCurrentlyActive(offer)) {
       return [];
     }
 
@@ -113,8 +97,7 @@ export function getBuyXGetYOffersForProduct(
 export function getCartGiftPreviews(
   cartItems: CartItem[],
   offers: Offer[],
-  products: Product[],
-  now: Date = new Date()
+  products: Product[]
 ): CartGiftPreview[] {
   const productByVariantId = new Map<string, Product>();
   for (const product of products) {
@@ -124,7 +107,7 @@ export function getCartGiftPreviews(
   }
 
   return offers.flatMap((offer) => {
-    if (offer.offer_type !== "BUY_X_GET_Y" || !isOfferCurrentlyActive(offer, now)) {
+    if (offer.offer_type !== "BUY_X_GET_Y" || !isOfferCurrentlyActive(offer)) {
       return [];
     }
 
@@ -173,8 +156,7 @@ export function getCartGiftPreviews(
  */
 export function getProductDiscount(
   product: Product,
-  offers: Offer[],
-  now: Date = new Date()
+  offers: Offer[]
 ): ProductDiscountInfo | null {
   const primaryVariantId = product.variants?.[0]?.id;
   const basePrice = product.price;
@@ -183,7 +165,7 @@ export function getProductDiscount(
   let productWideMatch: Offer | null = null;
 
   for (const offer of offers) {
-    if (!isOfferCurrentlyActive(offer, now)) {
+    if (!isOfferCurrentlyActive(offer)) {
       continue;
     }
 

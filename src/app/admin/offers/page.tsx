@@ -19,42 +19,6 @@ const ITEM_TYPE_LABELS: Record<"REQUIRED" | "GIFT", string> = {
   GIFT: "هدية",
 };
 
-function formatDate(value?: string) {
-  if (!value) {
-    return "—";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-
-  return new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium", timeStyle: "short" }).format(date);
-}
-
-function toDatetimeLocalValue(value?: string) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  const pad = (num: number) => String(num).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function fromDatetimeLocalValue(value: string) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
-}
-
 type OfferProductRow = {
   key: string;
   product: string;
@@ -77,8 +41,6 @@ const emptyForm = {
   name: "",
   offer_type: "PERCENTAGE" as Offer["offer_type"],
   value: "",
-  starts_at: "",
-  ends_at: "",
   is_active: true,
 };
 
@@ -141,8 +103,6 @@ export default function OffersPage() {
       name: offer.name,
       offer_type: offer.offer_type,
       value: offer.value != null ? String(offer.value) : "",
-      starts_at: toDatetimeLocalValue(offer.starts_at),
-      ends_at: toDatetimeLocalValue(offer.ends_at),
       is_active: offer.is_active,
     });
     setRows(
@@ -173,14 +133,6 @@ export default function OffersPage() {
   const validate = (): string | null => {
     if (!form.name.trim()) {
       return "اسم العرض مطلوب.";
-    }
-
-    if (!form.starts_at || !form.ends_at) {
-      return "تاريخ البداية والنهاية مطلوبان.";
-    }
-
-    if (fromDatetimeLocalValue(form.ends_at) < fromDatetimeLocalValue(form.starts_at)) {
-      return "تاريخ النهاية يجب أن يكون بعد تاريخ البداية.";
     }
 
     const numericValue = form.value.trim() === "" ? null : Number(form.value);
@@ -261,8 +213,6 @@ export default function OffersPage() {
         name: form.name.trim(),
         offer_type: form.offer_type,
         value: form.value.trim() === "" ? null : Number(form.value),
-        starts_at: fromDatetimeLocalValue(form.starts_at),
-        ends_at: fromDatetimeLocalValue(form.ends_at),
         is_active: form.is_active,
         offer_products: offerProducts,
       };
@@ -329,7 +279,7 @@ export default function OffersPage() {
       }
     >
       <Panel>
-        <SectionHeader eyebrow="Offers" title="جدول العروض" subtitle="اسم العرض، النوع، القيمة، البداية، النهاية، والحالة." action={<BadgePercent className="h-4 w-4 text-slate-500" />} />
+        <SectionHeader eyebrow="Offers" title="جدول العروض" subtitle="اسم العرض، النوع، القيمة، والحالة." action={<BadgePercent className="h-4 w-4 text-slate-500" />} />
         <div className="overflow-x-auto px-5 py-5">
           {loadError ? <p className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{loadError}</p> : null}
           <table className="min-w-full text-right text-sm">
@@ -338,8 +288,6 @@ export default function OffersPage() {
                 <th className="py-3 pl-4">اسم العرض</th>
                 <th className="py-3 pl-4">نوع العرض</th>
                 <th className="py-3 pl-4">القيمة</th>
-                <th className="py-3 pl-4">البداية</th>
-                <th className="py-3 pl-4">النهاية</th>
                 <th className="py-3 pl-4">الحالة</th>
                 <th className="py-3 pl-4">إجراء</th>
               </tr>
@@ -347,7 +295,7 @@ export default function OffersPage() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-slate-500">جاري تحميل العروض...</td>
+                  <td colSpan={5} className="py-10 text-center text-slate-500">جاري تحميل العروض...</td>
                 </tr>
               ) : offers.length > 0 ? (
                 offers.map((offer) => (
@@ -357,8 +305,6 @@ export default function OffersPage() {
                     <td className="py-4 pl-4 text-slate-600">
                       {offer.value == null ? "—" : offer.offer_type === "PERCENTAGE" ? `${offer.value}%` : `${offer.value.toLocaleString("ar-EG")} جنيه`}
                     </td>
-                    <td className="py-4 pl-4 text-slate-600">{formatDate(offer.starts_at)}</td>
-                    <td className="py-4 pl-4 text-slate-600">{formatDate(offer.ends_at)}</td>
                     <td className="py-4 pl-4">
                       <StatusPill status={offer.is_active ? "Completed" : "Cancelled"} />
                     </td>
@@ -386,7 +332,7 @@ export default function OffersPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="py-10">
+                  <td colSpan={5} className="py-10">
                     <EmptyState title="لا توجد عروض بعد" description="ابدأ بإضافة أول عرض وحدد المنتجات المرتبطة به." />
                   </td>
                 </tr>
@@ -444,26 +390,6 @@ export default function OffersPage() {
                 type="number"
                 min={0}
                 step="0.01"
-                className="rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-amber-400"
-              />
-            </label>
-
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
-              بداية العرض
-              <input
-                value={form.starts_at}
-                onChange={(event) => setForm((current) => ({ ...current, starts_at: event.target.value }))}
-                type="datetime-local"
-                className="rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-amber-400"
-              />
-            </label>
-
-            <label className="grid gap-2 text-sm font-bold text-slate-700">
-              نهاية العرض
-              <input
-                value={form.ends_at}
-                onChange={(event) => setForm((current) => ({ ...current, ends_at: event.target.value }))}
-                type="datetime-local"
                 className="rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-amber-400"
               />
             </label>

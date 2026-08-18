@@ -112,8 +112,8 @@ export interface Offer {
   name: string;
   offer_type: 'PERCENTAGE' | 'FIXED' | 'BUY_X_GET_Y';
   value: number | null; // percentage or fixed amount; optional for Buy X Get Y
-  starts_at: string; // ISO datetime
-  ends_at: string; // ISO datetime
+  starts_at?: string; // ISO datetime (optional)
+  ends_at?: string; // ISO datetime (optional)
   is_active: boolean;
   offer_products: OfferProduct[];
   created_at?: string;
@@ -138,6 +138,7 @@ export interface Order {
   status: 'Pending' | 'Confirmed' | 'Processing' | 'Ready' | 'Completed' | 'Cancelled' | 'Refunded';
   subtotal: number;
   discount: number;
+  processing_fee?: number;
   total: number;
   created_at: string;
   updated_at: string;

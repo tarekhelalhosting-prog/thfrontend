@@ -86,6 +86,7 @@ type ApiOrder = {
   status?: string;
   subtotal?: string | number;
   discount?: string | number;
+  processing_fee?: string | number;
   total?: string | number;
   created_at?: string;
   updated_at?: string;
@@ -128,8 +129,8 @@ export type OfferPayload = {
   name: string;
   offer_type: "PERCENTAGE" | "FIXED" | "BUY_X_GET_Y";
   value: string | number | null;
-  starts_at: string;
-  ends_at: string;
+  starts_at?: string;
+  ends_at?: string;
   is_active: boolean;
   offer_products: OfferProductPayload[];
 };
@@ -752,6 +753,7 @@ export function mapDjangoOrder(djangoOrder: ApiOrder): Order {
     status: normalizeOrderStatus(djangoOrder.status),
     subtotal: Number(djangoOrder.subtotal || 0),
     discount: Number(djangoOrder.discount || 0),
+    processing_fee: Number(djangoOrder.processing_fee || 0),
     total: Number(djangoOrder.total || 0),
     created_at: djangoOrder.created_at || new Date().toISOString(),
     updated_at: djangoOrder.updated_at || new Date().toISOString(),
@@ -1839,12 +1841,10 @@ async function readOfferErrorDetail(response: Response, fallbackMessage: string)
 }
 
 function buildOfferRequestBody(payload: OfferPayload) {
-  return {
+  const body: Record<string, unknown> = {
     name: payload.name,
     offer_type: payload.offer_type,
     value: payload.value === "" ? null : payload.value,
-    starts_at: payload.starts_at,
-    ends_at: payload.ends_at,
     is_active: payload.is_active,
     offer_products: payload.offer_products.map((item) => ({
       product: item.product,
@@ -1853,6 +1853,16 @@ function buildOfferRequestBody(payload: OfferPayload) {
       quantity: item.quantity,
     })),
   };
+
+  if (payload.starts_at) {
+    body.starts_at = payload.starts_at;
+  }
+
+  if (payload.ends_at) {
+    body.ends_at = payload.ends_at;
+  }
+
+  return body;
 }
 
 export async function createOffer(payload: OfferPayload): Promise<Offer> {
@@ -1900,9 +1910,8 @@ export async function deleteOffer(offerId: string): Promise<void> {
 }
 
 // OfferViewSet's custom `is_active` action (PATCH /offers/{id}/is_active/)
-// toggles the current is_active value server-side (and validates the
-// current date is within starts_at/ends_at when activating) - it does not
-// take a body.
+// toggles the current is_active value server-side - it does not take a body.
+// The backend no longer validates start/end dates for activation.
 export async function toggleOfferActive(offerId: string): Promise<Offer> {
   const response = await fetchWithAutoRefresh(`/offers/${offerId}/is_active/`, {
     method: "PATCH",

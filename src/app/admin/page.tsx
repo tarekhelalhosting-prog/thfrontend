@@ -64,31 +64,10 @@ function buildTopProducts(products: Product[], orders: Order[]) {
 }
 
 
-// An offer counts as "active" for this metric only if it's both flagged
-// `is_active` AND the current date actually falls inside its start/end
-// window - matches the same active-window check used for the storefront
-// discount badges (`src/lib/product-offers.ts`).
+// An offer counts as "active" for this metric purely based on its
+// `is_active` flag - the backend no longer enforces start/end windows.
 function countActiveOffers(offers: Offer[]): number {
-  const now = new Date();
-
-  return offers.filter((offer) => {
-    if (!offer.is_active) {
-      return false;
-    }
-
-    const startsAt = offer.starts_at ? new Date(offer.starts_at) : null;
-    const endsAt = offer.ends_at ? new Date(offer.ends_at) : null;
-
-    if (startsAt && !Number.isNaN(startsAt.getTime()) && now < startsAt) {
-      return false;
-    }
-
-    if (endsAt && !Number.isNaN(endsAt.getTime()) && now > endsAt) {
-      return false;
-    }
-
-    return true;
-  }).length;
+  return offers.filter((offer) => offer.is_active).length;
 }
 
 export default function AdminPage() {
