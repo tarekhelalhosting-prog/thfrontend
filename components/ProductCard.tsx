@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { ShoppingCart, Heart } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import { Category, Product } from "../src/types";
 import { isProductUnavailable } from "../src/lib/product-availability";
 import ImageProtector from "./ImageProtector";
@@ -8,8 +8,6 @@ import ImageProtector from "./ImageProtector";
 interface ProductCardProps {
   product: Product;
   onAddToCart: (p: Product) => void;
-  isFavorite: boolean;
-  onToggleFavorite: (p: Product) => void;
   onViewDetails: (p: Product) => void;
   categories?: Category[];
 }
@@ -17,8 +15,6 @@ interface ProductCardProps {
 export default function ProductCard({
   product,
   onAddToCart,
-  isFavorite,
-  onToggleFavorite,
   onViewDetails,
   categories,
 }: ProductCardProps) {
@@ -56,18 +52,6 @@ export default function ProductCard({
             {product.discountBadge}
           </span>
         ) : <span />}
-
-        {/* Favorite Icon */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleFavorite(product);
-          }}
-          className={`p-1.5 sm:p-2 rounded-xl border border-dark-border/40 backdrop-blur-md transition-all ${isFavorite ? 'bg-red-500/20 text-red-500 border-red-500/30' : 'bg-black/30 hover:bg-black/60 text-gray-400 hover:text-white'}`}
-          title={isFavorite ? "إزالة من المفضلة" : "إضافة للمفضلة"}
-        >
-          <Heart size={16} fill={isFavorite ? "currentColor" : "none"} />
-        </button>
       </div>
 
       {/* Product Image */}

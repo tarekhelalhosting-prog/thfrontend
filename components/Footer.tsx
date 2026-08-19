@@ -251,7 +251,7 @@ export default function Footer({ categories, onCategorySelect }: FooterProps) {
               <li className="flex items-start gap-1.5 justify-start">
                 <MapPin size={14} className="text-gold-400 shrink-0 mt-0.5" />
                 <a 
-                  href="https://maps.app.goo.gl/LSVR1B5nbQ69ZoiC8?g_st=a" 
+                  href="https://share.google/1GpIMhSX7ZlUpIYNd" 
                   target="_blank" 
                   rel="noopener noreferrer" 
                   className="hover:text-gold-400 transition-colors text-right"

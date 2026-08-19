@@ -1,7 +1,6 @@
 export const STORAGE_KEYS = {
   cart: "th_cart",
   currentUser: "th_user",
-  favorites: "th_favorites",
 } as const;
 
 export function isBrowserEnvironment() {

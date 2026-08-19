@@ -13,12 +13,11 @@ import CheckoutModal from "../../components/CheckoutModal";
 import ProductCard from "../../components/ProductCard";
 import PageState from "../components/ui/PageState";
 import InlineBanner from "../components/ui/InlineBanner";
+import AddToCartToast from "../components/ui/AddToCartToast";
 import { Product, ProductVariant, Order, Category, Offer } from "../types";
 import { fetchCategories, fetchOffers, fetchOrders, fetchStorefrontProductPage } from "../lib/api";
 import { isProductUnavailable } from "../lib/product-availability";
 import { getProductDiscount, getProductVariantDiscount } from "../lib/product-offers";
-import { STORAGE_KEYS } from "../lib/browser-storage";
-import { usePersistentLocalState } from "../hooks/usePersistentLocalState";
 import { useAuthSession } from "../hooks/useAuthSession";
 import { useCart } from "../hooks/useCart";
 
@@ -28,7 +27,6 @@ function StoreFrontContent() {
   const { currentUser, isHydrated: isUserHydrated, login, logout } = useAuthSession();
   const hydratedUser = isUserHydrated ? currentUser : null;
   const { cartItems: hydratedCart, cartCount, addItem: addCartItem, updateQuantity: updateCartQuantity, removeItem: removeCartItem, clearCart } = useCart(hydratedUser);
-  const { value: favorites, setValue: setFavorites } = usePersistentLocalState<string[]>(STORAGE_KEYS.favorites, []);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -43,6 +41,8 @@ function StoreFrontContent() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [offerProducts, setOfferProducts] = useState<Product[]>([]);
   const [isOffersLoading, setIsOffersLoading] = useState(true);
+  const [isAddedToastVisible, setIsAddedToastVisible] = useState(false);
+  const addedToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const selectedCategory = searchParams.get("category") || "all";
@@ -173,15 +173,14 @@ function StoreFrontContent() {
       : undefined;
 
     addCartItem(product, variant, quantity, activeOffer);
-    setIsCartOpen(true);
+
+    setIsAddedToastVisible(true);
+    if (addedToastTimeoutRef.current) {
+      clearTimeout(addedToastTimeoutRef.current);
+    }
+    addedToastTimeoutRef.current = setTimeout(() => setIsAddedToastVisible(false), 2000);
   };
 
-
-  const handleToggleFavorite = (product: Product) => {
-    setFavorites(prev =>
-      prev.includes(product.id) ? prev.filter(id => id !== product.id) : [...prev, product.id]
-    );
-  };
 
   const handleWhatsAppClick = () => {
     const text = encodeURIComponent("مرحبا استاذ طارق انا مهتم اعرف اكتر عن باقات التجهيز هل مناسب نتكلم");
@@ -382,12 +381,6 @@ function StoreFrontContent() {
               <div className="text-right">
                 <span className="text-gold-400 font-bold text-xs uppercase tracking-widest block mb-1">طارق هلال</span>
                 <h3 className="text-xl sm:text-2xl font-black text-white">{catalogTitle}</h3>
-                <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-gold-400/20 bg-gold-400/10 px-3 py-1 text-[10px] sm:text-xs text-gold-400 font-bold">
-                  <span>المفضلة</span>
-                  <span className="min-w-5 h-5 px-1.5 rounded-full bg-gold-400 text-dark-bg flex items-center justify-center font-black">
-                    {favorites.length}
-                  </span>
-                </div>
               </div>
               <span className="text-xs text-gray-400">
                 {totalCount} منتج
@@ -404,8 +397,6 @@ function StoreFrontContent() {
                       key={product.id}
                       product={product}
                       onAddToCart={(p) => handleAddToCart(p, 1, p.variants?.[0] ?? null)}
-                      isFavorite={favorites.includes(product.id)}
-                      onToggleFavorite={handleToggleFavorite}
                       onViewDetails={handleViewProduct}
                       categories={catalogCategories}
                     />
@@ -434,6 +425,8 @@ function StoreFrontContent() {
       </main>
 
       <Footer categories={catalogCategories} onCategorySelect={handleCategorySelect} />
+
+      <AddToCartToast visible={isAddedToastVisible} />
 
       {/* المودالز والنوافذ المنبثقة التفاعلية */}
       <CartDrawer 

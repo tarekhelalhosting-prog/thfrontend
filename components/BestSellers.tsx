@@ -6,8 +6,6 @@ import ProductCard from "./ProductCard";
 interface BestSellersProps {
   products: Product[];
   onAddToCart: (p: Product) => void;
-  favorites: string[];
-  onToggleFavorite: (p: Product) => void;
   onViewDetails: (p: Product) => void;
   onShowAllClick: () => void;
 }
@@ -15,8 +13,6 @@ interface BestSellersProps {
 export default function BestSellers({
   products,
   onAddToCart,
-  favorites,
-  onToggleFavorite,
   onViewDetails,
   onShowAllClick
 }: BestSellersProps) {
@@ -69,8 +65,6 @@ export default function BestSellers({
               key={prod.id}
               product={prod}
               onAddToCart={onAddToCart}
-              isFavorite={favorites.includes(prod.id)}
-              onToggleFavorite={onToggleFavorite}
               onViewDetails={onViewDetails}
             />
           ))}

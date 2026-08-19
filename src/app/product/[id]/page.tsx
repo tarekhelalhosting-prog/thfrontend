@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowRight, Gift, ShoppingCart } from "lucide-react";
 import Header from "../../../../components/Header";
@@ -10,12 +10,11 @@ import AccountModal from "../../../../components/AccountModal";
 import CheckoutModal from "../../../../components/CheckoutModal";
 import ProductCard from "../../../../components/ProductCard";
 import PageState from "../../../components/ui/PageState";
+import AddToCartToast from "../../../components/ui/AddToCartToast";
 import { Category, Offer, Order, Product, ProductVariant } from "../../../types";
 import { useAuthSession } from "../../../hooks/useAuthSession";
 import { useCart } from "../../../hooks/useCart";
-import { usePersistentLocalState } from "../../../hooks/usePersistentLocalState";
 import { fetchCategories, fetchOffers, fetchOrders, fetchProductById, fetchStorefrontProducts, isApiRequestError } from "../../../lib/api";
-import { STORAGE_KEYS } from "../../../lib/browser-storage";
 import { getOfferComponents, isOfferCategory } from "../../../lib/offer-category";
 import { getBuyXGetYOffersForProduct, getProductDiscount, getProductVariantDiscount } from "../../../lib/product-offers";
 import { isProductUnavailable } from "../../../lib/product-availability";
@@ -25,18 +24,14 @@ function ProductDetailsContent({
   categories,
   allProducts,
   offers,
-  favorites,
   onAddToCart,
-  onToggleFavorite,
   onViewDetails,
 }: {
   product: Product;
   categories: Category[];
   allProducts: Product[];
   offers: Offer[];
-  favorites: string[];
   onAddToCart: (product: Product, quantity: number, variant: ProductVariant | null) => void;
-  onToggleFavorite: (product: Product) => void;
   onViewDetails: (product: Product) => void;
 }) {
   const router = useRouter();
@@ -327,8 +322,6 @@ function ProductDetailsContent({
                   key={relatedProduct.id}
                   product={relatedProduct}
                   onAddToCart={(p) => onAddToCart(p, 1, p.variants?.[0] ?? null)}
-                  isFavorite={favorites.includes(relatedProduct.id)}
-                  onToggleFavorite={onToggleFavorite}
                   onViewDetails={onViewDetails}
                   categories={categories}
                 />
@@ -357,7 +350,8 @@ export default function ProductDetailPage() {
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<"offline" | "server" | null>(null);
   const [myOrders, setMyOrders] = useState<Order[]>([]);
-  const { value: favorites, setValue: setFavorites } = usePersistentLocalState<string[]>(STORAGE_KEYS.favorites, []);
+  const [isAddedToastVisible, setIsAddedToastVisible] = useState(false);
+  const addedToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const userId = hydratedUser?.id ?? null;
@@ -459,13 +453,12 @@ export default function ProductDetailPage() {
       : undefined;
 
     addCartItem(nextProduct, variant, quantity, activeOffer);
-    setIsCartOpen(true);
-  };
 
-  const handleToggleFavorite = (nextProduct: Product) => {
-    setFavorites((prev) =>
-      prev.includes(nextProduct.id) ? prev.filter((id) => id !== nextProduct.id) : [...prev, nextProduct.id]
-    );
+    setIsAddedToastVisible(true);
+    if (addedToastTimeoutRef.current) {
+      clearTimeout(addedToastTimeoutRef.current);
+    }
+    addedToastTimeoutRef.current = setTimeout(() => setIsAddedToastVisible(false), 2000);
   };
 
   const handleViewProduct = (nextProduct: Product) => {
@@ -578,9 +571,7 @@ export default function ProductDetailPage() {
           categories={catalogCategories}
           allProducts={catalogProducts}
           offers={activeOffers}
-          favorites={favorites}
           onAddToCart={handleAddToCart}
-          onToggleFavorite={handleToggleFavorite}
           onViewDetails={handleViewProduct}
         />
       </main>
@@ -632,6 +623,8 @@ export default function ProductDetailPage() {
           }}
         />
       )}
+
+      <AddToCartToast visible={isAddedToastVisible} />
     </div>
   );
 }
