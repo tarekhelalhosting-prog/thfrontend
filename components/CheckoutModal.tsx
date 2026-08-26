@@ -442,7 +442,7 @@ export default function CheckoutModal({
                         onClick={handleAddAddressSubmit}
                         className="w-full bg-gold-400/10 border border-gold-400 text-gold-400 hover:bg-gold-400/20 rounded-lg py-2 text-xs font-bold disabled:opacity-60"
                       >
-                        {isSavingAddress ? "جاري الحفظ..." : "حفظ العنوان واستخدامه"}
+                        {isSavingAddress ? "جاري الحفظ..." : "حفظ وتأكيد العنوان للمتابعه لصفحه الدفع"}
                       </button>
                     </div>
                   )}
