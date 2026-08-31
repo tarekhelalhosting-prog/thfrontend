@@ -73,7 +73,7 @@ export default function AccountModal({
     return `${currentUser.first_name} ${currentUser.last_name}`.trim() || "مستخدم";
   }, [currentUser]);
 
-  const isCurrentUserAdmin = currentUser?.role === "Admin";
+  const isCurrentUserAdmin = currentUser?.role === "Admin" || currentUser?.role === "Moderator";
 
   const userOrders = useMemo(() => {
     if (!currentUser) {

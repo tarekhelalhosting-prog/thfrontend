@@ -79,13 +79,13 @@ export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (isHydrated && (!currentUser || currentUser.role !== "Admin")) {
+    if (isHydrated && (!currentUser || (currentUser.role !== "Admin" && currentUser.role !== "Moderator"))) {
       router.replace("/");
     }
   }, [currentUser, isHydrated, router]);
 
   useEffect(() => {
-    if (!isHydrated || !currentUser || currentUser.role !== "Admin") {
+    if (!isHydrated || !currentUser || (currentUser.role !== "Admin" && currentUser.role !== "Moderator")) {
       return;
     }
 
@@ -145,7 +145,7 @@ export default function AdminPage() {
     </>
   );
 
-  if (!isHydrated || !currentUser || currentUser.role !== "Admin" || isLoading) {
+  if (!isHydrated || !currentUser || (currentUser.role !== "Admin" && currentUser.role !== "Moderator") || isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
         جاري تجهيز لوحة التحكم... ⏳

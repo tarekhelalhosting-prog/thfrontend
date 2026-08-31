@@ -39,7 +39,7 @@ export default function Header({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const logoSrc = "/logo.png";
-  const isAdminUser = currentUser?.role === "Admin";
+  const isAdminUser = currentUser?.role === "Admin" || currentUser?.role === "Moderator";
   const whatsappText = encodeURIComponent("مرحبا استاذ طارق انا مهتم اعرف اكتر عن باقات التجهيز هل مناسب نتكلم");
   const whatsappUrl = `https://wa.me/201021750655?text=${whatsappText}`;
   const whatsappDisplay = "01021750655";
