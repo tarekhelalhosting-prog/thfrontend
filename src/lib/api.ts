@@ -464,19 +464,34 @@ export async function deleteProductImage(imageId: string): Promise<void> {
   }
 }
 
+export const AUTH_SESSION_INVALIDATED_EVENT = "th:auth-session-invalidated";
+
+function notifyAuthSessionInvalidated() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(AUTH_SESSION_INVALIDATED_EVENT));
+  }
+}
+
 let refreshRequest: Promise<boolean> | null = null;
 
 async function refreshAccessToken(): Promise<boolean> {
   if (!refreshRequest) {
     refreshRequest = (async () => {
-      const response = await fetch(`${BASE_URL}/auth/refresh/`, {
-        method: "POST",
-        credentials: "include",
-        headers: buildAuthHeaders(false),
-        cache: "no-store",
-      });
+      try {
+        const response = await fetch(`${BASE_URL}/auth/refresh/`, {
+          method: "POST",
+          credentials: "include",
+          headers: buildAuthHeaders(false),
+          cache: "no-store",
+        });
 
-      return response.ok;
+        return response.ok;
+      } catch {
+        // A network-level failure (offline, DNS, CORS) must resolve to
+        // "refresh failed" instead of rejecting - otherwise this throws
+        // out of fetchWithAutoRefresh uncaught, past the 401 handling.
+        return false;
+      }
     })();
   }
 
@@ -508,10 +523,16 @@ async function fetchWithAutoRefresh(
   const refreshed = await refreshAccessToken();
 
   if (!refreshed) {
+    notifyAuthSessionInvalidated();
     return response;
   }
 
-  return runRequest();
+  const retriedResponse = await runRequest();
+  if (retriedResponse.status === 401) {
+    notifyAuthSessionInvalidated();
+  }
+
+  return retriedResponse;
 }
 
 async function fetchFromFirstAvailable(
@@ -1246,7 +1267,7 @@ export async function registerUser(userData: { first_name: string; last_name: st
 
   const response = await fetch(`${BASE_URL}/auth/register/`, {
     method: "POST",
-    credentials: "omit",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },

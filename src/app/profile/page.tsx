@@ -476,8 +476,7 @@ export default function ProfilePage() {
         onAccountClick={() => {}}
         onAdminClick={() => router.push("/admin")}
         onLogout={() => {
-          logout();
-          router.replace("/");
+          void logout().then(() => router.replace("/"));
         }}
         currentView="profile"
       />
