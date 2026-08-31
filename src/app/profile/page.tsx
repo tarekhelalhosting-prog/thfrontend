@@ -461,6 +461,7 @@ export default function ProfilePage() {
     return <div className="min-h-screen bg-dark-bg" />;
   }
 
+  
   return (
     <div className="min-h-screen bg-dark-bg text-gray-100">
       <Header
