@@ -5,10 +5,7 @@ import { useEffect } from "react";
 export default function GlobalImageProtection() {
   useEffect(() => {
     const handleContextMenu = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (target.tagName === "IMG" || target.closest("[data-protected-image]")) {
-        event.preventDefault();
-      }
+      event.preventDefault();
     };
 
     const handleDragStart = (event: DragEvent) => {
@@ -26,12 +23,15 @@ export default function GlobalImageProtection() {
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Block common "Save image" / "View image" shortcuts on images.
-      const target = event.target as HTMLElement;
-      if (target.tagName === "IMG") {
-        if ((event.ctrlKey || event.metaKey) && (event.key === "s" || event.key === "S")) {
-          event.preventDefault();
-        }
+      const key = event.key.toLowerCase();
+      const isDevToolsShortcut =
+        event.key === "F12" ||
+        ((event.ctrlKey || event.metaKey) &&
+          ((event.shiftKey && ["i", "j", "c"].includes(key)) || key === "u" || key === "s"));
+
+      if (isDevToolsShortcut) {
+        event.preventDefault();
+        event.stopPropagation();
       }
     };
 
