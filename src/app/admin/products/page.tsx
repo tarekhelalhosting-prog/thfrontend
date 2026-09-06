@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Edit3, Image as ImageIcon, Plus, RotateCcw, Search, Trash2, XCircle } from "lucide-react";
 import AdminShell from "@/components/admin/AdminShell";
 import { EmptyState, Panel, SectionHeader } from "@/components/admin/admin-kit";
+import InlineBanner from "@/components/ui/InlineBanner";
 import { deleteProduct, fetchCategories, fetchDeletedProducts, fetchProducts, hardDeleteProduct, restoreProduct } from "@/lib/api";
 import { isOfferCategory } from "@/lib/offer-category";
 import { Category, Product } from "@/types";
@@ -29,6 +30,7 @@ export default function ProductsPage() {
   const [isDeletedLoading, setIsDeletedLoading] = useState(false);
   const [isRestoring, setIsRestoring] = useState<string>("");
   const [isHardDeleting, setIsHardDeleting] = useState<string>("");
+  const [hardDeleteError, setHardDeleteError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -131,8 +133,11 @@ export default function ProductsPage() {
 
       try {
         setIsHardDeleting(productId);
+        setHardDeleteError("");
         await hardDeleteProduct(productId);
         setDeletedProducts((current) => current.filter((item) => item.id !== productId));
+      } catch (error) {
+        setHardDeleteError(error instanceof Error ? error.message : "فشل الحذف النهائي للمنتج");
       } finally {
         setIsHardDeleting("");
       }
@@ -180,6 +185,8 @@ export default function ProductsPage() {
               </label>
             }
           />
+
+          {hardDeleteError ? <div className="px-5 pt-4"><InlineBanner tone="error" message={hardDeleteError} /></div> : null}
 
           <div className="flex flex-wrap gap-2 px-5 pt-5">
             <button type="button" onClick={() => setCategoryFilter("all")} className={`rounded-full border px-4 py-2 text-xs font-bold ${categoryFilter === "all" ? "border-slate-950 bg-green-300 text-white" : "border-slate-200 bg-white text-slate-600"}`}>

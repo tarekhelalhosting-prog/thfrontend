@@ -1777,7 +1777,7 @@ export async function hardDeleteProduct(productId: string): Promise<void> {
     headers: buildAuthHeaders(false),
   }, true);
   if (!response.ok) {
-    throw new Error("فشل الحذف النهائي للمنتج");
+    throw new Error(await readErrorDetail(response, "فشل الحذف النهائي للمنتج"));
   }
 }
 
