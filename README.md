@@ -2,6 +2,10 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+## SEO configuration
+
+Set `NEXT_PUBLIC_SITE_URL` in the deployment environment to the public site URL, for example `https://example.com`. This provides the canonical URL, `robots.txt`, and `sitemap.xml` with the correct domain.
+
 First, run the development server:
 
 ```bash
