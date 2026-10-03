@@ -463,11 +463,9 @@ function StoreFrontContent() {
           }}
           onOrderSuccess={(order) => {
             clearCart();
-            setMyOrders((current) => [order, ...current]);
-          }}
-          onRequireLogin={() => {
-            setIsCheckoutOpen(false);
-            setIsAccountOpen(true);
+            if (order.user_id) {
+              setMyOrders((current) => [order, ...current]);
+            }
           }}
         />
       )}

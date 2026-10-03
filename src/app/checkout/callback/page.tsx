@@ -4,7 +4,11 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import PageState from "../../../components/ui/PageState";
-import { fetchPaymentStatus } from "../../../lib/api";
+import {
+  clearGuestOrderAccessToken,
+  fetchPaymentStatus,
+  getGuestOrderAccessToken,
+} from "../../../lib/api";
 import { Order } from "../../../types";
 
 // Paymob's hosted checkout redirects the browser back to this page after
@@ -53,7 +57,8 @@ function PaymentCallbackContent() {
       attempt += 1;
 
       try {
-        const result = await fetchPaymentStatus(orderId);
+        const guestAccessToken = getGuestOrderAccessToken(orderId);
+        const result = await fetchPaymentStatus(orderId, guestAccessToken);
         if (cancelled) {
           return;
         }
@@ -61,11 +66,17 @@ function PaymentCallbackContent() {
         setOrderStatus(result.orderStatus);
 
         if (result.paymentStatus === "Paid") {
+          if (guestAccessToken) {
+            clearGuestOrderAccessToken(orderId);
+          }
           setStatus("paid");
           return;
         }
 
         if (result.paymentStatus === "Failed" || result.paymentStatus === "Cancelled") {
+          if (guestAccessToken) {
+            clearGuestOrderAccessToken(orderId);
+          }
           setStatus("failed");
           return;
         }
@@ -108,7 +119,7 @@ function PaymentCallbackContent() {
     pending: {
       variant: "loading",
       title: "جاري تأكيد الدفع",
-      message: "لم نتلق تأكيداً نهائياً بعد، سيتم تحديث حالة الطلب تلقائياً خلال لحظات. يمكنك متابعة الحالة من صفحة الملف الشخصي.",
+      message: "لم نتلق تأكيداً نهائياً بعد، سيتم تحديث حالة الطلب تلقائياً خلال لحظات.",
     },
     failed: {
       variant: "error",
@@ -139,10 +150,10 @@ function PaymentCallbackContent() {
           )}
 
           <Link
-            href="/profile"
+            href="/"
             className="inline-flex items-center gap-2 bg-gold-400 hover:bg-gold-500 text-dark-bg font-extrabold text-xs px-6 py-2.5 rounded-xl transition-colors"
           >
-            الذهاب لصفحة طلباتي
+            العودة للمتجر
           </Link>
         </div>
       }

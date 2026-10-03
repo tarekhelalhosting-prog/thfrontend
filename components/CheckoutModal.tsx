@@ -3,7 +3,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import { X, CheckCircle2, Calendar, ArrowRight, ClipboardCheck, CreditCard, Coins, MapPin, Plus, Loader2 } from "lucide-react";
 import { Address, CartItem, SalonBundle, Order, User } from "../src/types";
 import { getCartLineKey, getCartItemUnitPrice, getCartItemOriginalUnitPrice, describeCartItemVariant } from "../src/lib/cart";
-import { createOrder, createPaymentIntention, createUserAddress, fetchUserAddresses } from "../src/lib/api";
+import {
+  createGuestOrder,
+  createOrder,
+  createPaymentIntention,
+  createUserAddress,
+  fetchUserAddresses,
+  storeGuestOrderAccessToken,
+} from "../src/lib/api";
 import PageState from "../src/components/ui/PageState";
 import InlineBanner from "../src/components/ui/InlineBanner";
 import {
@@ -11,6 +18,8 @@ import {
   validateAddressTitle,
   validateCity,
   validateCountry,
+  validateName,
+  validatePhone,
   validateStreet,
 } from "../src/lib/form-validation";
 
@@ -22,7 +31,6 @@ interface CheckoutModalProps {
   onClearCart: () => void;
   currentUser: User | null;
   onOrderSuccess: (order: Order) => void;
-  onRequireLogin: () => void;
 }
 
 type AddressFormState = {
@@ -30,6 +38,8 @@ type AddressFormState = {
   country: string;
   city: string;
   street: string;
+  name: string;
+  phone: string;
 };
 
 type AddressField = keyof AddressFormState;
@@ -39,6 +49,8 @@ const emptyAddressForm: AddressFormState = {
   country: "Egypt",
   city: "",
   street: "",
+  name: "",
+  phone: "",
 };
 
 export default function CheckoutModal({
@@ -49,12 +61,7 @@ export default function CheckoutModal({
   onClearCart,
   currentUser,
   onOrderSuccess,
-  onRequireLogin,
 }: CheckoutModalProps) {
-  const displayUserFullName = currentUser
-    ? `${currentUser.first_name} ${currentUser.last_name}`.trim()
-    : "";
-
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
   const [addressesError, setAddressesError] = useState("");
@@ -69,6 +76,10 @@ export default function CheckoutModal({
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  const [guestAccessToken, setGuestAccessToken] = useState<string | null>(null);
+  const displayUserFullName = currentUser
+    ? `${currentUser.first_name} ${currentUser.last_name}`.trim()
+    : addressForm.name.trim();
 
   useEffect(() => {
     if (!currentUser) {
@@ -173,11 +184,6 @@ export default function CheckoutModal({
   const handleConfirmOrder = (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!currentUser) {
-      onRequireLogin();
-      return;
-    }
-
     if (!createdOrder) {
       if (isBundleOnlyCheckout) {
         setErrorMessage("الرجاء إضافة عناصر الباقة إلى سلة الشراء أولاً ثم إتمام الطلب.");
@@ -189,9 +195,23 @@ export default function CheckoutModal({
         return;
       }
 
-      if (!selectedAddressId) {
+      if (currentUser && !selectedAddressId) {
         setErrorMessage("الرجاء اختيار عنوان توصيل أو إضافة عنوان جديد.");
         return;
+      }
+
+      if (!currentUser) {
+        const guestErrors: Partial<Record<AddressField, string>> = {
+          name: validateName(addressForm.name, "الاسم"),
+          phone: validatePhone(addressForm.phone),
+          country: validateCountry(addressForm.country),
+          city: validateCity(addressForm.city),
+          street: validateStreet(addressForm.street),
+        };
+        setAddressFieldErrors(guestErrors);
+        if (hasValidationErrors(guestErrors)) {
+          return;
+        }
       }
     }
 
@@ -201,15 +221,35 @@ export default function CheckoutModal({
     void (async () => {
       try {
         let order = createdOrder;
+        let orderGuestAccessToken = guestAccessToken;
 
         if (!order) {
-          order = await createOrder(selectedAddressId as string);
+          if (currentUser) {
+            order = await createOrder(selectedAddressId as string);
+          } else {
+            const result = await createGuestOrder({
+              guest_name: addressForm.name.trim(),
+              guest_phone: addressForm.phone.trim(),
+              guest_country: addressForm.country.trim(),
+              guest_city: addressForm.city.trim(),
+              guest_street: addressForm.street.trim(),
+              guest_items: cartItems.map((item) => ({
+                product_variant: item.product_variant_id,
+                quantity: item.quantity,
+              })),
+            });
+            order = result.order;
+            orderGuestAccessToken = result.guestAccessToken;
+            setGuestAccessToken(orderGuestAccessToken);
+            storeGuestOrderAccessToken(order.id, orderGuestAccessToken);
+          }
+
           setCreatedOrder(order);
           onClearCart();
           onOrderSuccess(order);
         }
 
-        const intention = await createPaymentIntention(order.id);
+        const intention = await createPaymentIntention(order.id, orderGuestAccessToken);
         window.location.href = intention.checkoutUrl;
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "تعذر إتمام العملية، الرجاء المحاولة مرة أخرى.");
@@ -255,24 +295,7 @@ export default function CheckoutModal({
         )}
 
         <div className="flex-1 overflow-y-auto pt-10 sm:pt-0">
-        {!currentUser ? (
-          /* LOGIN REQUIRED */
-          <div className="text-center py-10 max-w-sm mx-auto">
-            <div className="w-14 h-14 rounded-full bg-gold-400/10 border border-gold-400 text-gold-400 flex items-center justify-center mx-auto mb-4">
-              <MapPin size={28} />
-            </div>
-            <h3 className="text-base sm:text-lg font-black text-white mb-2">سجل الدخول لإتمام طلبك</h3>
-            <p className="text-xs text-gray-400 leading-relaxed mb-5">
-              يلزم تسجيل الدخول لحفظ عنوان التوصيل وربط الطلب بحسابك ومتابعته لاحقاً من صفحة الملف الشخصي.
-            </p>
-            <button
-              onClick={onRequireLogin}
-              className="bg-gold-400 hover:bg-gold-500 text-dark-bg font-extrabold text-xs sm:text-sm px-6 py-2.5 rounded-xl transition-colors"
-            >
-              تسجيل الدخول / إنشاء حساب
-            </button>
-          </div>
-        ) : step === 'success' ? (
+        {step === 'success' ? (
           /* SUCCESS SCREEN */
           <div className="text-center py-6">
             <div className="w-14 h-14 rounded-full bg-green-500/10 border border-green-500 text-green-400 flex items-center justify-center mx-auto mb-4">
@@ -293,10 +316,12 @@ export default function CheckoutModal({
 
               <div className="space-y-1.5 mb-3 text-xs">
                 <p className="text-gray-400">اسم المستلم: <span className="text-white font-bold">{displayUserFullName}</span></p>
-                <p className="text-gray-400">رقم الهاتف: <span className="text-white font-bold font-mono">{currentUser.phone}</span></p>
-                {selectedAddress && (
+                <p className="text-gray-400">رقم الهاتف: <span className="text-white font-bold font-mono">{currentUser?.phone || addressForm.phone}</span></p>
+                {currentUser && selectedAddress ? (
                   <p className="text-gray-400">عنوان التوصيل: <span className="text-white font-bold">{selectedAddress.title} - {selectedAddress.city}, {selectedAddress.street}</span></p>
-                )}
+                ) : !currentUser ? (
+                  <p className="text-gray-400">عنوان التوصيل: <span className="text-white font-bold">{addressForm.country} - {addressForm.city}, {addressForm.street}</span></p>
+                ) : null}
                 <p className="text-gray-400">طريقة الدفع: <span className="text-gold-500 font-bold">{paymentMethodLabel()}</span></p>
               </div>
 
@@ -337,7 +362,7 @@ export default function CheckoutModal({
               <h4 className="text-xs sm:text-sm font-bold text-white mb-3">عنوان التوصيل وطريقة الدفع:</h4>
 
               <form onSubmit={handleConfirmOrder} className="space-y-4 text-right">
-                {/* Address selection */}
+                {currentUser ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-[10px] text-gray-400 font-bold flex items-center gap-1.5">
@@ -447,6 +472,80 @@ export default function CheckoutModal({
                     </div>
                   )}
                 </div>
+                ) : (
+                  <div className="space-y-3">
+                    <label className="text-[10px] text-gray-400 font-bold flex items-center gap-1.5">
+                      <MapPin size={13} className="text-gold-500" />
+                      بيانات التوصيل والتواصل *
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 font-bold block">الاسم بالكامل *</label>
+                        <input
+                          type="text"
+                          autoComplete="name"
+                          value={addressForm.name}
+                          onChange={(event) => handleAddressFieldChange("name", event.target.value)}
+                          disabled={Boolean(createdOrder)}
+                          className={`w-full bg-dark-card border rounded-lg py-2.5 px-3 text-xs text-white focus:outline-none ${addressFieldErrors.name ? "border-red-500" : "border-dark-border focus:border-gold-400"}`}
+                        />
+                        {addressFieldErrors.name && <p className="text-[10px] font-bold text-red-500">{addressFieldErrors.name}</p>}
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 font-bold block">رقم الهاتف *</label>
+                        <input
+                          type="tel"
+                          inputMode="tel"
+                          autoComplete="tel"
+                          value={addressForm.phone}
+                          onChange={(event) => handleAddressFieldChange("phone", event.target.value)}
+                          disabled={Boolean(createdOrder)}
+                          className={`w-full bg-dark-card border rounded-lg py-2.5 px-3 text-xs text-white focus:outline-none ${addressFieldErrors.phone ? "border-red-500" : "border-dark-border focus:border-gold-400"}`}
+                        />
+                        {addressFieldErrors.phone && <p className="text-[10px] font-bold text-red-500">{addressFieldErrors.phone}</p>}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 font-bold block">المحافظة / المدينة *</label>
+                        <input
+                          type="text"
+                          autoComplete="address-level2"
+                          value={addressForm.city}
+                          onChange={(event) => handleAddressFieldChange("city", event.target.value)}
+                          disabled={Boolean(createdOrder)}
+                          className={`w-full bg-dark-card border rounded-lg py-2.5 px-3 text-xs text-white focus:outline-none ${addressFieldErrors.city ? "border-red-500" : "border-dark-border focus:border-gold-400"}`}
+                        />
+                        {addressFieldErrors.city && <p className="text-[10px] font-bold text-red-500">{addressFieldErrors.city}</p>}
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 font-bold block">الدولة *</label>
+                        <input
+                          type="text"
+                          autoComplete="country-name"
+                          value={addressForm.country}
+                          onChange={(event) => handleAddressFieldChange("country", event.target.value)}
+                          disabled={Boolean(createdOrder)}
+                          className={`w-full bg-dark-card border rounded-lg py-2.5 px-3 text-xs text-white focus:outline-none ${addressFieldErrors.country ? "border-red-500" : "border-dark-border focus:border-gold-400"}`}
+                        />
+                        {addressFieldErrors.country && <p className="text-[10px] font-bold text-red-500">{addressFieldErrors.country}</p>}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-gray-500 font-bold block">الشارع بالتفصيل *</label>
+                      <input
+                        type="text"
+                        autoComplete="street-address"
+                        placeholder="الشارع، الدور، علامة مميزة..."
+                        value={addressForm.street}
+                        onChange={(event) => handleAddressFieldChange("street", event.target.value)}
+                        disabled={Boolean(createdOrder)}
+                        className={`w-full bg-dark-card border rounded-lg py-2.5 px-3 text-xs text-white focus:outline-none ${addressFieldErrors.street ? "border-red-500" : "border-dark-border focus:border-gold-400"}`}
+                      />
+                      {addressFieldErrors.street && <p className="text-[10px] font-bold text-red-500">{addressFieldErrors.street}</p>}
+                    </div>
+                  </div>
+                )}
 
                 {/* Payment method */}
                 <div className="pt-1">

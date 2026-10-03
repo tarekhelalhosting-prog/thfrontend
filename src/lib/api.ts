@@ -98,6 +98,12 @@ type ApiOrder = {
   id?: string | number;
   user?: ApiOrderUser | string | number | null;
   address?: string | number | ApiOrderAddress | null;
+  guest_name?: string;
+  guest_phone?: string;
+  guest_country?: string;
+  guest_city?: string;
+  guest_street?: string;
+  guest_access_token?: string;
   status?: string;
   subtotal?: string | number;
   discount?: string | number;
@@ -780,15 +786,17 @@ export function mapDjangoOrder(djangoOrder: ApiOrder): Order {
   const rawUser = djangoOrder.user;
   const user = rawUser && typeof rawUser === "object" ? rawUser : null;
   const userId = user ? readStringValue(user.id) : readStringValue(rawUser);
-  const customerName = user ? `${user.first_name || ""} ${user.last_name || ""}`.trim() : "";
+  const customerName = user
+    ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
+    : djangoOrder.guest_name || "";
 
   const rawAddress = djangoOrder.address;
   const addressObj = rawAddress && typeof rawAddress === "object" ? (rawAddress as ApiOrderAddress) : null;
   const addressId = addressObj ? readStringValue(addressObj.id) : readStringValue(rawAddress);
   const addressTitle = addressObj?.title || "";
-  const addressCountry = addressObj?.country || "";
-  const addressCity = addressObj?.city || "";
-  const addressStreet = addressObj?.street || "";
+  const addressCountry = addressObj?.country || djangoOrder.guest_country || "";
+  const addressCity = addressObj?.city || djangoOrder.guest_city || "";
+  const addressStreet = addressObj?.street || djangoOrder.guest_street || "";
 
   return {
     id: orderId,
@@ -809,7 +817,7 @@ export function mapDjangoOrder(djangoOrder: ApiOrder): Order {
     // UI compatibility fields
     orderNumber: orderId ? `TH-${orderId.padStart(6, "0")}` : "",
     customerName: customerName || "عميل صالون",
-    customerPhone: user?.phone || "",
+    customerPhone: user?.phone || djangoOrder.guest_phone || "",
     items: Array.isArray(djangoOrder.items) ? djangoOrder.items.map(mapDjangoOrderItem) : [],
   };
 }
@@ -1120,6 +1128,53 @@ export async function createOrder(addressId: string): Promise<Order> {
   return mapDjangoOrder(data);
 }
 
+export type GuestOrderPayload = {
+  guest_name: string;
+  guest_phone: string;
+  guest_country: string;
+  guest_city: string;
+  guest_street: string;
+  guest_items: Array<{ product_variant: string; quantity: number }>;
+};
+
+export async function createGuestOrder(
+  payload: GuestOrderPayload
+): Promise<{ order: Order; guestAccessToken: string }> {
+  const response = await fetchWithAutoRefresh("/orders/", {
+    method: "POST",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorDetail(response, "فشل إرسال الطلب، الرجاء المحاولة مرة أخرى"));
+  }
+
+  const data = await response.json() as ApiOrder;
+  if (!data.guest_access_token) {
+    throw new Error("تعذر تأمين الطلب، الرجاء المحاولة مرة أخرى.");
+  }
+
+  return {
+    order: mapDjangoOrder(data),
+    guestAccessToken: data.guest_access_token,
+  };
+}
+
+const guestOrderTokenKey = (orderId: string) => `th:guest-order:${orderId}:access`;
+
+export function storeGuestOrderAccessToken(orderId: string, token: string) {
+  sessionStorage.setItem(guestOrderTokenKey(orderId), token);
+}
+
+export function getGuestOrderAccessToken(orderId: string) {
+  return sessionStorage.getItem(guestOrderTokenKey(orderId));
+}
+
+export function clearGuestOrderAccessToken(orderId: string) {
+  sessionStorage.removeItem(guestOrderTokenKey(orderId));
+}
+
 // Cancel one of the current user's own orders (or any order, for staff).
 export async function cancelOrder(orderId: string): Promise<void> {
   const response = await fetchWithAutoRefresh(`/orders/${orderId}/cancel/`, {
@@ -1141,11 +1196,12 @@ export type PaymentIntention = {
 
 // Task 6: create a Paymob payment intention for a pending order and return
 // the hosted checkout URL to redirect the browser to.
-export async function createPaymentIntention(orderId: string): Promise<PaymentIntention> {
+export async function createPaymentIntention(orderId: string, guestAccessToken?: string | null): Promise<PaymentIntention> {
   const response = await fetchWithAutoRefresh(`/orders/${orderId}/pay/`, {
     method: "POST",
     headers: buildAuthHeaders(),
-  }, true);
+    ...(guestAccessToken ? { body: JSON.stringify({ guest_access_token: guestAccessToken }) } : {}),
+  }, !guestAccessToken);
 
   if (!response.ok) {
     throw new Error(await readErrorDetail(response, "تعذر إنشاء عملية الدفع الإلكتروني، حاول مرة أخرى"));
@@ -1169,10 +1225,12 @@ export type PaymentStatusResult = {
 
 // Polling endpoint for the (non-authoritative) redirect back from Paymob's
 // hosted checkout page - only the order's own owner may call this.
-export async function fetchPaymentStatus(orderId: string): Promise<PaymentStatusResult> {
+export async function fetchPaymentStatus(orderId: string, guestAccessToken?: string | null): Promise<PaymentStatusResult> {
   const response = await fetchWithAutoRefresh(`/orders/${orderId}/payment-status/`, {
-    headers: buildAuthHeaders(false),
-  }, true);
+    method: guestAccessToken ? "POST" : "GET",
+    headers: guestAccessToken ? buildAuthHeaders() : buildAuthHeaders(false),
+    ...(guestAccessToken ? { body: JSON.stringify({ guest_access_token: guestAccessToken }) } : {}),
+  }, !guestAccessToken);
 
   if (!response.ok) {
     throw new Error(await readErrorDetail(response, "تعذر جلب حالة الدفع"));
