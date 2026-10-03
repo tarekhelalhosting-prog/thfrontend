@@ -4,6 +4,10 @@ import { useEffect } from "react";
 
 export default function GlobalImageProtection() {
   useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      return;
+    }
+
     const handleContextMenu = (event: MouseEvent) => {
       event.preventDefault();
     };
