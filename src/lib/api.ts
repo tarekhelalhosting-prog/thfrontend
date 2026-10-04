@@ -1667,7 +1667,7 @@ export async function logoutUser(): Promise<void> {
 // validates against the raw UPPERCASE enum value, so the UI's Title Case
 // status is denormalized before sending.
 export async function updateOrderStatus(orderId: string, updates: { status?: Order["status"] }): Promise<Order> {
-  const response = await fetchWithAutoRefresh(`/orders/${orderId}/`, {
+  const response = await fetchWithAutoRefresh(`/orders/${orderId}/change-status/`, {
     method: "PATCH",
     headers: buildAuthHeaders(),
     body: JSON.stringify({
