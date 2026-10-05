@@ -129,7 +129,7 @@ export default function CheckoutModal({
     [cartItems]
   );
   const totalSavings = Math.max(0, Math.round((originalSubtotal - subtotal) * 100) / 100);
-  const processingFee = createdOrder?.processing_fee ?? Math.round(subtotal * 0.024 * 100) / 100;
+  const processingFee = createdOrder?.processing_fee ?? Math.round(subtotal * 0.0 * 100) / 100;
   const displayTotal = createdOrder?.total ?? Math.round((subtotal + processingFee) * 100) / 100;
   const isBundleOnlyCheckout = Boolean(selectedBundle) && cartItems.length === 0;
   const selectedAddress = addresses.find((address) => address.id === selectedAddressId) || null;
@@ -330,12 +330,6 @@ export default function CheckoutModal({
                   <div className="flex justify-between text-emerald-400">
                     <span>توفير من العروض:</span>
                     <span className="font-bold font-mono">- {formatPrice(totalSavings)}</span>
-                  </div>
-                )}
-                {processingFee > 0 && (
-                  <div className="flex justify-between text-gray-400">
-                    <span>رسوم معالجة الدفع:</span>
-                    <span className="text-gray-200 font-bold font-mono">{formatPrice(processingFee)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm sm:text-base font-black pt-2 text-gold-500">
